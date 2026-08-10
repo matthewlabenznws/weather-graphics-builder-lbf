@@ -19,30 +19,49 @@ map.addControl(
 
 map.on("load", () => {
 
+    console.log("Map loaded");
+
     // ============================================================
-    // COUNTY BOUNDARIES
+    // MAPBOX STREETS VECTOR DATA
     // ============================================================
 
-    map.addSource("counties", {
-        type: "geojson",
-        data: "https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json"
+    map.addSource("streets-data", {
+        type: "vector",
+        url: "mapbox://mapbox.mapbox-streets-v8"
     });
+
+
+    // ============================================================
+    // COUNTY BOUNDARIES
+    // admin_level = 2 is generally state/country level
+    // admin_level = 3/4 contains lower administrative boundaries
+    // ============================================================
 
     map.addLayer({
         id: "county-boundaries",
+
         type: "line",
-        source: "counties",
+
+        source: "streets-data",
+
+        "source-layer": "admin",
+
+        filter: [
+            "all",
+            ["==", ["get", "admin_level"], 2]
+        ],
 
         paint: {
             "line-color": "#000000",
+
             "line-width": [
                 "interpolate",
                 ["linear"],
                 ["zoom"],
-                4, 0.4,
+                4, 0.5,
                 6, 0.8,
-                8, 1.2,
-                10, 1.5
+                8, 1.1,
+                10, 1.4
             ],
 
             "line-opacity": 0.9
@@ -51,18 +70,22 @@ map.on("load", () => {
 
 
     // ============================================================
-    // STATE BOUNDARIES
+    // STRONGER STATE BOUNDARIES
     // ============================================================
-
-    map.addSource("states", {
-        type: "geojson",
-        data: "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json"
-    });
 
     map.addLayer({
         id: "state-boundaries",
+
         type: "line",
-        source: "states",
+
+        source: "streets-data",
+
+        "source-layer": "admin",
+
+        filter: [
+            "all",
+            ["==", ["get", "admin_level"], 1]
+        ],
 
         paint: {
             "line-color": "#000000",
@@ -72,12 +95,12 @@ map.on("load", () => {
                 ["linear"],
                 ["zoom"],
                 4, 1.2,
-                6, 1.8,
-                8, 2.2,
-                10, 2.5
+                6, 1.7,
+                8, 2.0,
+                10, 2.4
             ],
 
-            "line-opacity": 1.0
+            "line-opacity": 1
         }
     });
 
