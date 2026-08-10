@@ -37,7 +37,7 @@ map.on("load", () => {
 
     // ========================================================
     // MAPBOX VECTOR DATA
-    // Used for our custom county/state boundaries
+    // Used for custom county/state boundaries
     // ========================================================
 
     map.addSource("boundary-data", {
@@ -140,7 +140,6 @@ map.on("load", () => {
 
     // ========================================================
     // LBF CWA BLACK OUTLINE
-    // Drawn first underneath the white line
     // ========================================================
 
     map.addLayer({
@@ -200,6 +199,97 @@ map.on("load", () => {
         }
     });
 
+
+    // ========================================================
+    // SPC DAY 1 CATEGORICAL OUTLOOK SOURCE
+    // ========================================================
+
+    map.addSource("spc-day1-cat", {
+        type: "geojson",
+
+        // File stored in:
+        // data/spc_day1_cat.geojson
+
+        data: "data/spc_day1_cat.geojson"
+    });
+
+
+    // ========================================================
+    // SPC DAY 1 CATEGORICAL FILLS
+    //
+    // The SPC GeoJSON already contains the official
+    // fill color for each risk category.
+    // ========================================================
+
+    map.addLayer({
+        id: "spc-day1-cat-fill",
+
+        type: "fill",
+
+        source: "spc-day1-cat",
+
+        paint: {
+
+            "fill-color": [
+                "coalesce",
+                ["get", "fill"],
+                "#888888"
+            ],
+
+            "fill-opacity": 0.40
+        }
+    });
+
+
+    // ========================================================
+    // SPC DAY 1 CATEGORICAL OUTLINES
+    //
+    // Uses SPC's stroke color stored in the GeoJSON.
+    // ========================================================
+
+    map.addLayer({
+        id: "spc-day1-cat-outline",
+
+        type: "line",
+
+        source: "spc-day1-cat",
+
+        paint: {
+
+            "line-color": [
+                "coalesce",
+                ["get", "stroke"],
+                "#000000"
+            ],
+
+            "line-width": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+
+                4, 1.2,
+                6, 1.8,
+                8, 2.3,
+                10, 2.8
+            ],
+
+            "line-opacity": 1
+        }
+    });
+
+
+    // ========================================================
+    // MOVE LBF CWA BACK ABOVE SPC OUTLOOK
+    //
+    // SPC was added after the CWA, so without this the SPC
+    // polygons would be drawn over the white CWA boundary.
+    // ========================================================
+
+    map.moveLayer("lbf-cwa-outline");
+    map.moveLayer("lbf-cwa-boundary");
+
+
+    console.log("SPC Day 1 outlook added");
 
 });
 
