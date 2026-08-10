@@ -47,7 +47,112 @@ map.on("load", () => {
 
 
     // ========================================================
+    // SPC DAY 1 CATEGORICAL SOURCE
+    // ========================================================
+
+    map.addSource("spc-day1-cat", {
+        type: "geojson",
+        data: "data/spc_day1_cat.geojson"
+    });
+
+
+    // ========================================================
+    // SPC DAY 1 FILLS
+    //
+    // These are added BEFORE our county/state/CWA lines so
+    // those geographic boundaries stay crisp on top.
+    // ========================================================
+
+    map.addLayer({
+        id: "spc-day1-cat-fill",
+
+        type: "fill",
+
+        source: "spc-day1-cat",
+
+        paint: {
+
+            "fill-color": [
+                "coalesce",
+                ["get", "fill"],
+                "#888888"
+            ],
+
+            "fill-opacity": 0.68
+        }
+    });
+
+
+    // ========================================================
+    // SPC DARK OUTLINE
+    // ========================================================
+
+    map.addLayer({
+        id: "spc-day1-cat-outline-dark",
+
+        type: "line",
+
+        source: "spc-day1-cat",
+
+        paint: {
+
+            "line-color": "#1A1A1A",
+
+            "line-width": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+
+                4, 2.2,
+                6, 3.0,
+                8, 3.8,
+                10, 4.5
+            ],
+
+            "line-opacity": 1
+        }
+    });
+
+
+    // ========================================================
+    // SPC OFFICIAL COLORED OUTLINE
+    // ========================================================
+
+    map.addLayer({
+        id: "spc-day1-cat-outline",
+
+        type: "line",
+
+        source: "spc-day1-cat",
+
+        paint: {
+
+            "line-color": [
+                "coalesce",
+                ["get", "stroke"],
+                "#000000"
+            ],
+
+            "line-width": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+
+                4, 1.3,
+                6, 1.8,
+                8, 2.3,
+                10, 2.8
+            ],
+
+            "line-opacity": 1
+        }
+    });
+
+
+    // ========================================================
     // COUNTY BOUNDARIES
+    //
+    // Added after SPC so they stay visible on top.
     // ========================================================
 
     map.addLayer({
@@ -80,7 +185,7 @@ map.on("load", () => {
                 10, 1.4
             ],
 
-            "line-opacity": 0.9
+            "line-opacity": 0.95
         }
     });
 
@@ -130,7 +235,6 @@ map.on("load", () => {
 
     map.addSource("lbf-cwa", {
         type: "geojson",
-
         data: "data/lbf_cwa.geojson"
     });
 
@@ -197,120 +301,7 @@ map.on("load", () => {
     });
 
 
-    // ========================================================
-    // SPC DAY 1 CATEGORICAL OUTLOOK SOURCE
-    // ========================================================
-
-    map.addSource("spc-day1-cat", {
-        type: "geojson",
-
-        data: "data/spc_day1_cat.geojson"
-    });
-
-
-    // ========================================================
-    // SPC DAY 1 CATEGORICAL FILLS
-    //
-    // Stronger opacity to look more like the example you showed.
-    // ========================================================
-
-    map.addLayer({
-        id: "spc-day1-cat-fill",
-
-        type: "fill",
-
-        source: "spc-day1-cat",
-
-        paint: {
-
-            "fill-color": [
-                "coalesce",
-                ["get", "fill"],
-                "#888888"
-            ],
-
-            "fill-opacity": 0.68
-        }
-    });
-
-
-    // ========================================================
-    // SPC DARK OUTLINE
-    //
-    // Gives each risk area a stronger edge.
-    // ========================================================
-
-    map.addLayer({
-        id: "spc-day1-cat-outline-dark",
-
-        type: "line",
-
-        source: "spc-day1-cat",
-
-        paint: {
-
-            "line-color": "#1A1A1A",
-
-            "line-width": [
-                "interpolate",
-                ["linear"],
-                ["zoom"],
-
-                4, 2.2,
-                6, 3.0,
-                8, 3.8,
-                10, 4.5
-            ],
-
-            "line-opacity": 1
-        }
-    });
-
-
-    // ========================================================
-    // SPC OFFICIAL COLORED OUTLINE
-    // ========================================================
-
-    map.addLayer({
-        id: "spc-day1-cat-outline",
-
-        type: "line",
-
-        source: "spc-day1-cat",
-
-        paint: {
-
-            "line-color": [
-                "coalesce",
-                ["get", "stroke"],
-                "#000000"
-            ],
-
-            "line-width": [
-                "interpolate",
-                ["linear"],
-                ["zoom"],
-
-                4, 1.3,
-                6, 1.8,
-                8, 2.3,
-                10, 2.8
-            ],
-
-            "line-opacity": 1
-        }
-    });
-
-
-    // ========================================================
-    // KEEP LBF CWA ON TOP
-    // ========================================================
-
-    map.moveLayer("lbf-cwa-outline");
-    map.moveLayer("lbf-cwa-boundary");
-
-
-    console.log("SPC Day 1 outlook added");
+    console.log("SPC Day 1 outlook added beneath boundaries");
 
 });
 
