@@ -3,15 +3,12 @@ mapboxgl.accessToken = "pk.eyJ1IjoibWF0dGhld2xhYmVuejciLCJhIjoiY21zbjhxZ3ZkMXBoN
 const map = new mapboxgl.Map({
     container: "map",
 
-    // Satellite imagery + roads + cities
     style: "mapbox://styles/mapbox/satellite-streets-v12",
 
-    // North Platte / western Nebraska
     center: [-100.75, 41.1],
 
     zoom: 6,
 
-    // Needed later for PNG/GIF exporting
     preserveDrawingBuffer: true
 });
 
@@ -36,8 +33,33 @@ map.on("load", () => {
 
 
     // ========================================================
-    // MAPBOX VECTOR DATA
-    // Used for custom county/state boundaries
+    // FIND FIRST MAPBOX ROAD LAYER
+    //
+    // We will place SPC BELOW this layer.
+    // This keeps roads + labels above the SPC shading.
+    // ========================================================
+
+    const styleLayers = map.getStyle().layers;
+
+    const firstRoadLayer = styleLayers.find(layer => {
+        return (
+            layer["source-layer"] === "road" ||
+            layer.id.toLowerCase().includes("road")
+        );
+    });
+
+    const firstRoadLayerId = firstRoadLayer
+        ? firstRoadLayer.id
+        : null;
+
+    console.log(
+        "SPC will be inserted below:",
+        firstRoadLayerId
+    );
+
+
+    // ========================================================
+    // BOUNDARY VECTOR DATA
     // ========================================================
 
     map.addSource("boundary-data", {
@@ -47,7 +69,7 @@ map.on("load", () => {
 
 
     // ========================================================
-    // SPC DAY 1 CATEGORICAL SOURCE
+    // SPC DAY 1 SOURCE
     // ========================================================
 
     map.addSource("spc-day1-cat", {
@@ -57,102 +79,114 @@ map.on("load", () => {
 
 
     // ========================================================
-    // SPC DAY 1 FILLS
+    // SPC DAY 1 FILL
     //
-    // These are added BEFORE our county/state/CWA lines so
-    // those geographic boundaries stay crisp on top.
+    // IMPORTANT:
+    // Insert BEFORE Mapbox roads.
     // ========================================================
 
-    map.addLayer({
-        id: "spc-day1-cat-fill",
+    map.addLayer(
+        {
+            id: "spc-day1-cat-fill",
 
-        type: "fill",
+            type: "fill",
 
-        source: "spc-day1-cat",
+            source: "spc-day1-cat",
 
-        paint: {
+            paint: {
 
-            "fill-color": [
-                "coalesce",
-                ["get", "fill"],
-                "#888888"
-            ],
+                "fill-color": [
+                    "coalesce",
+                    ["get", "fill"],
+                    "#888888"
+                ],
 
-            "fill-opacity": 0.68
-        }
-    });
+                "fill-opacity": 0.68
+            }
+        },
+
+        firstRoadLayerId
+    );
 
 
     // ========================================================
     // SPC DARK OUTLINE
     // ========================================================
 
-    map.addLayer({
-        id: "spc-day1-cat-outline-dark",
+    map.addLayer(
+        {
+            id: "spc-day1-cat-outline-dark",
 
-        type: "line",
+            type: "line",
 
-        source: "spc-day1-cat",
+            source: "spc-day1-cat",
 
-        paint: {
+            paint: {
 
-            "line-color": "#1A1A1A",
+                "line-color": "#1A1A1A",
 
-            "line-width": [
-                "interpolate",
-                ["linear"],
-                ["zoom"],
+                "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
 
-                4, 2.2,
-                6, 3.0,
-                8, 3.8,
-                10, 4.5
-            ],
+                    4, 2.2,
+                    6, 3.0,
+                    8, 3.8,
+                    10, 4.5
+                ],
 
-            "line-opacity": 1
-        }
-    });
+                "line-opacity": 1
+            }
+        },
+
+        firstRoadLayerId
+    );
 
 
     // ========================================================
-    // SPC OFFICIAL COLORED OUTLINE
+    // SPC OFFICIAL COLOR OUTLINE
     // ========================================================
 
-    map.addLayer({
-        id: "spc-day1-cat-outline",
+    map.addLayer(
+        {
+            id: "spc-day1-cat-outline",
 
-        type: "line",
+            type: "line",
 
-        source: "spc-day1-cat",
+            source: "spc-day1-cat",
 
-        paint: {
+            paint: {
 
-            "line-color": [
-                "coalesce",
-                ["get", "stroke"],
-                "#000000"
-            ],
+                "line-color": [
+                    "coalesce",
+                    ["get", "stroke"],
+                    "#000000"
+                ],
 
-            "line-width": [
-                "interpolate",
-                ["linear"],
-                ["zoom"],
+                "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
 
-                4, 1.3,
-                6, 1.8,
-                8, 2.3,
-                10, 2.8
-            ],
+                    4, 1.3,
+                    6, 1.8,
+                    8, 2.3,
+                    10, 2.8
+                ],
 
-            "line-opacity": 1
-        }
-    });
+                "line-opacity": 1
+            }
+        },
+
+        firstRoadLayerId
+    );
 
 
     // ========================================================
     // COUNTY BOUNDARIES
     //
-    // Added after SPC so they stay visible on top.
+    // Added normally, so they remain ABOVE SPC.
     // ========================================================
 
     map.addLayer({
@@ -230,7 +264,7 @@ map.on("load", () => {
 
 
     // ========================================================
-    // NWS NORTH PLATTE CWA SOURCE
+    // NWS NORTH PLATTE CWA
     // ========================================================
 
     map.addSource("lbf-cwa", {
@@ -301,13 +335,15 @@ map.on("load", () => {
     });
 
 
-    console.log("SPC Day 1 outlook added beneath boundaries");
+    console.log(
+        "SPC outlook loaded beneath Mapbox roads/labels."
+    );
 
 });
 
 
 // ============================================================
-// MAPBOX ERROR REPORTING
+// ERROR REPORTING
 // ============================================================
 
 map.on("error", (e) => {
