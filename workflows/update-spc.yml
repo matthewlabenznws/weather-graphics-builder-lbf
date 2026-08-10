@@ -1,0 +1,52 @@
+name: Update SPC Outlook
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-spc:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests geopandas pyogrio shapely
+
+      - name: Update SPC Day 1 outlook
+        run: |
+          python update_spc.py
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet data/spc_day1_cat.geojson; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit updated SPC outlook
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "SPC Outlook Bot"
+          git config user.email "actions@github.com"
+
+          git add data/spc_day1_cat.geojson
+
+          git commit -m "Update SPC Day 1 outlook"
+
+          git push
