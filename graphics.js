@@ -3,7 +3,7 @@ mapboxgl.accessToken = "pk.eyJ1IjoibWF0dGhld2xhYmVuejciLCJhIjoiY21zbjhxZ3ZkMXBoN
 const map = new mapboxgl.Map({
     container: "map",
 
-    style: "mapbox://styles/mapbox/satellite-streets-v12",
+    style: "mapbox://styles/mapbox/satellite-v9",
 
     center: [-100.75, 41.1],
 
