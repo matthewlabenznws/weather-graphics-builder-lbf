@@ -4,15 +4,12 @@ const map = new mapboxgl.Map({
 
     container: "map",
 
-    // Satellite imagery + roads + cities
     style: "mapbox://styles/mapbox/satellite-streets-v12",
 
-    // North Platte / western Nebraska
     center: [-100.75, 41.1],
 
     zoom: 6,
 
-    // Needed later for PNG/GIF exporting
     preserveDrawingBuffer: true
 
 });
@@ -40,27 +37,19 @@ map.on("load", () => {
     // ========================================================
     // FIND FIRST MAPBOX ROAD LAYER
     //
-    // SPC will be inserted below this layer so Mapbox roads,
-    // interstate shields, city labels, etc. remain above it.
+    // We will insert SPC + HRRR below roads/labels.
     // ========================================================
 
     const styleLayers = map.getStyle().layers;
 
-
     const firstRoadLayer = styleLayers.find((layer) => {
 
         return (
-
             layer["source-layer"] === "road" ||
-
-            layer.id
-                .toLowerCase()
-                .includes("road")
-
+            layer.id.toLowerCase().includes("road")
         );
 
     });
-
 
     const firstRoadLayerId = firstRoadLayer
         ? firstRoadLayer.id
@@ -68,15 +57,14 @@ map.on("load", () => {
 
 
     console.log(
-        "SPC layers inserted below:",
+        "Weather layers inserted below:",
         firstRoadLayerId
     );
 
 
     // ========================================================
-    // MAPBOX VECTOR BOUNDARY DATA
-    //
-    // Used for our custom county/state boundaries.
+    // MAPBOX VECTOR DATA
+    // Used for custom county/state boundaries
     // ========================================================
 
     map.addSource("boundary-data", {
@@ -104,8 +92,7 @@ map.on("load", () => {
     // ========================================================
     // SPC DAY 1 FILL
     //
-    // This goes over the satellite imagery but underneath
-    // Mapbox roads and labels.
+    // This sits above satellite imagery but below HRRR.
     // ========================================================
 
     map.addLayer(
@@ -119,21 +106,15 @@ map.on("load", () => {
             source: "spc-day1-cat",
 
             layout: {
-
                 visibility: "visible"
-
             },
 
             paint: {
 
                 "fill-color": [
-
                     "coalesce",
-
                     ["get", "fill"],
-
                     "#888888"
-
                 ],
 
                 "fill-opacity": 0.68
@@ -148,7 +129,72 @@ map.on("load", () => {
 
 
     // ========================================================
+    // HRRR COMPOSITE REFLECTIVITY SOURCE
+    // ========================================================
+
+    map.addSource("hrrr-reflectivity-source", {
+
+        type: "image",
+
+        url: "data/hrrr_composite_reflectivity_f000.png",
+
+        coordinates: [
+
+            [-105.5, 44.5],
+
+            [-96.0, 44.5],
+
+            [-96.0, 38.5],
+
+            [-105.5, 38.5]
+
+        ]
+
+    });
+
+
+    // ========================================================
+    // HRRR COMPOSITE REFLECTIVITY LAYER
+    //
+    // This is drawn ABOVE SPC fill,
+    // but still BELOW roads/labels.
+    // ========================================================
+
+    map.addLayer(
+
+        {
+
+            id: "hrrr-reflectivity",
+
+            type: "raster",
+
+            source: "hrrr-reflectivity-source",
+
+            layout: {
+                visibility: "visible"
+            },
+
+            paint: {
+
+                "raster-opacity": 1.0,
+
+                "raster-fade-duration": 0,
+
+                "raster-resampling": "linear"
+
+            }
+
+        },
+
+        firstRoadLayerId
+
+    );
+
+
+    // ========================================================
     // SPC DARK OUTLINE
+    //
+    // Added AFTER HRRR so the risk borders stay visible.
     // ========================================================
 
     map.addLayer(
@@ -162,9 +208,7 @@ map.on("load", () => {
             source: "spc-day1-cat",
 
             layout: {
-
                 visibility: "visible"
-
             },
 
             paint: {
@@ -172,21 +216,14 @@ map.on("load", () => {
                 "line-color": "#1A1A1A",
 
                 "line-width": [
-
                     "interpolate",
-
                     ["linear"],
-
                     ["zoom"],
 
                     4, 2.2,
-
                     6, 3.0,
-
                     8, 3.8,
-
                     10, 4.5
-
                 ],
 
                 "line-opacity": 1
@@ -215,39 +252,26 @@ map.on("load", () => {
             source: "spc-day1-cat",
 
             layout: {
-
                 visibility: "visible"
-
             },
 
             paint: {
 
                 "line-color": [
-
                     "coalesce",
-
                     ["get", "stroke"],
-
                     "#000000"
-
                 ],
 
                 "line-width": [
-
                     "interpolate",
-
                     ["linear"],
-
                     ["zoom"],
 
                     4, 1.3,
-
                     6, 1.8,
-
                     8, 2.3,
-
                     10, 2.8
-
                 ],
 
                 "line-opacity": 1
@@ -276,13 +300,9 @@ map.on("load", () => {
         "source-layer": "admin",
 
         filter: [
-
             "==",
-
             ["get", "admin_level"],
-
             2
-
         ],
 
         paint: {
@@ -290,21 +310,14 @@ map.on("load", () => {
             "line-color": "#000000",
 
             "line-width": [
-
                 "interpolate",
-
                 ["linear"],
-
                 ["zoom"],
 
                 4, 0.5,
-
                 6, 0.8,
-
                 8, 1.1,
-
                 10, 1.4
-
             ],
 
             "line-opacity": 0.95
@@ -329,13 +342,9 @@ map.on("load", () => {
         "source-layer": "admin",
 
         filter: [
-
             "==",
-
             ["get", "admin_level"],
-
             1
-
         ],
 
         paint: {
@@ -343,21 +352,14 @@ map.on("load", () => {
             "line-color": "#000000",
 
             "line-width": [
-
                 "interpolate",
-
                 ["linear"],
-
                 ["zoom"],
 
                 4, 2.0,
-
                 6, 2.7,
-
                 8, 3.3,
-
                 10, 4.0
-
             ],
 
             "line-opacity": 1
@@ -368,7 +370,7 @@ map.on("load", () => {
 
 
     // ========================================================
-    // NWS NORTH PLATTE CWA SOURCE
+    // LBF CWA SOURCE
     // ========================================================
 
     map.addSource("lbf-cwa", {
@@ -382,8 +384,6 @@ map.on("load", () => {
 
     // ========================================================
     // LBF CWA BLACK OUTLINE
-    //
-    // This acts as the halo behind the white boundary.
     // ========================================================
 
     map.addLayer({
@@ -399,21 +399,14 @@ map.on("load", () => {
             "line-color": "#000000",
 
             "line-width": [
-
                 "interpolate",
-
                 ["linear"],
-
                 ["zoom"],
 
                 4, 4.0,
-
                 6, 5.0,
-
                 8, 6.0,
-
                 10, 7.0
-
             ],
 
             "line-opacity": 1
@@ -440,21 +433,14 @@ map.on("load", () => {
             "line-color": "#FFFFFF",
 
             "line-width": [
-
                 "interpolate",
-
                 ["linear"],
-
                 ["zoom"],
 
                 4, 2.0,
-
                 6, 3.0,
-
                 8, 4.0,
-
                 10, 5.0
-
             ],
 
             "line-opacity": 1
@@ -466,10 +452,6 @@ map.on("load", () => {
 
     // ========================================================
     // SPC DAY 1 TOGGLE
-    //
-    // IMPORTANT:
-    // This is inside map.on("load") so all SPC layers
-    // definitely exist before the toggle is connected.
     // ========================================================
 
     const spcToggle =
@@ -493,25 +475,11 @@ map.on("load", () => {
             "change",
             () => {
 
-                // --------------------------------------------
-                // Determine whether SPC should be visible
-                // --------------------------------------------
-
                 const visibility =
                     spcToggle.checked
                         ? "visible"
                         : "none";
 
-
-                console.log(
-                    "SPC toggle changed:",
-                    visibility
-                );
-
-
-                // --------------------------------------------
-                // Apply visibility to ALL SPC layers
-                // --------------------------------------------
 
                 spcLayers.forEach(
                     (layerId) => {
@@ -524,38 +492,17 @@ map.on("load", () => {
                                 visibility
                             );
 
-
-                            console.log(
-                                `${layerId} -> ${visibility}`
-                            );
-
-                        }
-
-                        else {
-
-                            console.warn(
-                                `SPC layer not found: ${layerId}`
-                            );
-
                         }
 
                     }
                 );
 
+
+                console.log(
+                    `SPC Day 1 visibility: ${visibility}`
+                );
+
             }
-        );
-
-
-        console.log(
-            "SPC Day 1 toggle connected."
-        );
-
-    }
-
-    else {
-
-        console.error(
-            "Could not find #spc-toggle in index.html"
         );
 
     }
