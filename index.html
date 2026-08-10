@@ -3,24 +3,81 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Weather Graphics Builder</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>NWS North Platte Weather Graphics</title>
+
+
+    <!-- =====================================================
+         MAPBOX CSS
+         ===================================================== -->
 
     <link
         href="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css"
         rel="stylesheet"
     >
 
-    <link rel="stylesheet" href="style.css">
+
+    <!-- =====================================================
+         OUR CSS
+         ===================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
 </head>
+
 
 <body>
 
+
+    <!-- =====================================================
+         MAP
+         ===================================================== -->
+
     <div id="map"></div>
 
-    <script src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js"></script>
+
+    <!-- =====================================================
+         NWS NORTH PLATTE BRANDING
+         ===================================================== -->
+
+    <div id="office-branding">
+
+        <img
+            id="office-logo"
+            src="assets/NOAANWSLogos.png"
+            alt="NOAA and National Weather Service logos"
+        >
+
+        <div id="office-name">
+            NWS North Platte, NE
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         MAPBOX JAVASCRIPT
+         ===================================================== -->
+
+    <script
+        src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js">
+    </script>
+
+
+    <!-- =====================================================
+         OUR JAVASCRIPT
+         ===================================================== -->
+
     <script src="graphics.js"></script>
+
 
 </body>
 
