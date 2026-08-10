@@ -1,19 +1,155 @@
+/* =========================================================
+   PAGE
+   ========================================================= */
+
 html,
 body {
     margin: 0;
     padding: 0;
+
+    width: 100%;
+    height: 100%;
+
+    overflow: hidden;
+}
+
+
+body {
+    background: #111;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+}
+
+
+/* =========================================================
+   MAP
+   ========================================================= */
+
+#map {
+    position: absolute;
+
+    top: 0;
+    bottom: 0;
+
+    left: 0;
+    right: 0;
+
     width: 100%;
     height: 100%;
 }
 
-body {
-    background: #111;
-    font-family: Arial, sans-serif;
+
+/* =========================================================
+   NWS NORTH PLATTE BRANDING
+   ========================================================= */
+
+#office-branding {
+    position: absolute;
+
+    top: 15px;
+
+    /*
+       Leave room for the Mapbox navigation controls
+       in the upper-right corner.
+    */
+
+    right: 60px;
+
+    z-index: 10;
+
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    justify-content: center;
+
+
+    /*
+       Allows the user to pan/zoom the map even if
+       the mouse is over the branding.
+    */
+
+    pointer-events: none;
 }
 
-#map {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 100%;
+
+/* =========================================================
+   NOAA + NWS LOGOS
+   ========================================================= */
+
+#office-logo {
+    width: 150px;
+
+    height: auto;
+
+    display: block;
+
+    object-fit: contain;
+}
+
+
+/* =========================================================
+   OFFICE NAME
+   ========================================================= */
+
+#office-name {
+    margin-top: 4px;
+
+
+    color: #ffffff;
+
+
+    font-size: 20px;
+
+    font-weight: 700;
+
+    text-align: center;
+
+    white-space: nowrap;
+
+
+    /*
+       Black outline makes the text readable over
+       light and dark satellite imagery.
+    */
+
+    text-shadow:
+
+        -2px -2px 2px #000000,
+
+         2px -2px 2px #000000,
+
+        -2px  2px 2px #000000,
+
+         2px  2px 2px #000000;
+}
+
+
+/* =========================================================
+   SMALLER SCREENS
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+    #office-branding {
+        top: 10px;
+        right: 50px;
+    }
+
+
+    #office-logo {
+        width: 115px;
+    }
+
+
+    #office-name {
+        font-size: 15px;
+    }
+
 }
