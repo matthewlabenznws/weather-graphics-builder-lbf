@@ -131,9 +131,6 @@ map.on("load", () => {
     map.addSource("lbf-cwa", {
         type: "geojson",
 
-        // File stored in:
-        // data/lbf_cwa.geojson
-
         data: "data/lbf_cwa.geojson"
     });
 
@@ -207,9 +204,6 @@ map.on("load", () => {
     map.addSource("spc-day1-cat", {
         type: "geojson",
 
-        // File stored in:
-        // data/spc_day1_cat.geojson
-
         data: "data/spc_day1_cat.geojson"
     });
 
@@ -217,8 +211,7 @@ map.on("load", () => {
     // ========================================================
     // SPC DAY 1 CATEGORICAL FILLS
     //
-    // The SPC GeoJSON already contains the official
-    // fill color for each risk category.
+    // Stronger opacity to look more like the example you showed.
     // ========================================================
 
     map.addLayer({
@@ -236,15 +229,46 @@ map.on("load", () => {
                 "#888888"
             ],
 
-            "fill-opacity": 0.40
+            "fill-opacity": 0.68
         }
     });
 
 
     // ========================================================
-    // SPC DAY 1 CATEGORICAL OUTLINES
+    // SPC DARK OUTLINE
     //
-    // Uses SPC's stroke color stored in the GeoJSON.
+    // Gives each risk area a stronger edge.
+    // ========================================================
+
+    map.addLayer({
+        id: "spc-day1-cat-outline-dark",
+
+        type: "line",
+
+        source: "spc-day1-cat",
+
+        paint: {
+
+            "line-color": "#1A1A1A",
+
+            "line-width": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+
+                4, 2.2,
+                6, 3.0,
+                8, 3.8,
+                10, 4.5
+            ],
+
+            "line-opacity": 1
+        }
+    });
+
+
+    // ========================================================
+    // SPC OFFICIAL COLORED OUTLINE
     // ========================================================
 
     map.addLayer({
@@ -267,7 +291,7 @@ map.on("load", () => {
                 ["linear"],
                 ["zoom"],
 
-                4, 1.2,
+                4, 1.3,
                 6, 1.8,
                 8, 2.3,
                 10, 2.8
@@ -279,10 +303,7 @@ map.on("load", () => {
 
 
     // ========================================================
-    // MOVE LBF CWA BACK ABOVE SPC OUTLOOK
-    //
-    // SPC was added after the CWA, so without this the SPC
-    // polygons would be drawn over the white CWA boundary.
+    // KEEP LBF CWA ON TOP
     // ========================================================
 
     map.moveLayer("lbf-cwa-outline");
