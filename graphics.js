@@ -1,22 +1,27 @@
+// ============================================================
+// MAPBOX TOKEN
+// ============================================================
+
 mapboxgl.accessToken = "pk.eyJ1IjoibWF0dGhld2xhYmVuejciLCJhIjoiY21zbjhxZ3ZkMXBoNDJ3cHl5eG5uNzlpZCJ9.UBy4k84SejJzzu2VF0TtcA";
 
+console.log("graphics.js started");
+
+
 // ============================================================
-// MODEL CONFIGURATION
+// MODEL CONFIG
 // ============================================================
 
 const MODEL_CONFIGS = {
 
     hrrr: {
 
-        name:
-            "HRRR",
+        name: "HRRR",
 
         products: {
 
             reflUH: {
 
-                name:
-                    "Reflectivity + UH ≥ 75",
+                name: "Reflectivity + UH ≥ 75",
 
                 baseUrl:
                     "https://mtl-nwslbf-model-data.s3.us-east-2.amazonaws.com/" +
@@ -32,64 +37,44 @@ const MODEL_CONFIGS = {
 
 
 // ============================================================
-// CURRENT VIEWER STATE
+// STATE
 // ============================================================
 
-let activeModel =
-    "hrrr";
+let activeModel = "hrrr";
+let activeProduct = "reflUH";
 
-let activeProduct =
-    "reflUH";
+let currentManifest = null;
+let availableFrames = [];
+let currentFrameIndex = 0;
 
-let currentManifest =
-    null;
+let animationPlaying = false;
+let animationTimer = null;
 
-let availableFrames =
-    [];
-
-let currentFrameIndex =
-    0;
-
-let animationTimer =
-    null;
-
-let animationPlaying =
-    false;
-
-
-// ============================================================
-// MANIFEST POLLING
-// ============================================================
-
-const MANIFEST_REFRESH_MS =
-    30000;
+const MANIFEST_REFRESH_MS = 30000;
 
 
 // ============================================================
 // CREATE MAP
 // ============================================================
 
-const map =
-    new mapboxgl.Map({
+const map = new mapboxgl.Map({
 
-        container:
-            "map",
+    container: "map",
 
-        style:
-            "mapbox://styles/mapbox/satellite-streets-v12",
+    style: "mapbox://styles/mapbox/satellite-streets-v12",
 
-        center: [
-            -100.75,
-            41.1
-        ],
+    center: [
+        -100.75,
+        41.1
+    ],
 
-        zoom:
-            6,
+    zoom: 6,
 
-        preserveDrawingBuffer:
-            true
+    preserveDrawingBuffer: true
 
-    });
+});
+
+console.log("Mapbox map object created");
 
 
 // ============================================================
@@ -97,102 +82,86 @@ const map =
 // ============================================================
 
 map.addControl(
-
     new mapboxgl.NavigationControl(),
-
     "top-right"
-
 );
 
 
 // ============================================================
-// GET ACTIVE PRODUCT CONFIG
+// MAP ERRORS
+// ============================================================
+
+map.on("error", (event) => {
+
+    console.error(
+        "MAPBOX ERROR:",
+        event.error
+    );
+
+});
+
+
+// ============================================================
+// ACTIVE PRODUCT
 // ============================================================
 
 function getActiveProductConfig() {
 
-    if (
-        activeModel === "none"
-    ) {
-
+    if (activeModel === "none") {
         return null;
-
     }
-
 
     const model =
-        MODEL_CONFIGS[
-            activeModel
-        ];
-
+        MODEL_CONFIGS[activeModel];
 
     if (!model) {
-
         return null;
-
     }
 
-
-    return model.products[
-        activeProduct
-    ] || null;
+    return (
+        model.products[activeProduct]
+        || null
+    );
 
 }
 
 
 // ============================================================
-// MODEL UI VISIBILITY
+// SHOW / HIDE MODEL UI
 // ============================================================
 
-function setModelUiVisible(
-    visible
-) {
+function setModelUiVisible(visible) {
 
-    const elements = [
-
+    const label =
         document.getElementById(
             "model-valid-label"
-        ),
+        );
 
+    const timeline =
         document.getElementById(
             "model-timeline"
-        ),
+        );
 
+    const productSelect =
         document.getElementById(
             "product-select"
-        )
-
-    ];
+        );
 
 
-    elements.forEach(
-        element => {
+    if (label) {
+        label.style.display =
+            visible ? "block" : "none";
+    }
 
-            if (!element) {
+    if (timeline) {
+        timeline.style.display =
+            visible ? "flex" : "none";
+    }
 
-                return;
-
-            }
-
-
-            if (visible) {
-
-                element.classList.remove(
-                    "hidden"
-                );
-
-            }
-
-            else {
-
-                element.classList.add(
-                    "hidden"
-                );
-
-            }
-
-        }
-    );
+    if (productSelect) {
+        productSelect.style.display =
+            visible ? "block" : "none";
+    }
 
 
     if (
@@ -202,15 +171,11 @@ function setModelUiVisible(
     ) {
 
         map.setLayoutProperty(
-
             "model-raster-layer",
-
             "visibility",
-
             visible
                 ? "visible"
                 : "none"
-
         );
 
     }
@@ -219,26 +184,19 @@ function setModelUiVisible(
 
 
 // ============================================================
-// CENTRAL TIME FORMAT
+// CENTRAL TIME
 // ============================================================
 
-function formatValidTimeCentral(
-    isoTime
-) {
+function formatValidTimeCentral(isoTime) {
 
     const date =
-        new Date(
-            isoTime
-        );
+        new Date(isoTime);
 
 
     const parts =
         new Intl.DateTimeFormat(
-
             "en-US",
-
             {
-
                 timeZone:
                     "America/Chicago",
 
@@ -262,79 +220,60 @@ function formatValidTimeCentral(
 
                 hour12:
                     true
-
             }
-
-        ).formatToParts(
-            date
-        );
+        ).formatToParts(date);
 
 
-    const get =
-        type => {
+    const get = (type) => {
 
-            const part =
-                parts.find(
-                    item =>
-                        item.type === type
-                );
+        const part =
+            parts.find(
+                item =>
+                    item.type === type
+            );
 
-            return part
-                ? part.value
-                : "";
+        return part
+            ? part.value
+            : "";
 
-        };
+    };
 
 
     return (
-
         `${get("weekday")} ` +
-
         `${get("month")}/` +
         `${get("day")}/` +
         `${get("year")} ` +
-
         `${get("hour")}:` +
         `${get("minute")} ` +
         `${get("dayPeriod")}`
-
     );
 
 }
 
 
 // ============================================================
-// VALID TIME LABEL
+// UPDATE VALID TIME LABEL
 // ============================================================
 
-function updateValidLabel(
-    frame
-) {
+function updateValidLabel(frame) {
 
     const label =
         document.getElementById(
             "model-valid-label"
         );
 
-
     if (
         !label
-        ||
-        !frame
+        || !frame
     ) {
-
         return;
-
     }
 
 
     const fhr =
-        String(
-            frame.fhr
-        ).padStart(
-            3,
-            "0"
-        );
+        String(frame.fhr)
+            .padStart(3, "0");
 
 
     const valid =
@@ -350,15 +289,14 @@ function updateValidLabel(
 
 
 // ============================================================
-// MANIFEST COORDINATES
+// IMAGE COORDINATES
 // ============================================================
 
 function getImageCoordinates() {
 
     if (
         !currentManifest
-        ||
-        !currentManifest.bounds
+        || !currentManifest.bounds
     ) {
 
         return null;
@@ -398,12 +336,48 @@ function getImageCoordinates() {
 
 
 // ============================================================
+// FIND ROAD LAYER
+// ============================================================
+
+function findFirstRoadLayerId() {
+
+    const layers =
+        map.getStyle().layers;
+
+
+    const roadLayer =
+        layers.find(
+            layer => {
+
+                const sourceLayer =
+                    layer["source-layer"];
+
+                const id =
+                    layer.id.toLowerCase();
+
+
+                return (
+                    sourceLayer === "road"
+                    ||
+                    id.includes("road")
+                );
+
+            }
+        );
+
+
+    return roadLayer
+        ? roadLayer.id
+        : undefined;
+
+}
+
+
+// ============================================================
 // DISPLAY MODEL FRAME
 // ============================================================
 
-function displayFrame(
-    frame
-) {
+function displayFrame(frame) {
 
     const product =
         getActiveProductConfig();
@@ -411,10 +385,8 @@ function displayFrame(
 
     if (
         !product
-        ||
-        !frame
-        ||
-        !currentManifest
+        || !frame
+        || !currentManifest
     ) {
 
         return;
@@ -427,39 +399,33 @@ function displayFrame(
 
 
     if (!coordinates) {
-
         return;
-
     }
 
 
     const imageUrl =
-
         `${product.baseUrl}/` +
-
         `${frame.file}` +
-
         `?run=${encodeURIComponent(
             currentManifest.run
         )}`;
 
 
-    // ========================================================
-    // UPDATE EXISTING IMAGE
-    // ========================================================
-
-    if (
+    const existingSource =
         map.getSource(
             "model-image-source"
-        )
-    ) {
+        );
 
-        map.getSource(
-            "model-image-source"
-        ).updateImage({
 
-            url:
-                imageUrl,
+    // ========================================================
+    // UPDATE EXISTING SOURCE
+    // ========================================================
+
+    if (existingSource) {
+
+        existingSource.updateImage({
+
+            url: imageUrl,
 
             coordinates:
                 coordinates
@@ -470,19 +436,16 @@ function displayFrame(
 
 
     // ========================================================
-    // CREATE IMAGE SOURCE
+    // CREATE SOURCE/LAYER
     // ========================================================
 
     else {
 
         map.addSource(
-
             "model-image-source",
-
             {
 
-                type:
-                    "image",
+                type: "image",
 
                 url:
                     imageUrl,
@@ -491,46 +454,14 @@ function displayFrame(
                     coordinates
 
             }
-
         );
 
 
-        const styleLayers =
-            map.getStyle().layers;
-
-
-        const firstRoadLayer =
-            styleLayers.find(
-                layer => {
-
-                    return (
-
-                        layer[
-                            "source-layer"
-                        ] === "road"
-
-                        ||
-
-                        layer.id
-                            .toLowerCase()
-                            .includes(
-                                "road"
-                            )
-
-                    );
-
-                }
-            );
-
-
         const beforeLayer =
-            firstRoadLayer
-                ? firstRoadLayer.id
-                : undefined;
+            findFirstRoadLayerId();
 
 
         map.addLayer(
-
             {
 
                 id:
@@ -552,7 +483,7 @@ function displayFrame(
                 paint: {
 
                     "raster-opacity":
-                        1.0,
+                        1,
 
                     "raster-fade-duration":
                         0,
@@ -565,16 +496,12 @@ function displayFrame(
             },
 
             beforeLayer
-
         );
 
     }
 
 
-    updateValidLabel(
-        frame
-    );
-
+    updateValidLabel(frame);
 
     updateHourButtonStyles();
 
@@ -582,12 +509,10 @@ function displayFrame(
 
 
 // ============================================================
-// SET CURRENT FRAME
+// FRAME INDEX
 // ============================================================
 
-function setFrameIndex(
-    index
-) {
+function setFrameIndex(index) {
 
     if (
         availableFrames.length === 0
@@ -598,9 +523,7 @@ function setFrameIndex(
     }
 
 
-    if (
-        index < 0
-    ) {
+    if (index < 0) {
 
         index =
             availableFrames.length - 1;
@@ -613,8 +536,7 @@ function setFrameIndex(
         availableFrames.length
     ) {
 
-        index =
-            0;
+        index = 0;
 
     }
 
@@ -624,11 +546,9 @@ function setFrameIndex(
 
 
     displayFrame(
-
         availableFrames[
             currentFrameIndex
         ]
-
     );
 
 
@@ -638,7 +558,7 @@ function setFrameIndex(
 
 
 // ============================================================
-// BUILD FORECAST-HOUR BUTTONS
+// BUILD FORECAST HOURS
 // ============================================================
 
 function buildHourButtons() {
@@ -650,9 +570,7 @@ function buildHourButtons() {
 
 
     if (!container) {
-
         return;
-
     }
 
 
@@ -661,12 +579,7 @@ function buildHourButtons() {
 
 
     availableFrames.forEach(
-
-        (
-            frame,
-            index
-        ) => {
-
+        (frame, index) => {
 
             const button =
                 document.createElement(
@@ -687,16 +600,8 @@ function buildHourButtons() {
                 )}`;
 
 
-            button.dataset.index =
-                String(
-                    index
-                );
-
-
             button.addEventListener(
-
                 "click",
-
                 () => {
 
                     stopAnimation();
@@ -706,7 +611,6 @@ function buildHourButtons() {
                     );
 
                 }
-
             );
 
 
@@ -715,7 +619,6 @@ function buildHourButtons() {
             );
 
         }
-
     );
 
 
@@ -725,7 +628,7 @@ function buildHourButtons() {
 
 
 // ============================================================
-// SELECTED FORECAST-HOUR STYLE
+// SELECTED HOUR STYLE
 // ============================================================
 
 function updateHourButtonStyles() {
@@ -737,41 +640,21 @@ function updateHourButtonStyles() {
 
 
     buttons.forEach(
+        (button, index) => {
 
-        (
-            button,
-            index
-        ) => {
-
-
-            if (
-                index ===
-                currentFrameIndex
-            ) {
-
-                button.classList.add(
-                    "selected"
-                );
-
-            }
-
-            else {
-
-                button.classList.remove(
-                    "selected"
-                );
-
-            }
+            button.classList.toggle(
+                "selected",
+                index === currentFrameIndex
+            );
 
         }
-
     );
 
 }
 
 
 // ============================================================
-// KEEP SELECTED HOUR VISIBLE
+// SCROLL CURRENT FHR INTO VIEW
 // ============================================================
 
 function scrollSelectedHourIntoView() {
@@ -789,22 +672,17 @@ function scrollSelectedHourIntoView() {
 
 
     if (!selected) {
-
         return;
-
     }
 
 
     selected.scrollIntoView({
 
-        behavior:
-            "smooth",
+        behavior: "smooth",
 
-        block:
-            "nearest",
+        block: "nearest",
 
-        inline:
-            "center"
+        inline: "center"
 
     });
 
@@ -812,7 +690,7 @@ function scrollSelectedHourIntoView() {
 
 
 // ============================================================
-// ANIMATION
+// PLAY
 // ============================================================
 
 function startAnimation() {
@@ -848,7 +726,6 @@ function startAnimation() {
 
     animationTimer =
         setInterval(
-
             () => {
 
                 setFrameIndex(
@@ -858,11 +735,14 @@ function startAnimation() {
             },
 
             700
-
         );
 
 }
 
+
+// ============================================================
+// STOP
+// ============================================================
 
 function stopAnimation() {
 
@@ -899,7 +779,7 @@ function stopAnimation() {
 
 
 // ============================================================
-// REFRESH MODEL MANIFEST
+// REFRESH MANIFEST
 // ============================================================
 
 async function refreshManifest() {
@@ -950,35 +830,32 @@ async function refreshManifest() {
         }
 
 
-        const manifestUrl =
-
+        const url =
             `${product.baseUrl}/` +
-
             `manifest.json` +
-
             `?t=${Date.now()}`;
+
+
+        console.log(
+            "Fetching manifest:",
+            url
+        );
 
 
         const response =
             await fetch(
-
-                manifestUrl,
-
+                url,
                 {
                     cache:
                         "no-store"
                 }
-
             );
 
 
         if (!response.ok) {
 
             throw new Error(
-
-                `Manifest HTTP ` +
-                `${response.status}`
-
+                `HTTP ${response.status}`
             );
 
         }
@@ -988,12 +865,22 @@ async function refreshManifest() {
             await response.json();
 
 
+        if (
+            !Array.isArray(
+                manifest.hours
+            )
+        ) {
+
+            throw new Error(
+                "Manifest missing hours array"
+            );
+
+        }
+
+
         const runChanged =
-
             currentManifest
-
             &&
-
             currentManifest.run
             !==
             manifest.run;
@@ -1005,14 +892,22 @@ async function refreshManifest() {
 
         availableFrames =
             [...manifest.hours]
-            .sort(
-                (a, b) =>
-                    a.fhr - b.fhr
-            );
+                .sort(
+                    (a, b) =>
+                        a.fhr - b.fhr
+                );
+
+
+        console.log(
+            "Manifest loaded:",
+            currentManifest.run,
+            availableFrames.length,
+            "frames"
+        );
 
 
         // ====================================================
-        // NEW RUN BUT NO FRAME YET
+        // NEW RUN HAS NO FRAME YET
         // ====================================================
 
         if (
@@ -1028,7 +923,7 @@ async function refreshManifest() {
             if (label) {
 
                 label.textContent =
-                    "New model run loading...";
+                    "New HRRR run loading...";
 
             }
 
@@ -1052,22 +947,15 @@ async function refreshManifest() {
 
             targetIndex =
                 availableFrames.findIndex(
-
                     frame =>
                         frame.fhr ===
                         selectedFhr
-
                 );
 
         }
 
 
-        // New run:
-        // use newest frame currently available.
-
-        if (
-            targetIndex < 0
-        ) {
+        if (targetIndex < 0) {
 
             targetIndex =
                 availableFrames.length - 1;
@@ -1083,25 +971,36 @@ async function refreshManifest() {
 
 
         displayFrame(
-
             availableFrames[
                 currentFrameIndex
             ]
-
         );
 
 
         scrollSelectedHourIntoView();
-
 
     }
 
     catch (error) {
 
         console.error(
-            "Model manifest error:",
+            "Manifest error:",
             error
         );
+
+
+        const label =
+            document.getElementById(
+                "model-valid-label"
+            );
+
+
+        if (label) {
+
+            label.textContent =
+                "HRRR data unavailable";
+
+        }
 
     }
 
@@ -1109,7 +1008,43 @@ async function refreshManifest() {
 
 
 // ============================================================
-// SWITCH MODEL
+// SET OVERLAY VISIBILITY
+// ============================================================
+
+function setLayersVisible(
+    layerIds,
+    visible
+) {
+
+    const visibility =
+        visible
+            ? "visible"
+            : "none";
+
+
+    layerIds.forEach(
+        id => {
+
+            if (
+                map.getLayer(id)
+            ) {
+
+                map.setLayoutProperty(
+                    id,
+                    "visibility",
+                    visibility
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+// ============================================================
+// MODEL SWITCH
 // ============================================================
 
 async function switchModel(
@@ -1194,104 +1129,24 @@ async function switchModel(
 
 
 // ============================================================
-// OVERLAY VISIBILITY HELPER
-// ============================================================
-
-function setLayersVisible(
-    layers,
-    visible
-) {
-
-    const visibility =
-        visible
-            ? "visible"
-            : "none";
-
-
-    layers.forEach(
-        layerId => {
-
-            if (
-                map.getLayer(
-                    layerId
-                )
-            ) {
-
-                map.setLayoutProperty(
-
-                    layerId,
-
-                    "visibility",
-
-                    visibility
-
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// ============================================================
-// MAP LOAD
+// MAP LOADED
 // ============================================================
 
 map.on(
-
     "load",
-
     async () => {
 
-
-        // ====================================================
-        // FIRST ROAD LAYER
-        // ====================================================
-
-        const styleLayers =
-            map.getStyle().layers;
-
-
-        const firstRoadLayer =
-            styleLayers.find(
-                layer => {
-
-                    return (
-
-                        layer[
-                            "source-layer"
-                        ] === "road"
-
-                        ||
-
-                        layer.id
-                            .toLowerCase()
-                            .includes(
-                                "road"
-                            )
-
-                    );
-
-                }
-            );
-
-
-        const firstRoadLayerId =
-            firstRoadLayer
-                ? firstRoadLayer.id
-                : undefined;
+        console.log(
+            "Mapbox map loaded"
+        );
 
 
         // ====================================================
-        // MAPBOX BOUNDARY SOURCE
+        // BOUNDARY SOURCE
         // ====================================================
 
         map.addSource(
-
             "boundary-data",
-
             {
 
                 type:
@@ -1301,7 +1156,6 @@ map.on(
                     "mapbox://mapbox.mapbox-streets-v8"
 
             }
-
         );
 
 
@@ -1310,9 +1164,7 @@ map.on(
         // ====================================================
 
         map.addSource(
-
             "spc-day1-cat",
-
             {
 
                 type:
@@ -1322,8 +1174,11 @@ map.on(
                     "data/spc_day1_cat.geojson"
 
             }
-
         );
+
+
+        const roadLayer =
+            findFirstRoadLayerId();
 
 
         // ====================================================
@@ -1331,7 +1186,6 @@ map.on(
         // ====================================================
 
         map.addLayer(
-
             {
 
                 id:
@@ -1365,8 +1219,7 @@ map.on(
 
             },
 
-            firstRoadLayerId
-
+            roadLayer
         );
 
 
@@ -1375,7 +1228,6 @@ map.on(
         // ====================================================
 
         map.addLayer(
-
             {
 
                 id:
@@ -1402,7 +1254,7 @@ map.on(
 
                         4, 2.2,
 
-                        6, 3.0,
+                        6, 3,
 
                         8, 3.8,
 
@@ -1414,8 +1266,7 @@ map.on(
 
             },
 
-            firstRoadLayerId
-
+            roadLayer
         );
 
 
@@ -1424,7 +1275,6 @@ map.on(
         // ====================================================
 
         map.addLayer(
-
             {
 
                 id:
@@ -1473,8 +1323,7 @@ map.on(
 
             },
 
-            firstRoadLayerId
-
+            roadLayer
         );
 
 
@@ -1584,18 +1433,15 @@ map.on(
 
                     ["zoom"],
 
-                    4, 2.0,
+                    4, 2,
 
                     6, 2.7,
 
                     8, 3.3,
 
-                    10, 4.0
+                    10, 4
 
-                ],
-
-                "line-opacity":
-                    1
+                ]
 
             }
 
@@ -1607,9 +1453,7 @@ map.on(
         // ====================================================
 
         map.addSource(
-
             "lbf-cwa",
-
             {
 
                 type:
@@ -1619,11 +1463,8 @@ map.on(
                     "data/lbf_cwa.geojson"
 
             }
-
         );
 
-
-        // BLACK HALO
 
         map.addLayer({
 
@@ -1663,8 +1504,6 @@ map.on(
 
         });
 
-
-        // WHITE CWA
 
         map.addLayer({
 
@@ -1721,161 +1560,159 @@ map.on(
             );
 
 
-        overlayButton.addEventListener(
+        if (
+            overlayButton
+            &&
+            overlayContent
+        ) {
 
-            "click",
+            overlayButton.addEventListener(
+                "click",
+                () => {
 
-            () => {
+                    overlayContent
+                        .classList
+                        .toggle("open");
 
-                overlayContent
-                    .classList
-                    .toggle(
-                        "open"
-                    );
+                }
+            );
 
-            }
-
-        );
+        }
 
 
         // ====================================================
         // SPC TOGGLE
         // ====================================================
 
-        document
-            .getElementById(
+        const spcToggle =
+            document.getElementById(
                 "spc-toggle"
-            )
-            .addEventListener(
+            );
 
+
+        if (spcToggle) {
+
+            spcToggle.addEventListener(
                 "change",
-
                 event => {
 
                     setLayersVisible(
-
                         [
-
                             "spc-day1-cat-fill",
-
                             "spc-day1-cat-outline-dark",
-
                             "spc-day1-cat-outline"
-
                         ],
-
                         event.target.checked
-
                     );
 
                 }
-
             );
+
+        }
 
 
         // ====================================================
         // CWA TOGGLE
         // ====================================================
 
-        document
-            .getElementById(
+        const cwaToggle =
+            document.getElementById(
                 "cwa-toggle"
-            )
-            .addEventListener(
+            );
 
+
+        if (cwaToggle) {
+
+            cwaToggle.addEventListener(
                 "change",
-
                 event => {
 
                     setLayersVisible(
-
                         [
-
                             "lbf-cwa-outline",
-
                             "lbf-cwa-boundary"
-
                         ],
-
                         event.target.checked
-
                     );
 
                 }
-
             );
+
+        }
 
 
         // ====================================================
         // COUNTY TOGGLE
         // ====================================================
 
-        document
-            .getElementById(
+        const countyToggle =
+            document.getElementById(
                 "county-toggle"
-            )
-            .addEventListener(
+            );
 
+
+        if (countyToggle) {
+
+            countyToggle.addEventListener(
                 "change",
-
                 event => {
 
                     setLayersVisible(
-
                         [
                             "custom-county-boundaries"
                         ],
-
                         event.target.checked
-
                     );
 
                 }
-
             );
+
+        }
 
 
         // ====================================================
         // STATE TOGGLE
         // ====================================================
 
-        document
-            .getElementById(
+        const stateToggle =
+            document.getElementById(
                 "state-toggle"
-            )
-            .addEventListener(
+            );
 
+
+        if (stateToggle) {
+
+            stateToggle.addEventListener(
                 "change",
-
                 event => {
 
                     setLayersVisible(
-
                         [
                             "custom-state-boundaries"
                         ],
-
                         event.target.checked
-
                     );
 
                 }
-
             );
+
+        }
 
 
         // ====================================================
         // MODEL SELECT
         // ====================================================
 
-        document
-            .getElementById(
+        const modelSelect =
+            document.getElementById(
                 "model-select"
-            )
-            .addEventListener(
+            );
 
+
+        if (modelSelect) {
+
+            modelSelect.addEventListener(
                 "change",
-
                 async event => {
 
                     await switchModel(
@@ -1883,22 +1720,25 @@ map.on(
                     );
 
                 }
-
             );
+
+        }
 
 
         // ====================================================
         // PRODUCT SELECT
         // ====================================================
 
-        document
-            .getElementById(
+        const productSelect =
+            document.getElementById(
                 "product-select"
-            )
-            .addEventListener(
+            );
 
+
+        if (productSelect) {
+
+            productSelect.addEventListener(
                 "change",
-
                 async event => {
 
                     activeProduct =
@@ -1908,30 +1748,35 @@ map.on(
                     currentManifest =
                         null;
 
-
                     availableFrames =
                         [];
+
+                    currentFrameIndex =
+                        0;
 
 
                     await refreshManifest();
 
                 }
-
             );
+
+        }
 
 
         // ====================================================
         // PLAY
         // ====================================================
 
-        document
-            .getElementById(
+        const playButton =
+            document.getElementById(
                 "model-play-button"
-            )
-            .addEventListener(
+            );
 
+
+        if (playButton) {
+
+            playButton.addEventListener(
                 "click",
-
                 () => {
 
                     if (
@@ -1949,22 +1794,25 @@ map.on(
                     }
 
                 }
-
             );
+
+        }
 
 
         // ====================================================
         // PREVIOUS
         // ====================================================
 
-        document
-            .getElementById(
+        const prevButton =
+            document.getElementById(
                 "model-prev-button"
-            )
-            .addEventListener(
+            );
 
+
+        if (prevButton) {
+
+            prevButton.addEventListener(
                 "click",
-
                 () => {
 
                     stopAnimation();
@@ -1974,22 +1822,25 @@ map.on(
                     );
 
                 }
-
             );
+
+        }
 
 
         // ====================================================
         // NEXT
         // ====================================================
 
-        document
-            .getElementById(
+        const nextButton =
+            document.getElementById(
                 "model-next-button"
-            )
-            .addEventListener(
+            );
 
+
+        if (nextButton) {
+
+            nextButton.addEventListener(
                 "click",
-
                 () => {
 
                     stopAnimation();
@@ -1999,23 +1850,23 @@ map.on(
                     );
 
                 }
-
             );
+
+        }
 
 
         // ====================================================
-        // FIRST HRRR MANIFEST
+        // INITIAL HRRR
         // ====================================================
 
         await refreshManifest();
 
 
         // ====================================================
-        // PROGRESSIVE MANIFEST POLLING
+        // KEEP POLLING FOR NEW HOURS
         // ====================================================
 
         setInterval(
-
             () => {
 
                 if (
@@ -2030,31 +1881,12 @@ map.on(
             },
 
             MANIFEST_REFRESH_MS
-
         );
 
-    }
 
-);
-
-
-// ============================================================
-// MAPBOX ERROR LOGGING
-// ============================================================
-
-map.on(
-
-    "error",
-
-    event => {
-
-        console.error(
-            "MAPBOX ERROR:",
-            event.error
+        console.log(
+            "Viewer initialized successfully"
         );
 
-    }
-
-);
     }
 );
