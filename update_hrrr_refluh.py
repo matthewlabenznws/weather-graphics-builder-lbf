@@ -800,7 +800,8 @@ def plot_hour(
             colors=[
                 "#000000"
             ],
-
+            alpha = 0.45,
+            
             transform=ccrs.PlateCarree(),
 
             antialiased=True,
