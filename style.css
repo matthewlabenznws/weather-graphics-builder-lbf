@@ -54,7 +54,8 @@ body {
 
 
 #overlay-menu-button {
-    background: rgba(20, 24, 32, 0.94);
+    background:
+        rgba(20, 24, 32, 0.94);
 
     color: #ffffff;
 
@@ -79,7 +80,8 @@ body {
 
 
 #overlay-menu-button:hover {
-    background: rgba(35, 40, 50, 0.96);
+    background:
+        rgba(35, 40, 50, 0.96);
 }
 
 
@@ -308,18 +310,13 @@ body {
 
 /* =========================================================
    GRAPHICS CREDIT
+   SCREEN ONLY
    ========================================================= */
 
 #graphics-credit {
     position: absolute;
 
     left: 10px;
-
-    /*
-       Timeline is 64px tall.
-       This places the credit just above it.
-    */
-
     bottom: 72px;
 
     z-index: 35;
@@ -351,14 +348,210 @@ body {
 }
 
 
-/*
-   When no model is displayed, the timeline disappears.
-
-   Move the graphics credit down to the actual bottom-left.
-*/
-
 #graphics-credit.no-timeline {
     bottom: 10px;
+}
+
+
+/* =========================================================
+   SAVE PNG / GIF CONTROLS
+   ========================================================= */
+
+#export-controls {
+    position: absolute;
+
+    right: 12px;
+    bottom: 76px;
+
+    z-index: 45;
+
+    display: flex;
+
+    gap: 7px;
+}
+
+
+.export-button {
+    height: 36px;
+
+    padding: 0 13px;
+
+    background:
+        rgba(20, 24, 32, 0.94);
+
+    color: #ffffff;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.18);
+
+    border-radius: 6px;
+
+    font-size: 13px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 2px 6px
+        rgba(0, 0, 0, 0.35);
+}
+
+
+.export-button:hover {
+    background:
+        rgba(45, 52, 64, 0.97);
+}
+
+
+.export-button:disabled {
+    opacity: 0.45;
+
+    cursor: default;
+}
+
+
+/* =========================================================
+   GIF RANGE PANEL
+   ========================================================= */
+
+#gif-panel {
+    position: absolute;
+
+    right: 12px;
+    bottom: 120px;
+
+    z-index: 50;
+
+    display: none;
+
+    width: 270px;
+
+    padding: 12px;
+
+    box-sizing: border-box;
+
+    background:
+        rgba(20, 24, 32, 0.97);
+
+    color: #ffffff;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.15);
+
+    border-radius: 7px;
+
+    box-shadow:
+        0 3px 12px
+        rgba(0, 0, 0, 0.45);
+}
+
+
+#gif-panel.open {
+    display: block;
+}
+
+
+#gif-panel-title {
+    margin-bottom: 10px;
+
+    font-size: 14px;
+
+    font-weight: 700;
+}
+
+
+.gif-select-row {
+    display: grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 8px;
+
+    margin-bottom: 10px;
+}
+
+
+.gif-select-box label {
+    display: block;
+
+    margin-bottom: 4px;
+
+    color: #abb4bf;
+
+    font-size: 11px;
+
+    font-weight: 700;
+}
+
+
+.gif-select-box select {
+    width: 100%;
+    height: 34px;
+
+    padding: 0 7px;
+
+    background:
+        rgba(255, 255, 255, 0.07);
+
+    color: #ffffff;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.15);
+
+    border-radius: 5px;
+
+    outline: none;
+}
+
+
+#gif-panel-actions {
+    display: flex;
+
+    gap: 7px;
+}
+
+
+#gif-panel-actions button {
+    flex: 1;
+
+    height: 34px;
+
+    background:
+        rgba(255, 255, 255, 0.07);
+
+    color: #ffffff;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.15);
+
+    border-radius: 5px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+
+#gif-panel-actions button:hover {
+    background:
+        rgba(255, 255, 255, 0.13);
+}
+
+
+#gif-status {
+    margin-top: 9px;
+
+    min-height: 15px;
+
+    color: #c4ccd6;
+
+    font-size: 11px;
 }
 
 
@@ -514,7 +707,7 @@ body {
 
 
 /* =========================================================
-   MAPBOX CONTROL POSITION
+   MAPBOX CONTROLS
    ========================================================= */
 
 .mapboxgl-ctrl-top-right {
@@ -579,6 +772,30 @@ body {
 
     #graphics-credit.no-timeline {
         bottom: 8px;
+    }
+
+
+    #export-controls {
+        bottom: 68px;
+
+        right: 8px;
+    }
+
+
+    .export-button {
+        height: 32px;
+
+        padding: 0 9px;
+
+        font-size: 11px;
+    }
+
+
+    #gif-panel {
+        right: 8px;
+        bottom: 106px;
+
+        width: 245px;
     }
 
 
