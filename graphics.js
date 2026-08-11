@@ -5,6 +5,14 @@
 mapboxgl.accessToken = "pk.eyJ1IjoibWF0dGhld2xhYmVuejciLCJhIjoiY21zbjhxZ3ZkMXBoNDJ3cHl5eG5uNzlpZCJ9.UBy4k84SejJzzu2VF0TtcA";
 
 // ============================================================
+// MAPBOX TOKEN
+// ============================================================
+
+mapboxgl.accessToken =
+    "YOUR_REAL_MAPBOX_TOKEN";
+
+
+// ============================================================
 // MODEL CONFIG
 // ============================================================
 
@@ -495,7 +503,7 @@ function setupMapLayers(
 
 
     // ========================================================
-    // SPC
+    // SPC DAY 1
     // ========================================================
 
     map.addSource(
@@ -656,7 +664,7 @@ function setupMapLayers(
 
 
     // ========================================================
-    // COUNTY
+    // COUNTY BOUNDARIES
     // ========================================================
 
     map.addLayer({
@@ -718,7 +726,7 @@ function setupMapLayers(
 
 
     // ========================================================
-    // STATE
+    // STATE BOUNDARIES
     // ========================================================
 
     map.addLayer({
@@ -1353,10 +1361,6 @@ async function refreshCompareManifests() {
     compareManifests.rrfs =
         results[1];
 
-
-    // ========================================================
-    // ONLY HOURS BOTH MODELS HAVE
-    // ========================================================
 
     const hrrrFrames =
         compareManifests
@@ -2350,6 +2354,25 @@ async function switchViewerMode(
         );
 
 
+        if (
+            singleMap.getLayer(
+                "model-raster-layer"
+            )
+        ) {
+
+            singleMap.setLayoutProperty(
+
+                "model-raster-layer",
+
+                "visibility",
+
+                "visible"
+
+            );
+
+        }
+
+
         singleMap.resize();
 
 
@@ -2498,12 +2521,190 @@ function roundRect(
 
     ctx.beginPath();
 
-    ctx.roundRect(
+
+    if (
+        typeof ctx.roundRect ===
+        "function"
+    ) {
+
+        ctx.roundRect(
+            x,
+            y,
+            w,
+            h,
+            r
+        );
+
+    }
+
+    else {
+
+        ctx.rect(
+            x,
+            y,
+            w,
+            h
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// DRAW GRAPHICS CREDIT
+// ============================================================
+
+function drawGraphicsCredit(
+    canvas
+) {
+
+    const ctx =
+        canvas.getContext(
+            "2d"
+        );
+
+
+    const width =
+        canvas.width;
+
+
+    const height =
+        canvas.height;
+
+
+    const scale =
+        width /
+        1400;
+
+
+    const creditText =
+        "Graphics created by: Matthew Labenz";
+
+
+    const creditFontSize =
+        Math.max(
+            12,
+            14 * scale
+        );
+
+
+    ctx.font =
+        `600 ${creditFontSize}px Arial, sans-serif`;
+
+
+    ctx.textAlign =
+        "left";
+
+
+    ctx.textBaseline =
+        "bottom";
+
+
+    const paddingX =
+        Math.max(
+            7,
+            8 * scale
+        );
+
+
+    const paddingY =
+        Math.max(
+            4,
+            5 * scale
+        );
+
+
+    const margin =
+        Math.max(
+            6,
+            8 * scale
+        );
+
+
+    const metrics =
+        ctx.measureText(
+            creditText
+        );
+
+
+    const boxWidth =
+        metrics.width
+        +
+        paddingX * 2;
+
+
+    const boxHeight =
+        creditFontSize
+        +
+        paddingY * 2;
+
+
+    const x =
+        margin;
+
+
+    const y =
+        height
+        -
+        margin
+        -
+        boxHeight;
+
+
+    // ========================================================
+    // DARK BACKGROUND
+    // ========================================================
+
+    ctx.fillStyle =
+        "rgba(20,24,32,0.75)";
+
+
+    roundRect(
+
+        ctx,
+
         x,
+
         y,
-        w,
-        h,
-        r
+
+        boxWidth,
+
+        boxHeight,
+
+        Math.max(
+            3,
+            4 * scale
+        )
+
+    );
+
+
+    ctx.fill();
+
+
+    // ========================================================
+    // WHITE CREDIT TEXT
+    // ========================================================
+
+    ctx.fillStyle =
+        "#ffffff";
+
+
+    ctx.fillText(
+
+        creditText,
+
+        x
+        +
+        paddingX,
+
+        height
+        -
+        margin
+        -
+        paddingY
+
     );
 
 }
@@ -2529,6 +2730,10 @@ function drawExportBranding(
         1400;
 
 
+    // ========================================================
+    // VALID TIME
+    // ========================================================
+
     const timestamp =
         `F${String(
             frame.fhr
@@ -2550,6 +2755,10 @@ function drawExportBranding(
 
     ctx.font =
         `700 ${fontSize}px Arial`;
+
+
+    ctx.textAlign =
+        "left";
 
 
     ctx.textBaseline =
@@ -2622,7 +2831,7 @@ function drawExportBranding(
 
 
     // ========================================================
-    // LOGOS + OFFICE
+    // LOGOS + NWS NORTH PLATTE
     // ========================================================
 
     if (
@@ -2703,7 +2912,10 @@ function drawExportBranding(
 
 
         ctx.lineWidth =
-            4 * scale;
+            Math.max(
+                2,
+                4 * scale
+            );
 
 
         ctx.strokeStyle =
@@ -2740,6 +2952,15 @@ function drawExportBranding(
             "left";
 
     }
+
+
+    // ========================================================
+    // GRAPHICS CREDIT
+    // ========================================================
+
+    drawGraphicsCredit(
+        canvas
+    );
 
 }
 
@@ -2833,7 +3054,7 @@ function createSingleExportCanvas(
 
 
 // ============================================================
-// COMPARE EXPORT CANVAS
+// COMPARISON EXPORT CANVAS
 // ============================================================
 
 function createCompareExportCanvas(
@@ -2922,6 +3143,10 @@ function createCompareExportCanvas(
         );
 
 
+    // ========================================================
+    // LEFT HRRR MAP
+    // ========================================================
+
     ctx.drawImage(
 
         leftCanvas,
@@ -2934,6 +3159,10 @@ function createCompareExportCanvas(
 
     );
 
+
+    // ========================================================
+    // RIGHT RRFS MAP
+    // ========================================================
 
     ctx.drawImage(
 
@@ -2948,7 +3177,9 @@ function createCompareExportCanvas(
     );
 
 
-    // divider
+    // ========================================================
+    // CENTER DIVIDER
+    // ========================================================
 
     ctx.fillStyle =
         "white";
@@ -2967,7 +3198,9 @@ function createCompareExportCanvas(
     );
 
 
-    // panel model labels
+    // ========================================================
+    // MODEL LABELS
+    // ========================================================
 
     const labelFont =
         Math.max(
@@ -2993,12 +3226,17 @@ function createCompareExportCanvas(
 
 
     ctx.lineWidth =
-        4;
+        Math.max(
+            2,
+            width / 350
+        );
 
 
     ctx.fillStyle =
         "white";
 
+
+    // HRRR
 
     ctx.strokeText(
 
@@ -3021,6 +3259,8 @@ function createCompareExportCanvas(
 
     );
 
+
+    // RRFS
 
     ctx.strokeText(
 
@@ -3051,6 +3291,10 @@ function createCompareExportCanvas(
     ctx.textAlign =
         "left";
 
+
+    // ========================================================
+    // TIMESTAMP + LOGOS + OFFICE + CREDIT
+    // ========================================================
 
     drawExportBranding(
         canvas,
@@ -3460,6 +3704,14 @@ async function saveGif(
             error
         );
 
+
+        if (status) {
+
+            status.textContent =
+                "GIF creation failed.";
+
+        }
+
     }
 
 
@@ -3777,7 +4029,9 @@ function updateExportVisibility() {
 
 function setupUiEvents() {
 
-    // overlay menu
+    // ========================================================
+    // OVERLAY MENU
+    // ========================================================
 
     document
         .getElementById(
@@ -3799,7 +4053,7 @@ function setupUiEvents() {
 
 
     // ========================================================
-    // OVERLAYS
+    // SPC
     // ========================================================
 
     document
@@ -3823,6 +4077,10 @@ function setupUiEvents() {
             };
 
 
+    // ========================================================
+    // CWA
+    // ========================================================
+
     document
         .getElementById(
             "cwa-toggle"
@@ -3844,6 +4102,10 @@ function setupUiEvents() {
             };
 
 
+    // ========================================================
+    // COUNTIES
+    // ========================================================
+
     document
         .getElementById(
             "county-toggle"
@@ -3864,6 +4126,10 @@ function setupUiEvents() {
 
             };
 
+
+    // ========================================================
+    // STATES
+    // ========================================================
 
     document
         .getElementById(
@@ -3923,7 +4189,7 @@ function setupUiEvents() {
 
 
     // ========================================================
-    // TIMELINE
+    // PREVIOUS
     // ========================================================
 
     document
@@ -3935,12 +4201,17 @@ function setupUiEvents() {
 
                 stopAnimation();
 
+
                 moveFrame(
                     -1
                 );
 
             };
 
+
+    // ========================================================
+    // NEXT
+    // ========================================================
 
     document
         .getElementById(
@@ -3951,12 +4222,17 @@ function setupUiEvents() {
 
                 stopAnimation();
 
+
                 moveFrame(
                     1
                 );
 
             };
 
+
+    // ========================================================
+    // PLAY
+    // ========================================================
 
     document
         .getElementById(
