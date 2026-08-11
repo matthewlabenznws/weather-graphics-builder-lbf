@@ -136,7 +136,7 @@ map.on("load", () => {
 
         type: "image",
 
-        url: "data/hrrr_composite_reflectivity_f000.png",
+        url: "https://mtl-nwslbf-model-data.s3.us-east-2.amazonaws.com/weather-graphics/hrrr/reflUH/latest/f000.png",
 
         coordinates: [
 
