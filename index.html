@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+
     <meta charset="UTF-8">
 
     <meta
@@ -23,7 +24,7 @@
 
 
     <!-- =====================================================
-         OUR CSS
+         SITE CSS
          ===================================================== -->
 
     <link
@@ -45,22 +46,121 @@
 
 
     <!-- =====================================================
-         MAP CONTROLS
+         OVERLAYS MENU
          ===================================================== -->
 
-    <div id="map-controls">
+    <div id="overlay-menu">
 
-        <label class="toggle-row">
+        <button id="overlay-menu-button">
+            Overlays ▼
+        </button>
 
-            <input
-                type="checkbox"
-                id="spc-toggle"
-                checked
-            >
 
-            <span>SPC Day 1</span>
+        <div id="overlay-menu-content">
 
-        </label>
+
+            <!-- =============================================
+                 SPC
+                 ============================================= -->
+
+            <div class="overlay-section-title">
+                SPC
+            </div>
+
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="spc-toggle"
+                    checked
+                >
+
+                <span>
+                    Day 1 Outlook
+                </span>
+
+            </label>
+
+
+            <!-- =============================================
+                 NWS
+                 ============================================= -->
+
+            <div class="overlay-section-title">
+                NWS
+            </div>
+
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="cwa-toggle"
+                    checked
+                >
+
+                <span>
+                    LBF CWA
+                </span>
+
+            </label>
+
+
+            <!-- =============================================
+                 BOUNDARIES
+                 ============================================= -->
+
+            <div class="overlay-section-title">
+                Boundaries
+            </div>
+
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="county-toggle"
+                    checked
+                >
+
+                <span>
+                    Counties
+                </span>
+
+            </label>
+
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="state-toggle"
+                    checked
+                >
+
+                <span>
+                    State Borders
+                </span>
+
+            </label>
+
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         MODEL VALID TIME
+         ===================================================== -->
+
+    <div
+        id="model-valid-label"
+        class="model-ui"
+    >
+
+        Loading HRRR...
 
     </div>
 
@@ -77,15 +177,106 @@
             alt="NOAA and National Weather Service logos"
         >
 
+
         <div id="office-name">
             NWS North Platte, NE
+        </div>
+
+
+        <!-- ================================================
+             MODEL / PRODUCT CONTROLS
+             ================================================ -->
+
+        <div id="model-product-controls">
+
+
+            <select id="model-select">
+
+                <option value="hrrr">
+                    HRRR
+                </option>
+
+                <option
+                    value="rrfs"
+                    disabled
+                >
+                    RRFS
+                </option>
+
+                <option value="none">
+                    Overlays Only
+                </option>
+
+            </select>
+
+
+            <select id="product-select">
+
+                <option value="reflUH">
+                    Reflectivity + UH ≥ 75
+                </option>
+
+            </select>
+
+
         </div>
 
     </div>
 
 
     <!-- =====================================================
-         MAPBOX JAVASCRIPT
+         MODEL TIMELINE
+         ===================================================== -->
+
+    <div
+        id="model-timeline"
+        class="model-ui"
+    >
+
+
+        <!-- PLAY -->
+
+        <button
+            id="model-play-button"
+            class="timeline-control-button"
+            title="Play"
+        >
+            ▶
+        </button>
+
+
+        <!-- PREVIOUS -->
+
+        <button
+            id="model-prev-button"
+            class="timeline-control-button"
+            title="Previous hour"
+        >
+            ‹
+        </button>
+
+
+        <!-- FORECAST HOURS -->
+
+        <div id="model-hour-list"></div>
+
+
+        <!-- NEXT -->
+
+        <button
+            id="model-next-button"
+            class="timeline-control-button"
+            title="Next hour"
+        >
+            ›
+        </button>
+
+
+    </div>
+
+
+    <!-- =====================================================
+         MAPBOX JS
          ===================================================== -->
 
     <script
@@ -94,7 +285,7 @@
 
 
     <!-- =====================================================
-         OUR JAVASCRIPT
+         SITE JS
          ===================================================== -->
 
     <script src="graphics.js"></script>
