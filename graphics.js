@@ -5,7 +5,6 @@
 mapboxgl.accessToken =
     "pk.eyJ1IjoibWF0dGhld2xhYmVuejciLCJhIjoiY21zbjhxZ3ZkMXBoNDJ3cHl5eG5uNzlpZCJ9.UBy4k84SejJzzu2VF0TtcA";
 
-
 // ============================================================
 // MODEL CONFIG
 // ============================================================
@@ -14,7 +13,8 @@ const MODEL_CONFIGS = {
 
     hrrr: {
 
-        name: "HRRR",
+        name:
+            "HRRR",
 
         products: {
 
@@ -36,7 +36,8 @@ const MODEL_CONFIGS = {
 
     rrfs: {
 
-        name: "RRFS",
+        name:
+            "RRFS",
 
         products: {
 
@@ -108,7 +109,7 @@ let exportBusy =
 
 
 // ============================================================
-// SAMPLING STATE
+// SAMPLING
 // ============================================================
 
 const sampleCache =
@@ -141,23 +142,38 @@ const GIF_FRAME_DELAY_MS =
 
 const overlayState = {
 
-    spcDay1: true,
+    spcDay1:
+        true,
 
-    spcDay2: false,
+    spcDay2:
+        false,
 
-    spcDay3: false,
+    spcDay3:
+        false,
 
-    cwa: true,
+    wpcDay1:
+        false,
 
-    counties: true,
+    wpcDay2:
+        false,
 
-    states: true
+    wpcDay3:
+        false,
+
+    cwa:
+        true,
+
+    counties:
+        true,
+
+    states:
+        true
 
 };
 
 
 // ============================================================
-// LOGO FOR EXPORT
+// EXPORT LOGO
 // ============================================================
 
 const exportLogoImage =
@@ -169,7 +185,7 @@ exportLogoImage.src =
 
 
 // ============================================================
-// CREATE SINGLE MAP
+// SINGLE MAP
 // ============================================================
 
 const singleMap =
@@ -240,11 +256,15 @@ function createMap(
 
     map.on(
         "error",
+
         event => {
 
             console.error(
+
                 `Map error (${container}):`,
+
                 event.error
+
             );
 
         }
@@ -278,11 +298,15 @@ function getProductConfig(
 
 
     return (
+
         model.products[
             activeProduct
         ]
+
         ||
+
         null
+
     );
 
 }
@@ -346,8 +370,8 @@ function formatValidTimeCentral(
             return (
 
                 parts.find(
-                    p =>
-                        p.type === type
+                    part =>
+                        part.type === type
                 )?.value
 
                 ||
@@ -378,7 +402,7 @@ function formatValidTimeCentral(
 
 
 // ============================================================
-// VALID TIME LABEL
+// VALID LABEL
 // ============================================================
 
 function updateValidLabel(
@@ -494,21 +518,13 @@ function addSpcOutlook(
         `spc-day${day}-fill`;
 
 
-    const darkOutlineId =
+    const darkId =
         `spc-day${day}-outline-dark`;
 
 
     const outlineId =
         `spc-day${day}-outline`;
 
-
-    const filename =
-        `data/spc_day${day}_cat.geojson`;
-
-
-    // ========================================================
-    // SOURCE
-    // ========================================================
 
     map.addSource(
 
@@ -520,16 +536,12 @@ function addSpcOutlook(
                 "geojson",
 
             data:
-                filename
+                `data/spc_day${day}_cat.geojson`
 
         }
 
     );
 
-
-    // ========================================================
-    // FILL
-    // ========================================================
 
     map.addLayer(
 
@@ -571,16 +583,12 @@ function addSpcOutlook(
     );
 
 
-    // ========================================================
-    // DARK OUTLINE
-    // ========================================================
-
     map.addLayer(
 
         {
 
             id:
-                darkOutlineId,
+                darkId,
 
             type:
                 "line",
@@ -627,10 +635,6 @@ function addSpcOutlook(
 
     );
 
-
-    // ========================================================
-    // COLOR OUTLINE
-    // ========================================================
 
     map.addLayer(
 
@@ -698,6 +702,219 @@ function addSpcOutlook(
 
 
 // ============================================================
+// ADD WPC ERO
+// ============================================================
+
+function addWpcEro(
+    map,
+    day,
+    roadLayer
+) {
+
+    const sourceId =
+        `wpc-day${day}-ero`;
+
+
+    const fillId =
+        `wpc-day${day}-ero-fill`;
+
+
+    const darkId =
+        `wpc-day${day}-ero-outline-dark`;
+
+
+    const outlineId =
+        `wpc-day${day}-ero-outline`;
+
+
+    map.addSource(
+
+        sourceId,
+
+        {
+
+            type:
+                "geojson",
+
+            data:
+                `data/wpc_day${day}_ero.geojson`
+
+        }
+
+    );
+
+
+    // ========================================================
+    // FILL
+    // ========================================================
+
+    map.addLayer(
+
+        {
+
+            id:
+                fillId,
+
+            type:
+                "fill",
+
+            source:
+                sourceId,
+
+            paint: {
+
+                "fill-color": [
+
+                    "coalesce",
+
+                    [
+                        "get",
+                        "fill"
+                    ],
+
+                    "#888888"
+
+                ],
+
+                "fill-opacity":
+                    0.62
+
+            }
+
+        },
+
+        roadLayer
+
+    );
+
+
+    // ========================================================
+    // DARK OUTLINE
+    // ========================================================
+
+    map.addLayer(
+
+        {
+
+            id:
+                darkId,
+
+            type:
+                "line",
+
+            source:
+                sourceId,
+
+            paint: {
+
+                "line-color":
+                    "#111111",
+
+                "line-width": [
+
+                    "interpolate",
+
+                    [
+                        "linear"
+                    ],
+
+                    [
+                        "zoom"
+                    ],
+
+                    4,
+                    2.0,
+
+                    6,
+                    2.8,
+
+                    8,
+                    3.5,
+
+                    10,
+                    4.2
+
+                ]
+
+            }
+
+        },
+
+        roadLayer
+
+    );
+
+
+    // ========================================================
+    // CATEGORY OUTLINE
+    // ========================================================
+
+    map.addLayer(
+
+        {
+
+            id:
+                outlineId,
+
+            type:
+                "line",
+
+            source:
+                sourceId,
+
+            paint: {
+
+                "line-color": [
+
+                    "coalesce",
+
+                    [
+                        "get",
+                        "stroke"
+                    ],
+
+                    "#000000"
+
+                ],
+
+                "line-width": [
+
+                    "interpolate",
+
+                    [
+                        "linear"
+                    ],
+
+                    [
+                        "zoom"
+                    ],
+
+                    4,
+                    1.2,
+
+                    6,
+                    1.7,
+
+                    8,
+                    2.2,
+
+                    10,
+                    2.7
+
+                ]
+
+            }
+
+        },
+
+        roadLayer
+
+    );
+
+}
+
+
+// ============================================================
 // SETUP MAP LAYERS
 // ============================================================
 
@@ -723,7 +940,7 @@ function setupMapLayers(
 
 
     // ========================================================
-    // BOUNDARY SOURCE
+    // MAPBOX BOUNDARIES
     // ========================================================
 
     map.addSource(
@@ -744,7 +961,7 @@ function setupMapLayers(
 
 
     // ========================================================
-    // SPC OUTLOOKS
+    // SPC DAY 1-3
     // ========================================================
 
     addSpcOutlook(
@@ -762,6 +979,31 @@ function setupMapLayers(
 
 
     addSpcOutlook(
+        map,
+        3,
+        roadLayer
+    );
+
+
+    // ========================================================
+    // WPC ERO DAY 1-3
+    // ========================================================
+
+    addWpcEro(
+        map,
+        1,
+        roadLayer
+    );
+
+
+    addWpcEro(
+        map,
+        2,
+        roadLayer
+    );
+
+
+    addWpcEro(
         map,
         3,
         roadLayer
@@ -1013,25 +1255,17 @@ function setupMapLayers(
                 10,
                 5
 
-             ]
+            ]
 
-    }
+        }
 
-});
+    });
 
-
-    // ========================================================
-    // APPLY SAVED OVERLAY STATE
-    // ========================================================
 
     applyOverlayStateToMap(
         map
     );
 
-
-    // ========================================================
-    // REMOVE UNWANTED BASEMAP LABELS
-    // ========================================================
 
     hideUnwantedBasemapLabels(
         map
@@ -1065,8 +1299,6 @@ function hideUnwantedBasemapLabels(
 
     const removeNames = [
 
-        // Reservations
-
         "Pine Ridge Indian Reservation",
 
         "Rosebud Indian Reservation",
@@ -1074,9 +1306,6 @@ function hideUnwantedBasemapLabels(
         "Cheyenne River Indian Reservation",
 
         "Standing Rock Indian Reservation",
-
-
-        // Parks / forests / grasslands / refuges
 
         "Badlands National Park",
 
@@ -1113,10 +1342,6 @@ function hideUnwantedBasemapLabels(
                 layer.id
                     .toLowerCase();
 
-
-            // =================================================
-            // REMOVE STATE / COUNTRY / REGION LABELS
-            // =================================================
 
             if (
                 id.includes(
@@ -1174,10 +1399,6 @@ function hideUnwantedBasemapLabels(
             }
 
 
-            // =================================================
-            // REMOVE NAMED RESERVATIONS / PARKS
-            // =================================================
-
             try {
 
                 const existingFilter =
@@ -1186,39 +1407,36 @@ function hideUnwantedBasemapLabels(
                     );
 
 
-                const removeLabels = [
-
-                    "all",
-
-                    existingFilter
-                        ? existingFilter
-                        : true,
-
-                    [
-
-                        "match",
-
-                        [
-                            "get",
-                            "name"
-                        ],
-
-                        removeNames,
-
-                        false,
-
-                        true
-
-                    ]
-
-                ];
-
-
                 map.setFilter(
 
                     layer.id,
 
-                    removeLabels
+                    [
+
+                        "all",
+
+                        existingFilter
+                            ? existingFilter
+                            : true,
+
+                        [
+
+                            "match",
+
+                            [
+                                "get",
+                                "name"
+                            ],
+
+                            removeNames,
+
+                            false,
+
+                            true
+
+                        ]
+
+                    ]
 
                 );
 
@@ -1226,7 +1444,7 @@ function hideUnwantedBasemapLabels(
 
             catch (error) {
 
-                // Some symbol layers cannot accept this filter.
+                // Some layers cannot accept a filter.
 
             }
 
@@ -1283,9 +1501,7 @@ function applyOverlayStateToMap(
     map
 ) {
 
-    // ========================================================
-    // DAY 1
-    // ========================================================
+    // SPC DAY 1
 
     setLayerVisibility(
 
@@ -1302,9 +1518,7 @@ function applyOverlayStateToMap(
     );
 
 
-    // ========================================================
-    // DAY 2
-    // ========================================================
+    // SPC DAY 2
 
     setLayerVisibility(
 
@@ -1321,9 +1535,7 @@ function applyOverlayStateToMap(
     );
 
 
-    // ========================================================
-    // DAY 3
-    // ========================================================
+    // SPC DAY 3
 
     setLayerVisibility(
 
@@ -1340,9 +1552,58 @@ function applyOverlayStateToMap(
     );
 
 
-    // ========================================================
+    // WPC DAY 1
+
+    setLayerVisibility(
+
+        map,
+
+        [
+            "wpc-day1-ero-fill",
+            "wpc-day1-ero-outline-dark",
+            "wpc-day1-ero-outline"
+        ],
+
+        overlayState.wpcDay1
+
+    );
+
+
+    // WPC DAY 2
+
+    setLayerVisibility(
+
+        map,
+
+        [
+            "wpc-day2-ero-fill",
+            "wpc-day2-ero-outline-dark",
+            "wpc-day2-ero-outline"
+        ],
+
+        overlayState.wpcDay2
+
+    );
+
+
+    // WPC DAY 3
+
+    setLayerVisibility(
+
+        map,
+
+        [
+            "wpc-day3-ero-fill",
+            "wpc-day3-ero-outline-dark",
+            "wpc-day3-ero-outline"
+        ],
+
+        overlayState.wpcDay3
+
+    );
+
+
     // CWA
-    // ========================================================
 
     setLayerVisibility(
 
@@ -1358,9 +1619,7 @@ function applyOverlayStateToMap(
     );
 
 
-    // ========================================================
     // COUNTIES
-    // ========================================================
 
     setLayerVisibility(
 
@@ -1375,9 +1634,7 @@ function applyOverlayStateToMap(
     );
 
 
-    // ========================================================
     // STATES
-    // ========================================================
 
     setLayerVisibility(
 
@@ -1395,7 +1652,7 @@ function applyOverlayStateToMap(
 
 
 // ============================================================
-// FETCH MANIFEST
+// MANIFEST
 // ============================================================
 
 async function fetchManifest(
@@ -1415,17 +1672,10 @@ async function fetchManifest(
     }
 
 
-    const url =
-
-        `${product.baseUrl}/manifest.json` +
-
-        `?t=${Date.now()}`;
-
-
     const response =
         await fetch(
 
-            url,
+            `${product.baseUrl}/manifest.json?t=${Date.now()}`,
 
             {
 
@@ -1441,18 +1691,14 @@ async function fetchManifest(
 
         throw new Error(
 
-            `${modelName} manifest HTTP ` +
-
-            `${response.status}`
+            `${modelName} manifest HTTP ${response.status}`
 
         );
 
     }
 
 
-    return (
-        await response.json()
-    );
+    return await response.json();
 
 }
 
@@ -1507,7 +1753,7 @@ function findFrame(
 
 
 // ============================================================
-// MODEL IMAGE COORDINATES
+// IMAGE COORDINATES
 // ============================================================
 
 function getCoordinates(
@@ -1575,7 +1821,7 @@ function showModelFrame(
         );
 
 
-    const url =
+    const imageUrl =
 
         `${product.baseUrl}/${frame.file}` +
 
@@ -1601,7 +1847,7 @@ function showModelFrame(
         source.updateImage({
 
             url:
-                url,
+                imageUrl,
 
             coordinates:
                 coordinates
@@ -1622,7 +1868,7 @@ function showModelFrame(
                     "image",
 
                 url:
-                    url,
+                    imageUrl,
 
                 coordinates:
                     coordinates
@@ -1672,7 +1918,7 @@ function showModelFrame(
 
 
 // ============================================================
-// REFRESH SINGLE MODEL
+// REFRESH SINGLE
 // ============================================================
 
 async function refreshSingleManifest() {
@@ -1688,28 +1934,25 @@ async function refreshSingleManifest() {
 
 
     availableFrames =
+        [...singleManifest.hours]
+            .sort(
 
-        [
-            ...singleManifest.hours
-        ]
-        .sort(
+                (
+                    a,
+                    b
+                ) =>
 
-            (
-                a,
-                b
-            ) =>
+                    Number(
+                        a.fhr
+                    )
 
-                Number(
-                    a.fhr
-                )
+                    -
 
-                -
+                    Number(
+                        b.fhr
+                    )
 
-                Number(
-                    b.fhr
-                )
-
-        );
+            );
 
 
     let targetFhr =
@@ -1718,7 +1961,9 @@ async function refreshSingleManifest() {
 
     if (
         targetFhr === null
+
         ||
+
         !findFrame(
             singleManifest,
             targetFhr
@@ -1801,26 +2046,23 @@ async function refreshCompareManifests() {
         results[1];
 
 
-    const hrrrFrames =
+    availableFrames =
         compareManifests
             .hrrr
-            .hours;
+            .hours
+            .filter(
+                frame => {
 
+                    return !!findFrame(
 
-    availableFrames =
-        hrrrFrames.filter(
-            frame => {
+                        compareManifests.rrfs,
 
-                return !!findFrame(
+                        frame.fhr
 
-                    compareManifests.rrfs,
+                    );
 
-                    frame.fhr
-
-                );
-
-            }
-        );
+                }
+            );
 
 
     availableFrames.sort(
@@ -1874,7 +2116,6 @@ async function refreshCompareManifests() {
             availableFrames.some(
 
                 frame =>
-
                     Number(
                         frame.fhr
                     ) === 0
@@ -1919,7 +2160,7 @@ async function refreshCompareManifests() {
 
 
 // ============================================================
-// LOAD SAMPLING GRID
+// LOAD SAMPLE GRID
 // ============================================================
 
 async function loadSampleGrid(
@@ -1944,9 +2185,7 @@ async function loadSampleGrid(
     const cacheKey =
 
         `${modelName}_` +
-
         `${manifest.run}_` +
-
         `${frame.fhr}`;
 
 
@@ -1969,28 +2208,14 @@ async function loadSampleGrid(
         );
 
 
-    if (!product) {
-
-        return null;
-
-    }
-
-
-    const url =
-
-        `${product.baseUrl}/` +
-
-        `${frame.sample_file}` +
-
-        `?run=${encodeURIComponent(
-            manifest.run
-        )}`;
-
-
     const response =
         await fetch(
 
-            url,
+            `${product.baseUrl}/${frame.sample_file}` +
+
+            `?run=${encodeURIComponent(
+                manifest.run
+            )}`,
 
             {
 
@@ -2006,9 +2231,7 @@ async function loadSampleGrid(
 
         throw new Error(
 
-            `Sample data HTTP ` +
-
-            `${response.status}`
+            `Sample data HTTP ${response.status}`
 
         );
 
@@ -2034,7 +2257,7 @@ async function loadSampleGrid(
 
 
 // ============================================================
-// SAMPLE GRID AT POINT
+// SAMPLE GRID
 // ============================================================
 
 function sampleGridAtPoint(
@@ -2114,11 +2337,9 @@ function sampleGridAtPoint(
 
     const index =
 
-        (
-            iy
-            *
-            data.nx
-        )
+        iy
+        *
+        data.nx
 
         +
 
@@ -2175,7 +2396,7 @@ function sampleGridAtPoint(
 
 
 // ============================================================
-// SAMPLE VALUE FORMATTER
+// FORMAT SAMPLE VALUE
 // ============================================================
 
 function formatSampleValue(
@@ -2206,7 +2427,7 @@ function formatSampleValue(
 
 
 // ============================================================
-// SINGLE MODEL SAMPLE POPUP HTML
+// SAMPLE POPUPS
 // ============================================================
 
 function makeSingleSampleHtml(
@@ -2215,12 +2436,6 @@ function makeSingleSampleHtml(
     sample,
     frame
 ) {
-
-    const modelLabel =
-        MODEL_CONFIGS[
-            modelName
-        ].name;
-
 
     return `
 
@@ -2235,7 +2450,7 @@ function makeSingleSampleHtml(
                 margin-bottom: 3px;
             ">
 
-                ${modelLabel}
+                ${MODEL_CONFIGS[modelName].name}
                 —
                 F${String(
                     frame.fhr
@@ -2280,9 +2495,7 @@ function makeSingleSampleHtml(
                 line-height: 1.7;
             ">
 
-                <b>
-                    Composite Reflectivity:
-                </b>
+                <b>Composite Reflectivity:</b>
 
                 ${formatSampleValue(
                     sample?.refl
@@ -2291,10 +2504,7 @@ function makeSingleSampleHtml(
 
                 <br>
 
-
-                <b>
-                    2–5 km UH:
-                </b>
+                <b>2–5 km UH:</b>
 
                 ${formatSampleValue(
                     sample?.uh,
@@ -2311,15 +2521,11 @@ function makeSingleSampleHtml(
 }
 
 
-// ============================================================
-// COMPARISON SAMPLE POPUP HTML
-// ============================================================
-
 function makeComparisonSampleHtml(
     lngLat,
     hrrrSample,
     rrfsSample,
-    hrrrFrame
+    frame
 ) {
 
     return `
@@ -2338,7 +2544,7 @@ function makeComparisonSampleHtml(
                 Model Comparison
                 —
                 F${String(
-                    hrrrFrame.fhr
+                    frame.fhr
                 ).padStart(
                     3,
                     "0"
@@ -2354,7 +2560,7 @@ function makeComparisonSampleHtml(
             ">
 
                 ${formatValidTimeCentral(
-                    hrrrFrame.valid
+                    frame.valid
                 )}
 
             </div>
@@ -2375,79 +2581,39 @@ function makeComparisonSampleHtml(
             </div>
 
 
-            <div style="
-                font-size: 14px;
-                font-weight: 800;
-                border-bottom: 1px solid #ccc;
-                margin-bottom: 4px;
-            ">
+            <b>HRRR</b><br>
 
-                HRRR
+            Reflectivity:
+            ${formatSampleValue(
+                hrrrSample?.refl
+            )}
+            dBZ<br>
 
-            </div>
-
-
-            <div style="
-                font-size: 13px;
-                line-height: 1.7;
-                margin-bottom: 9px;
-            ">
-
-                <b>Composite Reflectivity:</b>
-
-                ${formatSampleValue(
-                    hrrrSample?.refl
-                )}
-                dBZ
-
-                <br>
-
-                <b>2–5 km UH:</b>
-
-                ${formatSampleValue(
-                    hrrrSample?.uh,
-                    0
-                )}
-                m²/s²
-
-            </div>
+            UH:
+            ${formatSampleValue(
+                hrrrSample?.uh,
+                0
+            )}
+            m²/s²
 
 
-            <div style="
-                font-size: 14px;
-                font-weight: 800;
-                border-bottom: 1px solid #ccc;
-                margin-bottom: 4px;
-            ">
-
-                RRFS
-
-            </div>
+            <hr>
 
 
-            <div style="
-                font-size: 13px;
-                line-height: 1.7;
-            ">
+            <b>RRFS</b><br>
 
-                <b>Composite Reflectivity:</b>
+            Reflectivity:
+            ${formatSampleValue(
+                rrfsSample?.refl
+            )}
+            dBZ<br>
 
-                ${formatSampleValue(
-                    rrfsSample?.refl
-                )}
-                dBZ
-
-                <br>
-
-                <b>2–5 km UH:</b>
-
-                ${formatSampleValue(
-                    rrfsSample?.uh,
-                    0
-                )}
-                m²/s²
-
-            </div>
+            UH:
+            ${formatSampleValue(
+                rrfsSample?.uh,
+                0
+            )}
+            m²/s²
 
         </div>
 
@@ -2560,10 +2726,6 @@ async function sampleSingleModel(
 
 
         if (!grid) {
-
-            console.warn(
-                "No sampling file listed for this frame."
-            );
 
             return;
 
@@ -2787,16 +2949,14 @@ async function sampleComparison(
 
 
 // ============================================================
-// GET SELECTED FORECAST HOUR
+// SELECTED FORECAST HOUR
 // ============================================================
 
 function getSelectedFhr() {
 
     if (
         currentFrameIndex < 0
-
         ||
-
         !availableFrames[
             currentFrameIndex
         ]
@@ -2819,7 +2979,7 @@ function getSelectedFhr() {
 
 
 // ============================================================
-// DISPLAY CURRENT FRAME
+// DISPLAY FRAME
 // ============================================================
 
 function displayCurrentFrame() {
@@ -2934,16 +3094,14 @@ function displayCurrentFrame() {
 
 
 // ============================================================
-// MAX FORECAST HOUR
+// EXPECTED MAX FHR
 // ============================================================
 
 function getExpectedMaxFhr() {
 
     if (
         viewerMode === "single"
-
         &&
-
         singleManifest
     ) {
 
@@ -2956,13 +3114,9 @@ function getExpectedMaxFhr() {
 
     if (
         viewerMode === "compare"
-
         &&
-
         compareManifests.hrrr
-
         &&
-
         compareManifests.rrfs
     ) {
 
@@ -3018,7 +3172,7 @@ function hourIsAvailable(
 
 
 // ============================================================
-// BUILD FORECAST HOUR BUTTONS
+// BUILD HOURS
 // ============================================================
 
 function buildHourButtons() {
@@ -3079,10 +3233,7 @@ function buildHourButtons() {
             );
 
 
-            button.addEventListener(
-
-                "click",
-
+            button.onclick =
                 () => {
 
                     stopAnimation();
@@ -3092,9 +3243,7 @@ function buildHourButtons() {
                         fhr
                     );
 
-                }
-
-            );
+                };
 
         }
 
@@ -3127,7 +3276,7 @@ function buildHourButtons() {
 
 
 // ============================================================
-// SELECT FORECAST HOUR
+// SELECT FHR
 // ============================================================
 
 function selectFhr(
@@ -3174,7 +3323,7 @@ function selectFhr(
 
 
 // ============================================================
-// UPDATE HOUR BUTTON STYLES
+// HOUR BUTTON STYLE
 // ============================================================
 
 function updateHourButtonStyles() {
@@ -3211,7 +3360,7 @@ function updateHourButtonStyles() {
 
 
 // ============================================================
-// SCROLL SELECTED HOUR
+// SCROLL HOUR
 // ============================================================
 
 function scrollSelectedHourIntoView() {
@@ -3249,7 +3398,7 @@ function scrollSelectedHourIntoView() {
 
 
 // ============================================================
-// NEXT / PREVIOUS
+// MOVE FRAME
 // ============================================================
 
 function moveFrame(
@@ -3300,7 +3449,7 @@ function moveFrame(
 
 
 // ============================================================
-// START ANIMATION
+// PLAY
 // ============================================================
 
 function startAnimation() {
@@ -3345,10 +3494,6 @@ function startAnimation() {
 
 }
 
-
-// ============================================================
-// STOP ANIMATION
-// ============================================================
 
 function stopAnimation() {
 
@@ -3548,7 +3693,7 @@ async function initializeComparison() {
 
 
 // ============================================================
-// SYNC COMPARISON MAPS
+// SYNC MAPS
 // ============================================================
 
 function syncComparisonMaps() {
@@ -3630,7 +3775,7 @@ function syncComparisonMaps() {
 
 
 // ============================================================
-// SWITCH VIEW MODE
+// SWITCH VIEWER MODE
 // ============================================================
 
 async function switchViewerMode(
@@ -3686,61 +3831,43 @@ async function switchViewerMode(
         );
 
 
-    // ========================================================
-    // OVERLAYS ONLY
-    // ========================================================
-
     if (
         mode === "overlays"
     ) {
 
-        singleEl
-            .classList
-            .remove(
-                "hidden"
-            );
+        singleEl.classList.remove(
+            "hidden"
+        );
 
 
-        compareEl
-            .classList
-            .add(
-                "hidden"
-            );
+        compareEl.classList.add(
+            "hidden"
+        );
 
 
-        timeline
-            .classList
-            .add(
-                "hidden"
-            );
+        timeline.classList.add(
+            "hidden"
+        );
 
 
-        validLabel
-            .classList
-            .add(
-                "hidden"
-            );
+        validLabel.classList.add(
+            "hidden"
+        );
 
 
-        productSelect
-            .classList
-            .add(
-                "hidden"
-            );
+        productSelect.classList.add(
+            "hidden"
+        );
 
 
-        modelSelect
-            .classList
-            .add(
-                "hidden"
-            );
+        modelSelect.classList.add(
+            "hidden"
+        );
 
 
-        credit
-            .classList
-            .add(
-                "no-timeline"
-            );
+        credit.classList.add(
+            "no-timeline"
+        );
 
 
         if (
@@ -3770,65 +3897,43 @@ async function switchViewerMode(
     }
 
 
-    // ========================================================
-    // MODEL MODES
-    // ========================================================
-
-    timeline
-        .classList
-        .remove(
-            "hidden"
-        );
+    timeline.classList.remove(
+        "hidden"
+    );
 
 
-    validLabel
-        .classList
-        .remove(
-            "hidden"
-        );
+    validLabel.classList.remove(
+        "hidden"
+    );
 
 
-    productSelect
-        .classList
-        .remove(
-            "hidden"
-        );
+    productSelect.classList.remove(
+        "hidden"
+    );
 
 
-    credit
-        .classList
-        .remove(
-            "no-timeline"
-        );
+    credit.classList.remove(
+        "no-timeline"
+    );
 
-
-    // ========================================================
-    // SINGLE MODEL
-    // ========================================================
 
     if (
         mode === "single"
     ) {
 
-        modelSelect
-            .classList
-            .remove(
-                "hidden"
-            );
+        modelSelect.classList.remove(
+            "hidden"
+        );
 
 
-        singleEl
-            .classList
-            .remove(
-                "hidden"
-            );
+        singleEl.classList.remove(
+            "hidden"
+        );
 
 
-        compareEl
-            .classList
-            .add(
-                "hidden"
-            );
+        compareEl.classList.add(
+            "hidden"
+        );
 
 
         if (
@@ -3858,33 +3963,23 @@ async function switchViewerMode(
     }
 
 
-    // ========================================================
-    // COMPARE MODE
-    // ========================================================
-
     else if (
         mode === "compare"
     ) {
 
-        modelSelect
-            .classList
-            .add(
-                "hidden"
-            );
+        modelSelect.classList.add(
+            "hidden"
+        );
 
 
-        singleEl
-            .classList
-            .add(
-                "hidden"
-            );
+        singleEl.classList.add(
+            "hidden"
+        );
 
 
-        compareEl
-            .classList
-            .remove(
-                "hidden"
-            );
+        compareEl.classList.remove(
+            "hidden"
+        );
 
 
         await initializeComparison();
@@ -3907,7 +4002,7 @@ async function switchViewerMode(
 
 
 // ============================================================
-// SWITCH SINGLE MODEL
+// SWITCH MODEL
 // ============================================================
 
 async function switchSingleModel(
@@ -4000,9 +4095,9 @@ function roundRect(
     ctx,
     x,
     y,
-    w,
-    h,
-    r
+    width,
+    height,
+    radius
 ) {
 
     ctx.beginPath();
@@ -4018,9 +4113,11 @@ function roundRect(
 
             x,
             y,
-            w,
-            h,
-            r
+
+            width,
+            height,
+
+            radius
 
         );
 
@@ -4032,8 +4129,9 @@ function roundRect(
 
             x,
             y,
-            w,
-            h
+
+            width,
+            height
 
         );
 
@@ -4043,7 +4141,7 @@ function roundRect(
 
 
 // ============================================================
-// DRAW GRAPHICS CREDIT
+// GRAPHICS CREDIT
 // ============================================================
 
 function drawGraphicsCredit(
@@ -4056,20 +4154,12 @@ function drawGraphicsCredit(
         );
 
 
-    const width =
-        canvas.width;
-
-
-    const height =
-        canvas.height;
-
-
     const scale =
-        width /
+        canvas.width /
         1400;
 
 
-    const creditText =
+    const text =
         "Graphics created by: Matthew Labenz";
 
 
@@ -4113,19 +4203,15 @@ function drawGraphicsCredit(
         );
 
 
-    const metrics =
+    const width =
         ctx.measureText(
-            creditText
-        );
-
-
-    const boxWidth =
-        metrics.width
+            text
+        ).width
         +
         paddingX * 2;
 
 
-    const boxHeight =
+    const height =
         fontSize
         +
         paddingY * 2;
@@ -4136,11 +4222,11 @@ function drawGraphicsCredit(
 
 
     const y =
-        height
+        canvas.height
         -
         margin
         -
-        boxHeight;
+        height;
 
 
     ctx.fillStyle =
@@ -4154,13 +4240,10 @@ function drawGraphicsCredit(
         x,
         y,
 
-        boxWidth,
-        boxHeight,
+        width,
+        height,
 
-        Math.max(
-            3,
-            4 * scale
-        )
+        4 * scale
 
     );
 
@@ -4174,13 +4257,13 @@ function drawGraphicsCredit(
 
     ctx.fillText(
 
-        creditText,
+        text,
 
         x
         +
         paddingX,
 
-        height
+        canvas.height
         -
         margin
         -
@@ -4192,7 +4275,7 @@ function drawGraphicsCredit(
 
 
 // ============================================================
-// DRAW EXPORT BRANDING
+// EXPORT BRANDING
 // ============================================================
 
 function drawExportBranding(
@@ -4210,10 +4293,6 @@ function drawExportBranding(
         canvas.width /
         1400;
 
-
-    // ========================================================
-    // TIMESTAMP
-    // ========================================================
 
     const timestamp =
 
@@ -4281,11 +4360,9 @@ function drawExportBranding(
         ctx,
 
         10 * scale,
-
         10 * scale,
 
         boxWidth,
-
         boxHeight,
 
         5 * scale
@@ -4314,10 +4391,6 @@ function drawExportBranding(
 
     );
 
-
-    // ========================================================
-    // LOGO + OFFICE NAME
-    // ========================================================
 
     if (
         exportLogoImage.complete
@@ -4407,16 +4480,15 @@ function drawExportBranding(
 
 
         const textY =
-
             logoY
-
             +
-
             logoHeight
-
             +
-
             3 * scale;
+
+
+        ctx.strokeStyle =
+            "#000000";
 
 
         ctx.lineWidth =
@@ -4424,10 +4496,6 @@ function drawExportBranding(
                 2,
                 4 * scale
             );
-
-
-        ctx.strokeStyle =
-            "#000000";
 
 
         ctx.strokeText(
@@ -4455,10 +4523,6 @@ function drawExportBranding(
 
         );
 
-
-        ctx.textAlign =
-            "left";
-
     }
 
 
@@ -4470,7 +4534,7 @@ function drawExportBranding(
 
 
 // ============================================================
-// SINGLE EXPORT CANVAS
+// SINGLE EXPORT
 // ============================================================
 
 function createSingleExportCanvas(
@@ -4561,7 +4625,7 @@ function createSingleExportCanvas(
 
 
 // ============================================================
-// COMPARISON EXPORT CANVAS
+// COMPARISON EXPORT
 // ============================================================
 
 function createCompareExportCanvas(
@@ -4676,10 +4740,6 @@ function createCompareExportCanvas(
     );
 
 
-    // ========================================================
-    // DIVIDER
-    // ========================================================
-
     ctx.fillStyle =
         "#ffffff";
 
@@ -4696,10 +4756,6 @@ function createCompareExportCanvas(
 
     );
 
-
-    // ========================================================
-    // MODEL LABELS
-    // ========================================================
 
     const labelFont =
         Math.max(
@@ -4783,10 +4839,6 @@ function createCompareExportCanvas(
     );
 
 
-    ctx.textAlign =
-        "left";
-
-
     drawExportBranding(
 
         canvas,
@@ -4802,7 +4854,7 @@ function createCompareExportCanvas(
 
 
 // ============================================================
-// CURRENT EXPORT CANVAS
+// CURRENT EXPORT
 // ============================================================
 
 function createCurrentExportCanvas(
@@ -4837,7 +4889,7 @@ function createCurrentExportCanvas(
 
 
 // ============================================================
-// DOWNLOAD BLOB
+// DOWNLOAD
 // ============================================================
 
 function downloadBlob(
@@ -4851,21 +4903,21 @@ function downloadBlob(
         );
 
 
-    const a =
+    const anchor =
         document.createElement(
             "a"
         );
 
 
-    a.href =
+    anchor.href =
         url;
 
 
-    a.download =
+    anchor.download =
         filename;
 
 
-    a.click();
+    anchor.click();
 
 
     setTimeout(
@@ -4952,9 +5004,7 @@ async function savePng() {
 
             blob,
 
-            `nws_lbf_${modeLabel}_` +
-
-            `f${String(
+            `nws_lbf_${modeLabel}_f${String(
                 frame.fhr
             ).padStart(
                 3,
@@ -4976,7 +5026,7 @@ async function savePng() {
 
 
 // ============================================================
-// GIFENC
+// GIF
 // ============================================================
 
 let gifencPromise =
@@ -5001,10 +5051,6 @@ function loadGifenc() {
 
 }
 
-
-// ============================================================
-// SAVE GIF
-// ============================================================
 
 async function saveGif(
     startIndex,
@@ -5156,9 +5202,7 @@ async function saveGif(
 
                 status.textContent =
 
-                    `Encoding ` +
-
-                    `${i - startIndex + 1}/` +
+                    `Encoding ${i - startIndex + 1}/` +
 
                     `${endIndex - startIndex + 1}`;
 
@@ -5244,7 +5288,7 @@ async function saveGif(
 
 
 // ============================================================
-// CREATE EXPORT CONTROLS
+// EXPORT CONTROLS
 // ============================================================
 
 function createExportControls() {
@@ -5267,7 +5311,6 @@ function createExportControls() {
         >
             Save PNG
         </button>
-
 
         <button
             id="save-gif-button"
@@ -5333,16 +5376,11 @@ function createExportControls() {
 
         <div id="gif-panel-actions">
 
-            <button
-                id="gif-create-button"
-            >
+            <button id="gif-create-button">
                 Create GIF
             </button>
 
-
-            <button
-                id="gif-cancel-button"
-            >
+            <button id="gif-cancel-button">
                 Cancel
             </button>
 
@@ -5412,23 +5450,19 @@ function createExportControls() {
                 saveGif(
 
                     Number(
-
                         document
                             .getElementById(
                                 "gif-start-hour"
                             )
                             .value
-
                     ),
 
                     Number(
-
                         document
                             .getElementById(
                                 "gif-end-hour"
                             )
                             .value
-
                     )
 
                 );
@@ -5439,7 +5473,7 @@ function createExportControls() {
 
 
 // ============================================================
-// BUILD GIF SELECTORS
+// GIF SELECTORS
 // ============================================================
 
 function rebuildGifSelectors() {
@@ -5483,7 +5517,6 @@ function rebuildGifSelectors() {
         ) => {
 
             const label =
-
                 `F${String(
                     frame.fhr
                 ).padStart(
@@ -5495,11 +5528,8 @@ function rebuildGifSelectors() {
             start.add(
 
                 new Option(
-
                     label,
-
                     index
-
                 )
 
             );
@@ -5508,11 +5538,8 @@ function rebuildGifSelectors() {
             end.add(
 
                 new Option(
-
                     label,
-
                     index
-
                 )
 
             );
@@ -5571,6 +5598,27 @@ function updateExportVisibility() {
 
 
 // ============================================================
+// APPLY OVERLAY TO ALL MAPS
+// ============================================================
+
+function refreshOverlayMaps() {
+
+    allMaps().forEach(
+
+        map => {
+
+            applyOverlayStateToMap(
+                map
+            );
+
+        }
+
+    );
+
+}
+
+
+// ============================================================
 // UI EVENTS
 // ============================================================
 
@@ -5614,17 +5662,7 @@ function setupUiEvents() {
                     event.target.checked;
 
 
-                allMaps().forEach(
-
-                    map => {
-
-                        applyOverlayStateToMap(
-                            map
-                        );
-
-                    }
-
-                );
+                refreshOverlayMaps();
 
             };
 
@@ -5644,17 +5682,7 @@ function setupUiEvents() {
                     event.target.checked;
 
 
-                allMaps().forEach(
-
-                    map => {
-
-                        applyOverlayStateToMap(
-                            map
-                        );
-
-                    }
-
-                );
+                refreshOverlayMaps();
 
             };
 
@@ -5674,23 +5702,73 @@ function setupUiEvents() {
                     event.target.checked;
 
 
-                allMaps().forEach(
-
-                    map => {
-
-                        applyOverlayStateToMap(
-                            map
-                        );
-
-                    }
-
-                );
+                refreshOverlayMaps();
 
             };
 
 
     // ========================================================
-    // LBF CWA
+    // WPC DAY 1
+    // ========================================================
+
+    document
+        .getElementById(
+            "wpc-day1-toggle"
+        )
+        .onchange =
+            event => {
+
+                overlayState.wpcDay1 =
+                    event.target.checked;
+
+
+                refreshOverlayMaps();
+
+            };
+
+
+    // ========================================================
+    // WPC DAY 2
+    // ========================================================
+
+    document
+        .getElementById(
+            "wpc-day2-toggle"
+        )
+        .onchange =
+            event => {
+
+                overlayState.wpcDay2 =
+                    event.target.checked;
+
+
+                refreshOverlayMaps();
+
+            };
+
+
+    // ========================================================
+    // WPC DAY 3
+    // ========================================================
+
+    document
+        .getElementById(
+            "wpc-day3-toggle"
+        )
+        .onchange =
+            event => {
+
+                overlayState.wpcDay3 =
+                    event.target.checked;
+
+
+                refreshOverlayMaps();
+
+            };
+
+
+    // ========================================================
+    // CWA
     // ========================================================
 
     document
@@ -5704,17 +5782,7 @@ function setupUiEvents() {
                     event.target.checked;
 
 
-                allMaps().forEach(
-
-                    map => {
-
-                        applyOverlayStateToMap(
-                            map
-                        );
-
-                    }
-
-                );
+                refreshOverlayMaps();
 
             };
 
@@ -5734,17 +5802,7 @@ function setupUiEvents() {
                     event.target.checked;
 
 
-                allMaps().forEach(
-
-                    map => {
-
-                        applyOverlayStateToMap(
-                            map
-                        );
-
-                    }
-
-                );
+                refreshOverlayMaps();
 
             };
 
@@ -5764,23 +5822,13 @@ function setupUiEvents() {
                     event.target.checked;
 
 
-                allMaps().forEach(
-
-                    map => {
-
-                        applyOverlayStateToMap(
-                            map
-                        );
-
-                    }
-
-                );
+                refreshOverlayMaps();
 
             };
 
 
     // ========================================================
-    // VIEWER MODE
+    // VIEW MODE
     // ========================================================
 
     document
@@ -5798,7 +5846,7 @@ function setupUiEvents() {
 
 
     // ========================================================
-    // MODEL SELECT
+    // MODEL
     // ========================================================
 
     document
@@ -5888,7 +5936,7 @@ function setupUiEvents() {
 
 
 // ============================================================
-// GET ALL INITIALIZED MAPS
+// ALL MAPS
 // ============================================================
 
 function allMaps() {
@@ -5926,7 +5974,7 @@ function allMaps() {
 
 
 // ============================================================
-// SINGLE MAP LOAD
+// INITIAL LOAD
 // ============================================================
 
 singleMap.on(
@@ -5940,20 +5988,12 @@ singleMap.on(
         );
 
 
-        // ====================================================
-        // SAMPLING CURSOR
-        // ====================================================
-
         singleMap
             .getCanvas()
             .style
             .cursor =
                 "crosshair";
 
-
-        // ====================================================
-        // SINGLE MODEL SAMPLING
-        // ====================================================
 
         singleMap.on(
 
@@ -5980,30 +6020,14 @@ singleMap.on(
         );
 
 
-        // ====================================================
-        // EXPORT CONTROLS
-        // ====================================================
-
         createExportControls();
 
-
-        // ====================================================
-        // UI
-        // ====================================================
 
         setupUiEvents();
 
 
-        // ====================================================
-        // INITIAL MODEL
-        // ====================================================
-
         await refreshSingleManifest();
 
-
-        // ====================================================
-        // PERIODIC MANIFEST REFRESH
-        // ====================================================
 
         setInterval(
 
