@@ -14,11 +14,11 @@
 
 
     <!-- =====================================================
-         MAPBOX CSS
+         MAPBOX
          ===================================================== -->
 
     <link
-        href="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css"
+        href="https://api.mapbox.com/mapbox-gl-js/v3.25.0/mapbox-gl.css"
         rel="stylesheet"
     >
 
@@ -39,17 +39,75 @@
 
 
     <!-- =====================================================
-         MAP
+         SINGLE MODEL MAP
          ===================================================== -->
 
-    <div id="map"></div>
+    <div
+        id="single-map"
+        class="map-panel"
+    ></div>
 
-    <div id="graphics-credit">
-    Graphics created by: Matthew Labenz
-    </div>
-    
+
     <!-- =====================================================
-         OVERLAYS MENU
+         COMPARISON MAPS
+         ===================================================== -->
+
+    <div
+        id="comparison-container"
+        class="hidden"
+    >
+
+        <div class="compare-panel">
+
+            <div
+                id="left-map"
+                class="compare-map"
+            ></div>
+
+            <div class="compare-panel-label">
+
+                <div class="compare-model-name">
+                    HRRR
+                </div>
+
+                <div class="compare-product-name">
+                    Reflectivity + UH ≥ 75
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="compare-divider"></div>
+
+
+        <div class="compare-panel">
+
+            <div
+                id="right-map"
+                class="compare-map"
+            ></div>
+
+            <div class="compare-panel-label">
+
+                <div class="compare-model-name">
+                    RRFS
+                </div>
+
+                <div class="compare-product-name">
+                    Reflectivity + UH ≥ 75
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         OVERLAYS
          ===================================================== -->
 
     <div id="overlay-menu">
@@ -61,10 +119,6 @@
 
         <div id="overlay-menu-content">
 
-
-            <!-- =============================================
-                 SPC
-                 ============================================= -->
 
             <div class="overlay-section-title">
                 SPC
@@ -79,16 +133,10 @@
                     checked
                 >
 
-                <span>
-                    Day 1 Outlook
-                </span>
+                Day 1 Outlook
 
             </label>
 
-
-            <!-- =============================================
-                 NWS
-                 ============================================= -->
 
             <div class="overlay-section-title">
                 NWS
@@ -103,16 +151,10 @@
                     checked
                 >
 
-                <span>
-                    LBF CWA
-                </span>
+                LBF CWA
 
             </label>
 
-
-            <!-- =============================================
-                 BOUNDARIES
-                 ============================================= -->
 
             <div class="overlay-section-title">
                 Boundaries
@@ -127,9 +169,7 @@
                     checked
                 >
 
-                <span>
-                    Counties
-                </span>
+                Counties
 
             </label>
 
@@ -142,9 +182,7 @@
                     checked
                 >
 
-                <span>
-                    State Borders
-                </span>
+                State Borders
 
             </label>
 
@@ -155,21 +193,19 @@
 
 
     <!-- =====================================================
-         MODEL VALID TIME
+         VALID TIME
          ===================================================== -->
 
     <div
         id="model-valid-label"
         class="model-ui"
     >
-
-        Loading HRRR...
-
+        Loading model...
     </div>
 
 
     <!-- =====================================================
-         NWS NORTH PLATTE BRANDING
+         OFFICE BRANDING
          ===================================================== -->
 
     <div id="office-branding">
@@ -180,17 +216,32 @@
             alt="NOAA and National Weather Service logos"
         >
 
-
         <div id="office-name">
             NWS North Platte, NE
         </div>
 
 
-        <!-- ================================================
-             MODEL / PRODUCT CONTROLS
-             ================================================ -->
+        <!-- =================================================
+             VIEW MODE
+             ================================================= -->
 
-        <div id="model-product-controls">
+        <div id="viewer-controls">
+
+            <select id="viewer-mode-select">
+
+                <option value="single">
+                    Single Model
+                </option>
+
+                <option value="compare">
+                    Compare Models
+                </option>
+
+                <option value="overlays">
+                    Overlays Only
+                </option>
+
+            </select>
 
 
             <select id="model-select">
@@ -199,14 +250,8 @@
                     HRRR
                 </option>
 
-                <option
-                    value="rrfs"
-                >
+                <option value="rrfs">
                     RRFS
-                </option>
-
-                <option value="none">
-                    Overlays Only
                 </option>
 
             </select>
@@ -220,9 +265,17 @@
 
             </select>
 
-
         </div>
 
+    </div>
+
+
+    <!-- =====================================================
+         GRAPHICS CREDIT
+         ===================================================== -->
+
+    <div id="graphics-credit">
+        Graphics created by: Matthew Labenz
     </div>
 
 
@@ -235,9 +288,6 @@
         class="model-ui"
     >
 
-
-        <!-- PLAY -->
-
         <button
             id="model-play-button"
             class="timeline-control-button"
@@ -246,8 +296,6 @@
             ▶
         </button>
 
-
-        <!-- PREVIOUS -->
 
         <button
             id="model-prev-button"
@@ -258,12 +306,8 @@
         </button>
 
 
-        <!-- FORECAST HOURS -->
-
         <div id="model-hour-list"></div>
 
-
-        <!-- NEXT -->
 
         <button
             id="model-next-button"
@@ -273,7 +317,6 @@
             ›
         </button>
 
-
     </div>
 
 
@@ -282,7 +325,7 @@
          ===================================================== -->
 
     <script
-        src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js">
+        src="https://api.mapbox.com/mapbox-gl-js/v3.25.0/mapbox-gl.js">
     </script>
 
 
