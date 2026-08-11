@@ -1,561 +1,795 @@
+# ============================================================
+# SPC DAY 1 / DAY 2 / DAY 3 CATEGORICAL OUTLOOK UPDATER
+#
+# Downloads categorical outlook polygons from the NOAA/NWS
+# ArcGIS REST service and writes:
+#
+#   site/data/spc_day1_cat.geojson
+#   site/data/spc_day2_cat.geojson
+#   site/data/spc_day3_cat.geojson
+#
+# These GeoJSON files are then read directly by graphics.js.
+# ============================================================
+
+
 import json
-import os
-import sys
-import shutil
-import tempfile
-import zipfile
-from datetime import datetime, timezone
+import time
+
 from pathlib import Path
 
-import geopandas as gpd
 import requests
 
 
 # ============================================================
-# CONFIGURATION
+# NOAA / NWS SPC MAP SERVICE
 # ============================================================
 
-SPC_URL = (
-    "https://www.spc.noaa.gov/products/outlook/"
-    "day1otlk-shp.zip"
+SPC_MAPSERVER = (
+    "https://mapservices.weather.noaa.gov/vector/rest/services/"
+    "outlooks/SPC_wx_outlks/MapServer"
 )
 
-BASE_DIR = Path(__file__).resolve().parent
 
-DATA_DIR = BASE_DIR / "data"
+# ============================================================
+# CATEGORICAL LAYER IDS
+#
+# Day 1 categorical = 1
+# Day 2 categorical = 9
+# Day 3 categorical = 17
+# ============================================================
 
-OUTPUT_FILE = DATA_DIR / "spc_day1_cat.geojson"
+SPC_LAYERS = {
 
-TIMEOUT = 60
+    1: {
+        "name": "Day 1",
+        "layer_id": 1,
+        "filename": "spc_day1_cat.geojson",
+    },
+
+    2: {
+        "name": "Day 2",
+        "layer_id": 9,
+        "filename": "spc_day2_cat.geojson",
+    },
+
+    3: {
+        "name": "Day 3",
+        "layer_id": 17,
+        "filename": "spc_day3_cat.geojson",
+    },
+
+}
 
 
 # ============================================================
-# LOGGING
+# OUTPUT DIRECTORY
+#
+# If update_spc.py is in the repository root and your site is:
+#
+# repository/
+# ├── update_spc.py
+# └── site/
+#     └── data/
+#
+# this writes directly into site/data.
 # ============================================================
 
-def log(message):
-    """
-    Print a UTC timestamp with every message.
-    Useful when the script runs from cron.
-    """
-
-    timestamp = datetime.now(timezone.utc).strftime(
-        "%Y-%m-%d %H:%M:%S UTC"
-    )
-
-    print(
-        f"[{timestamp}] {message}",
-        flush=True
-    )
+BASE_DIR = (
+    Path(__file__)
+    .resolve()
+    .parent
+)
 
 
-# ============================================================
-# DOWNLOAD SPC ZIP
-# ============================================================
-
-def download_spc_zip(destination):
-
-    log("Downloading current SPC Day 1 outlook...")
-
-    response = requests.get(
-        SPC_URL,
-        timeout=TIMEOUT,
-        headers={
-            "User-Agent":
-                "NWS-LBF-Weather-Graphics/1.0"
-        }
-    )
-
-    response.raise_for_status()
-
-    content_type = response.headers.get(
-        "Content-Type",
-        ""
-    )
-
-    log(
-        f"HTTP {response.status_code} | "
-        f"{len(response.content) / 1024:.1f} KB | "
-        f"{content_type}"
-    )
+OUTPUT_DIR = (
+    BASE_DIR
+    / "site"
+    / "data"
+)
 
 
-    # --------------------------------------------------------
-    # Basic validation
-    # --------------------------------------------------------
-
-    if len(response.content) < 1000:
-
-        raise RuntimeError(
-            "Downloaded SPC ZIP is unexpectedly small."
-        )
-
-
-    destination.write_bytes(
-        response.content
-    )
-
-
-    # --------------------------------------------------------
-    # Make sure the file really is a ZIP
-    # --------------------------------------------------------
-
-    if not zipfile.is_zipfile(destination):
-
-        raise RuntimeError(
-            "SPC response is not a valid ZIP file."
-        )
+OUTPUT_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
 
 
 # ============================================================
-# EXTRACT ZIP
+# REQUEST SETTINGS
 # ============================================================
 
-def extract_zip(zip_file, destination):
+REQUEST_TIMEOUT_SECONDS = 45
 
-    log("Extracting SPC outlook ZIP...")
+DOWNLOAD_ATTEMPTS = 3
 
-    destination.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    with zipfile.ZipFile(
-        zip_file,
-        "r"
-    ) as z:
-
-        z.extractall(
-            destination
-        )
+RETRY_SLEEP_SECONDS = 5
 
 
 # ============================================================
-# FIND CATEGORICAL SHAPEFILE
+# SPC CATEGORY INFORMATION
+#
+# dn values from the NOAA/NWS categorical outlook layers:
+#
+# 2 = Thunderstorm
+# 3 = Marginal
+# 4 = Slight
+# 5 = Enhanced
+# 6 = Moderate
+# 8 = High
+#
+# The service already provides fill/stroke values, but this
+# table gives us a reliable fallback.
 # ============================================================
 
-def find_categorical_shapefile(folder):
+CATEGORY_INFO = {
 
-    shapefiles = sorted(
-        folder.rglob("*.shp")
-    )
+    2: {
+        "label": "TSTM",
+        "name": "Thunderstorm",
+        "fill": "#C1E9C1",
+        "stroke": "#55BB55",
+    },
 
-    if not shapefiles:
+    3: {
+        "label": "MRGL",
+        "name": "Marginal",
+        "fill": "#66A366",
+        "stroke": "#005500",
+    },
 
-        raise FileNotFoundError(
-            "No shapefiles were found in the SPC ZIP."
-        )
+    4: {
+        "label": "SLGT",
+        "name": "Slight",
+        "fill": "#FFE066",
+        "stroke": "#DDAA00",
+    },
 
+    5: {
+        "label": "ENH",
+        "name": "Enhanced",
+        "fill": "#FFA366",
+        "stroke": "#FF6600",
+    },
 
-    log("Shapefiles found:")
+    6: {
+        "label": "MDT",
+        "name": "Moderate",
+        "fill": "#E06666",
+        "stroke": "#CC0000",
+    },
 
-    for shp in shapefiles:
-        log(f"  {shp.name}")
+    8: {
+        "label": "HIGH",
+        "name": "High",
+        "fill": "#EE99EE",
+        "stroke": "#CC00CC",
+    },
 
-
-    # --------------------------------------------------------
-    # BEST CHOICE:
-    #
-    # day1otlk_YYYYMMDD_HHMM_cat.shp
-    #
-    # This is the timestamped categorical outlook and avoids
-    # the .lyr and .nolyr variants.
-    # --------------------------------------------------------
-
-    timestamped_cat = [
-        shp
-        for shp in shapefiles
-        if "_cat" in shp.stem.lower()
-        and ".lyr" not in shp.stem.lower()
-        and ".nolyr" not in shp.stem.lower()
-        and any(
-            char.isdigit()
-            for char in shp.stem
-        )
-    ]
-
-
-    if timestamped_cat:
-
-        chosen = timestamped_cat[0]
-
-        log(
-            "Using timestamped categorical shapefile: "
-            f"{chosen.name}"
-        )
-
-        return chosen
-
-
-    # --------------------------------------------------------
-    # FALLBACK:
-    #
-    # day1otlk_cat.shp
-    # --------------------------------------------------------
-
-    plain_cat = [
-        shp
-        for shp in shapefiles
-        if shp.name.lower()
-        == "day1otlk_cat.shp"
-    ]
-
-
-    if plain_cat:
-
-        chosen = plain_cat[0]
-
-        log(
-            "Using categorical shapefile: "
-            f"{chosen.name}"
-        )
-
-        return chosen
-
-
-    # --------------------------------------------------------
-    # LAST RESORT
-    # --------------------------------------------------------
-
-    generic_cat = [
-        shp
-        for shp in shapefiles
-        if "cat" in shp.stem.lower()
-        and ".lyr" not in shp.stem.lower()
-        and ".nolyr" not in shp.stem.lower()
-    ]
-
-
-    if generic_cat:
-
-        chosen = generic_cat[0]
-
-        log(
-            "Using fallback categorical shapefile: "
-            f"{chosen.name}"
-        )
-
-        return chosen
-
-
-    raise FileNotFoundError(
-        "Could not identify SPC Day 1 categorical shapefile."
-    )
+}
 
 
 # ============================================================
-# READ + CLEAN SPC DATA
+# DOWNLOAD ONE CATEGORICAL OUTLOOK
 # ============================================================
 
-def prepare_geojson(shapefile):
+def fetch_spc_geojson(
+    day,
+    layer_id,
+):
 
-    log(
-        f"Reading {shapefile.name}..."
-    )
-
-    gdf = gpd.read_file(
-        shapefile
-    )
-
-
-    if gdf.empty:
-
-        raise RuntimeError(
-            "SPC categorical shapefile contains no features."
-        )
-
-
-    log(
-        f"Found {len(gdf)} outlook features."
+    url = (
+        f"{SPC_MAPSERVER}/"
+        f"{layer_id}/query"
     )
 
 
-    log(
-        "Columns: "
-        + ", ".join(gdf.columns)
-    )
+    params = {
 
+        "where":
+            "1=1",
 
-    # --------------------------------------------------------
-    # Validate important fields
-    # --------------------------------------------------------
+        "outFields":
+            "*",
 
-    required_fields = {
-        "LABEL",
-        "geometry"
+        "returnGeometry":
+            "true",
+
+        "outSR":
+            "4326",
+
+        "f":
+            "geojson",
+
     }
 
-    missing = (
-        required_fields
-        - set(gdf.columns)
-    )
+
+    last_error = None
 
 
-    if missing:
-
-        raise RuntimeError(
-            "Missing required SPC fields: "
-            + ", ".join(sorted(missing))
-        )
-
-
-    # --------------------------------------------------------
-    # Remove bad geometries
-    # --------------------------------------------------------
-
-    gdf = gdf[
-        gdf.geometry.notnull()
-    ].copy()
-
-    gdf = gdf[
-        ~gdf.geometry.is_empty
-    ].copy()
-
-
-    if gdf.empty:
-
-        raise RuntimeError(
-            "No valid SPC geometries remain."
-        )
-
-
-    # --------------------------------------------------------
-    # CRS
-    # --------------------------------------------------------
-
-    if gdf.crs is None:
-
-        raise RuntimeError(
-            "SPC shapefile has no CRS."
-        )
-
-
-    if str(gdf.crs) != "EPSG:4326":
-
-        log(
-            f"Converting CRS from "
-            f"{gdf.crs} to EPSG:4326..."
-        )
-
-        gdf = gdf.to_crs(
-            "EPSG:4326"
-        )
-
-
-    # --------------------------------------------------------
-    # Keep only the fields we need on the website
-    # --------------------------------------------------------
-
-    desired_fields = [
-        "DN",
-        "VALID",
-        "EXPIRE",
-        "ISSUE",
-        "VALID_ISO",
-        "EXPIRE_ISO",
-        "ISSUE_ISO",
-        "FORECASTER",
-        "LABEL",
-        "LABEL2",
-        "stroke",
-        "fill",
-        "geometry"
-    ]
-
-
-    keep_fields = [
-        field
-        for field in desired_fields
-        if field in gdf.columns
-    ]
-
-
-    gdf = gdf[
-        keep_fields
-    ].copy()
-
-
-    # --------------------------------------------------------
-    # Normalize text values
-    # --------------------------------------------------------
-
-    gdf["LABEL"] = (
-        gdf["LABEL"]
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
-
-
-    log(
-        "Categories: "
-        + ", ".join(
-            gdf["LABEL"].tolist()
-        )
-    )
-
-
-    return gdf
-
-
-# ============================================================
-# GET ISSUE IDENTIFIER
-# ============================================================
-
-def get_issue_id(gdf):
-
-    """
-    Use ISSUE_ISO when available.
-    Falls back to ISSUE.
-    """
-
-    if (
-        "ISSUE_ISO" in gdf.columns
-        and not gdf["ISSUE_ISO"].empty
+    for attempt in range(
+        1,
+        DOWNLOAD_ATTEMPTS + 1
     ):
 
-        values = (
-            gdf["ISSUE_ISO"]
-            .dropna()
-            .astype(str)
-            .unique()
-        )
+        try:
 
-        if len(values) > 0:
-            return values[0]
+            print()
+            print("=" * 70)
 
+            print(
+                f"Downloading SPC Day {day} "
+                f"Categorical Outlook"
+            )
 
-    if (
-        "ISSUE" in gdf.columns
-        and not gdf["ISSUE"].empty
-    ):
+            print(
+                f"Layer ID: {layer_id}"
+            )
 
-        values = (
-            gdf["ISSUE"]
-            .dropna()
-            .astype(str)
-            .unique()
-        )
+            print(
+                f"Attempt "
+                f"{attempt}/"
+                f"{DOWNLOAD_ATTEMPTS}"
+            )
 
-        if len(values) > 0:
-            return values[0]
+            print("=" * 70)
 
 
-    return None
+            response = requests.get(
+
+                url,
+
+                params=params,
+
+                timeout=
+                    REQUEST_TIMEOUT_SECONDS,
+
+            )
+
+
+            response.raise_for_status()
+
+
+            data = response.json()
+
+
+            if (
+                "features" not in data
+            ):
+
+                raise RuntimeError(
+
+                    "SPC response did not contain "
+                    "a features array."
+
+                )
+
+
+            if (
+                len(
+                    data["features"]
+                )
+                == 0
+            ):
+
+                raise RuntimeError(
+
+                    f"SPC Day {day} returned "
+                    "zero categorical polygons."
+
+                )
+
+
+            print(
+                f"Downloaded "
+                f"{len(data['features'])} "
+                f"features."
+            )
+
+
+            return data
+
+
+        except Exception as error:
+
+            last_error = error
+
+
+            print(
+                f"Attempt failed: "
+                f"{error}"
+            )
+
+
+            if (
+                attempt
+                <
+                DOWNLOAD_ATTEMPTS
+            ):
+
+                time.sleep(
+                    RETRY_SLEEP_SECONDS
+                )
+
+
+    raise RuntimeError(
+
+        f"Could not download "
+        f"SPC Day {day}: "
+        f"{last_error}"
+
+    )
 
 
 # ============================================================
-# READ CURRENT GEOJSON ISSUE
+# CLEAN / NORMALIZE PROPERTIES
 # ============================================================
 
-def get_existing_issue():
+def normalize_feature_properties(
+    feature,
+    day,
+):
 
-    if not OUTPUT_FILE.exists():
-        return None
+    properties = (
+        feature.get(
+            "properties",
+            {}
+        )
+        or {}
+    )
+
+
+    # ========================================================
+    # DN / CATEGORY
+    # ========================================================
+
+    dn = properties.get(
+        "dn"
+    )
 
 
     try:
 
-        with OUTPUT_FILE.open(
-            "r",
-            encoding="utf-8"
-        ) as f:
-
-            data = json.load(f)
-
-
-        features = data.get(
-            "features",
-            []
+        dn = int(
+            dn
         )
 
+    except (
+        TypeError,
+        ValueError
+    ):
 
-        if not features:
-            return None
+        dn = None
 
 
-        props = features[0].get(
-            "properties",
+    fallback = (
+        CATEGORY_INFO.get(
+            dn,
             {}
         )
+    )
 
 
-        return (
-            props.get("ISSUE_ISO")
-            or props.get("ISSUE")
+    # ========================================================
+    # LABEL
+    #
+    # NOAA often returns:
+    #
+    # Thunderstorm
+    # Marginal
+    # Slight
+    # Enhanced
+    # Moderate
+    # High
+    #
+    # We also preserve a short risk code.
+    # ========================================================
+
+    service_label = (
+        properties.get(
+            "label"
         )
+    )
 
 
-    except Exception as e:
-
-        log(
-            "Could not read existing GeoJSON issue: "
-            f"{e}"
+    category_name = (
+        fallback.get(
+            "name"
         )
+        or service_label
+        or "Unknown"
+    )
 
-        return None
+
+    risk_code = (
+        fallback.get(
+            "label"
+        )
+        or str(
+            service_label
+            or ""
+        )
+    )
+
+
+    # ========================================================
+    # COLORS
+    #
+    # Prefer colors provided by NOAA.
+    #
+    # If missing, use fallback colors above.
+    # ========================================================
+
+    fill = (
+        properties.get(
+            "fill"
+        )
+        or fallback.get(
+            "fill"
+        )
+        or "#888888"
+    )
+
+
+    stroke = (
+        properties.get(
+            "stroke"
+        )
+        or fallback.get(
+            "stroke"
+        )
+        or "#000000"
+    )
+
+
+    # ========================================================
+    # CLEAN PROPERTY OBJECT
+    #
+    # Keep original fields AND add standardized fields.
+    # ========================================================
+
+    properties[
+        "day"
+    ] = day
+
+
+    properties[
+        "category"
+    ] = category_name
+
+
+    properties[
+        "risk"
+    ] = risk_code
+
+
+    properties[
+        "fill"
+    ] = fill
+
+
+    properties[
+        "stroke"
+    ] = stroke
+
+
+    feature[
+        "properties"
+    ] = properties
+
+
+    return feature
 
 
 # ============================================================
-# WRITE GEOJSON ATOMICALLY
+# NORMALIZE ENTIRE GEOJSON
 # ============================================================
 
-def write_geojson(gdf):
+def normalize_geojson(
+    data,
+    day,
+):
 
-    DATA_DIR.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-
-    temp_output = (
-        DATA_DIR
-        / "spc_day1_cat.tmp.geojson"
-    )
+    cleaned_features = []
 
 
-    log(
-        "Writing temporary GeoJSON..."
-    )
+    for feature in data.get(
+        "features",
+        []
+    ):
+
+        if (
+            not feature.get(
+                "geometry"
+            )
+        ):
+
+            continue
 
 
-    gdf.to_file(
-        temp_output,
-        driver="GeoJSON"
-    )
-
-
-    # --------------------------------------------------------
-    # Validate written file
-    # --------------------------------------------------------
-
-    if not temp_output.exists():
-
-        raise RuntimeError(
-            "Temporary GeoJSON was not created."
+        cleaned_feature = (
+            normalize_feature_properties(
+                feature,
+                day
+            )
         )
 
 
-    if temp_output.stat().st_size < 100:
-
-        raise RuntimeError(
-            "Temporary GeoJSON is unexpectedly small."
+        cleaned_features.append(
+            cleaned_feature
         )
 
 
-    # --------------------------------------------------------
-    # Atomic replacement
-    # --------------------------------------------------------
+    return {
 
-    os.replace(
-        temp_output,
-        OUTPUT_FILE
+        "type":
+            "FeatureCollection",
+
+        "features":
+            cleaned_features,
+
+    }
+
+
+# ============================================================
+# WRITE GEOJSON
+# ============================================================
+
+def write_geojson(
+    data,
+    filename,
+):
+
+    output_file = (
+        OUTPUT_DIR
+        / filename
     )
 
 
-    log(
-        f"Updated {OUTPUT_FILE}"
+    with output_file.open(
+
+        "w",
+
+        encoding=
+            "utf-8"
+
+    ) as file:
+
+        json.dump(
+
+            data,
+
+            file,
+
+            separators=(
+                ",",
+                ":"
+            ),
+
+        )
+
+
+    print(
+        f"Wrote: "
+        f"{output_file}"
     )
+
+
+    return output_file
+
+
+# ============================================================
+# PRINT OUTLOOK INFORMATION
+# ============================================================
+
+def print_outlook_info(
+    day,
+    data,
+):
+
+    print()
+    print(
+        f"SPC DAY {day} SUMMARY"
+    )
+
+    print("-" * 70)
+
+
+    categories = []
+
+
+    valid_times = set()
+
+    issue_times = set()
+
+    expire_times = set()
+
+
+    for feature in data.get(
+        "features",
+        []
+    ):
+
+        properties = (
+            feature.get(
+                "properties",
+                {}
+            )
+        )
+
+
+        category = (
+            properties.get(
+                "category"
+            )
+        )
+
+
+        if (
+            category
+            and
+            category not in categories
+        ):
+
+            categories.append(
+                category
+            )
+
+
+        valid = (
+            properties.get(
+                "valid"
+            )
+        )
+
+
+        issue = (
+            properties.get(
+                "issue"
+            )
+        )
+
+
+        expire = (
+            properties.get(
+                "expire"
+            )
+        )
+
+
+        if valid:
+
+            valid_times.add(
+                str(valid)
+            )
+
+
+        if issue:
+
+            issue_times.add(
+                str(issue)
+            )
+
+
+        if expire:
+
+            expire_times.add(
+                str(expire)
+            )
+
+
+    print(
+        "Categories:",
+        ", ".join(
+            categories
+        )
+    )
+
+
+    if issue_times:
+
+        print(
+            "Issue:",
+            " | ".join(
+                sorted(
+                    issue_times
+                )
+            )
+        )
+
+
+    if valid_times:
+
+        print(
+            "Valid:",
+            " | ".join(
+                sorted(
+                    valid_times
+                )
+            )
+        )
+
+
+    if expire_times:
+
+        print(
+            "Expire:",
+            " | ".join(
+                sorted(
+                    expire_times
+                )
+            )
+        )
+
+
+# ============================================================
+# PROCESS ONE DAY
+# ============================================================
+
+def process_day(
+    day,
+    config,
+):
+
+    layer_id = (
+        config[
+            "layer_id"
+        ]
+    )
+
+
+    filename = (
+        config[
+            "filename"
+        ]
+    )
+
+
+    raw_data = (
+        fetch_spc_geojson(
+            day,
+            layer_id
+        )
+    )
+
+
+    data = (
+        normalize_geojson(
+            raw_data,
+            day
+        )
+    )
+
+
+    if (
+        len(
+            data["features"]
+        )
+        == 0
+    ):
+
+        raise RuntimeError(
+
+            f"SPC Day {day} "
+            "contains no valid geometries."
+
+        )
+
+
+    output_file = (
+        write_geojson(
+            data,
+            filename
+        )
+    )
+
+
+    print_outlook_info(
+        day,
+        data
+    )
+
+
+    return output_file
 
 
 # ============================================================
@@ -564,121 +798,138 @@ def write_geojson(gdf):
 
 def main():
 
-    log(
-        "=" * 60
+    print()
+    print("=" * 70)
+    print(
+        "SPC DAY 1 / DAY 2 / DAY 3 "
+        "OUTLOOK UPDATE"
     )
-
-    log(
-        "SPC Day 1 categorical update starting"
-    )
-
-    log(
-        "=" * 60
-    )
+    print("=" * 70)
 
 
-    with tempfile.TemporaryDirectory() as temp:
-
-        temp_dir = Path(temp)
-
-        zip_file = (
-            temp_dir
-            / "day1otlk-shp.zip"
-        )
-
-        extract_dir = (
-            temp_dir
-            / "spc"
-        )
+    completed = []
 
 
-        # ----------------------------------------------------
-        # DOWNLOAD
-        # ----------------------------------------------------
-
-        download_spc_zip(
-            zip_file
-        )
+    failed = []
 
 
-        # ----------------------------------------------------
-        # EXTRACT
-        # ----------------------------------------------------
+    for day, config in (
+        SPC_LAYERS.items()
+    ):
 
-        extract_zip(
-            zip_file,
-            extract_dir
-        )
+        try:
 
-
-        # ----------------------------------------------------
-        # FIND CATEGORICAL SHAPEFILE
-        # ----------------------------------------------------
-
-        shapefile = (
-            find_categorical_shapefile(
-                extract_dir
-            )
-        )
-
-
-        # ----------------------------------------------------
-        # PREPARE DATA
-        # ----------------------------------------------------
-
-        gdf = prepare_geojson(
-            shapefile
-        )
-
-
-        # ----------------------------------------------------
-        # CHECK IF SPC ISSUANCE CHANGED
-        # ----------------------------------------------------
-
-        new_issue = get_issue_id(
-            gdf
-        )
-
-        existing_issue = (
-            get_existing_issue()
-        )
-
-
-        log(
-            f"Existing issue: {existing_issue}"
-        )
-
-        log(
-            f"Downloaded issue: {new_issue}"
-        )
-
-
-        if (
-            new_issue
-            and existing_issue
-            and new_issue == existing_issue
-        ):
-
-            log(
-                "SPC outlook has not changed. "
-                "No file update needed."
+            output_file = (
+                process_day(
+                    day,
+                    config
+                )
             )
 
-            return
+
+            completed.append(
+                (
+                    day,
+                    output_file
+                )
+            )
 
 
-        # ----------------------------------------------------
-        # WRITE NEW DATA
-        # ----------------------------------------------------
+        except Exception as error:
 
-        write_geojson(
-            gdf
+            print()
+            print(
+                f"ERROR updating "
+                f"Day {day}:"
+            )
+
+            print(
+                error
+            )
+
+
+            failed.append(
+                (
+                    day,
+                    str(error)
+                )
+            )
+
+
+    # ========================================================
+    # SUMMARY
+    # ========================================================
+
+    print()
+    print("=" * 70)
+
+    print(
+        "SPC OUTLOOK UPDATE SUMMARY"
+    )
+
+    print("=" * 70)
+
+
+    for (
+        day,
+        output_file
+    ) in completed:
+
+        print(
+            f"Day {day}: OK"
+        )
+
+        print(
+            f"  {output_file}"
         )
 
 
-        log(
-            "SPC Day 1 outlook successfully updated."
+    for (
+        day,
+        error
+    ) in failed:
+
+        print(
+            f"Day {day}: FAILED"
         )
+
+        print(
+            f"  {error}"
+        )
+
+
+    print()
+    print(
+        f"Successful: "
+        f"{len(completed)}"
+    )
+
+    print(
+        f"Failed: "
+        f"{len(failed)}"
+    )
+
+
+    # If absolutely nothing worked,
+    # fail the GitHub workflow.
+
+    if (
+        len(completed)
+        == 0
+    ):
+
+        raise RuntimeError(
+
+            "No SPC outlook files "
+            "were successfully updated."
+
+        )
+
+
+    print()
+    print(
+        "SPC update complete."
+    )
 
 
 # ============================================================
@@ -687,18 +938,4 @@ def main():
 
 if __name__ == "__main__":
 
-    try:
-
-        main()
-
-    except Exception as e:
-
-        log(
-            "SPC UPDATE FAILED"
-        )
-
-        log(
-            f"{type(e).__name__}: {e}"
-        )
-
-        sys.exit(1)
+    main()
