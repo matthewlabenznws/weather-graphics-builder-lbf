@@ -931,36 +931,17 @@ function hideUnwantedBasemapLabels(
 
 
             // =================================================
-            // REMOVE STATE / COUNTRY / REGION LABEL LAYERS
+            // HIDE STATE / COUNTRY / REGION LABEL LAYERS
             // =================================================
 
-            const hideWholeLayer =
-
-                id.includes(
-                    "state-label"
-                )
-
-                ||
-
-                id.includes(
-                    "country-label"
-                )
-
-                ||
-
-                id.includes(
-                    "region-label"
-                )
-
-                ||
-
-                id.includes(
-                    "admin-label"
-                );
-
-
             if (
-                hideWholeLayer
+                id.includes("state-label")
+                ||
+                id.includes("country-label")
+                ||
+                id.includes("region-label")
+                ||
+                id.includes("admin-label")
             ) {
 
                 try {
@@ -980,9 +961,8 @@ function hideUnwantedBasemapLabels(
                 catch (error) {
 
                     console.warn(
-                        "Could not hide layer:",
-                        layer.id,
-                        error
+                        "Could not hide:",
+                        layer.id
                     );
 
                 }
@@ -994,17 +974,18 @@ function hideUnwantedBasemapLabels(
 
 
             // =================================================
-            // REMOVE RESERVATION FEATURES WITHOUT HIDING
-            // THE ENTIRE PLACE/POI LAYER
+            // FILTER SPECIFIC RESERVATIONS + PARKS
             // =================================================
 
             try {
 
                 const existingFilter =
-                    layer.filter || null;
+                    map.getFilter(
+                        layer.id
+                    );
 
 
-                const reservationFilter = [
+                const removeLabels = [
 
                     "all",
 
@@ -1013,68 +994,54 @@ function hideUnwantedBasemapLabels(
                         : true,
 
                     [
-                        "!",
+
+                        "match",
 
                         [
-                            "any",
+                            "get",
+                            "name"
+                        ],
 
-                            [
-                                "in",
+                        [
 
-                                "reservation",
+                            // ---------------------------------
+                            // RESERVATIONS
+                            // ---------------------------------
 
-                                [
-                                    "downcase",
+                            "Pine Ridge Indian Reservation",
 
-                                    [
-                                        "coalesce",
+                            "Rosebud Indian Reservation",
 
-                                        [
-                                            "get",
-                                            "name_en"
-                                        ],
+                            "Cheyenne River Indian Reservation",
 
-                                        [
-                                            "get",
-                                            "name"
-                                        ],
+                            "Standing Rock Indian Reservation",
 
-                                        ""
-                                    ]
 
-                                ]
+                            // ---------------------------------
+                            // PARKS / FORESTS
+                            // ---------------------------------
 
-                            ],
+                            "Badlands National Park",
 
-                            [
-                                "in",
+                            "Black Hills National Forest",
 
-                                "indian reservation",
+                            "Buffalo Gap National Grassland",
 
-                                [
-                                    "downcase",
+                            "Nebraska National Forest",
 
-                                    [
-                                        "coalesce",
+                            "Samuel R. McKelvie National Forest",
 
-                                        [
-                                            "get",
-                                            "name_en"
-                                        ],
+                            "Fort Niobrara National Wildlife Refuge",
 
-                                        [
-                                            "get",
-                                            "name"
-                                        ],
+                            "Valentine National Wildlife Refuge",
 
-                                        ""
-                                    ]
+                            "Crescent Lake National Wildlife Refuge"
 
-                                ]
+                        ],
 
-                            ]
+                        false,
 
-                        ]
+                        true
 
                     ]
 
@@ -1085,7 +1052,7 @@ function hideUnwantedBasemapLabels(
 
                     layer.id,
 
-                    reservationFilter
+                    removeLabels
 
                 );
 
@@ -1093,10 +1060,8 @@ function hideUnwantedBasemapLabels(
 
             catch (error) {
 
-                /*
-                 * Some symbol layers can't use this filter.
-                 * Ignore those and keep going.
-                 */
+                // Some layers cannot accept this filter.
+                // Ignore them safely.
 
             }
 
