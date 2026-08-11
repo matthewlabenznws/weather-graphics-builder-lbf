@@ -1,0 +1,98 @@
+name: Update WPC ERO
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-wpc:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ======================================================
+      # CHECK OUT REPOSITORY
+      # ======================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      # ======================================================
+      # SET UP PYTHON
+      # ======================================================
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+
+      # ======================================================
+      # INSTALL PYTHON PACKAGES
+      # ======================================================
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+
+      # ======================================================
+      # RUN WPC ERO UPDATE SCRIPT
+      # ======================================================
+
+      - name: Update WPC Day 1 Day 2 Day 3 ERO
+        run: |
+          python update_wpc.py
+
+
+      # ======================================================
+      # SHOW GENERATED FILES
+      # ======================================================
+
+      - name: Show WPC files
+        run: |
+          echo "Files in data directory:"
+          ls -lh data/
+
+          echo ""
+          echo "WPC ERO files:"
+          ls -lh data/wpc_day*_ero.geojson || true
+
+
+      # ======================================================
+      # STAGE WPC GEOJSON FILES
+      # ======================================================
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add data/wpc_day1_ero.geojson
+          git add data/wpc_day2_ero.geojson
+          git add data/wpc_day3_ero.geojson
+
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No WPC ERO changes detected."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "New WPC ERO changes detected."
+          fi
+
+
+      # ======================================================
+      # COMMIT UPDATED WPC GEOJSON
+      # ======================================================
+
+      - name: Commit updated WPC ERO
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "WPC ERO Bot"
+          git config user.email "actions@github.com"
+
+          git commit -m "Update WPC Day 1 Day 2 Day 3 ERO"
+
+          git push
