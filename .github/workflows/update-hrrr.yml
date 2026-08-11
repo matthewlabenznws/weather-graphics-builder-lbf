@@ -1,0 +1,105 @@
+name: Update HRRR ReflUH
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update-hrrr:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ======================================================
+      # CHECKOUT
+      # ======================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      # ======================================================
+      # PYTHON
+      # ======================================================
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+
+      # ======================================================
+      # INSTALL DEPENDENCIES
+      # ======================================================
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+
+          pip install \
+            herbie-data \
+            cfgrib \
+            eccodes \
+            cartopy \
+            scipy \
+            matplotlib \
+            numpy
+
+
+      # ======================================================
+      # RUN HRRR SCRIPT
+      # ======================================================
+
+      - name: Generate HRRR ReflUH frames
+        run: |
+          python update_hrrr_refluh.py
+
+
+      # ======================================================
+      # CONFIGURE AWS CREDENTIALS
+      # ======================================================
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+
+      # ======================================================
+      # SHOW GENERATED FILES
+      # ======================================================
+
+      - name: Show generated HRRR files
+        run: |
+          echo "Generated files:"
+          find output/hrrr/reflUH/latest -maxdepth 1 -type f -print
+
+
+      # ======================================================
+      # UPLOAD TO S3
+      #
+      # --delete removes old forecast hours that should no
+      # longer exist, such as F019-F048 when the latest run
+      # is an hourly cycle that only extends through F018.
+      # ======================================================
+
+      - name: Upload HRRR ReflUH to S3
+        run: |
+          aws s3 sync \
+            output/hrrr/reflUH/latest/ \
+            s3://mtl-nwslbf-model-data/weather-graphics/hrrr/reflUH/latest/ \
+            --delete
+
+
+      # ======================================================
+      # FINISHED
+      # ======================================================
+
+      - name: Complete
+        run: |
+          echo "HRRR ReflUH update completed successfully."
