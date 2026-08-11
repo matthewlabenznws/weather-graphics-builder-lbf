@@ -1,28 +1,27 @@
 # ============================================================
-# HRRR COMPOSITE REFLECTIVITY + 2-5 KM UH
-# PRODUCTION SCRIPT FOR MAPBOX / AWS
+# HRRR COMPOSITE REFLECTIVITY + 2-5 KM UH >= 75
 #
-# Output:
-#   output/hrrr/reflUH/latest/
-#       f000.png
-#       f001.png
-#       ...
-#       manifest.json
-# ============================================================
-
-
-# ============================================================
-# IMPORTS
+# Progressive S3 publishing:
+#
+# F000 generated
+#   -> upload f000.png
+#   -> update/upload manifest.json
+#
+# F001 generated
+#   -> upload f001.png
+#   -> update/upload manifest.json
+#
+# etc.
 # ============================================================
 
 import json
-import os
-import shutil
+import time
 import warnings
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import boto3
 import numpy as np
 
 import matplotlib
@@ -48,15 +47,30 @@ warnings.filterwarnings("ignore")
 
 
 # ============================================================
-# SETTINGS
+# AWS SETTINGS
 # ============================================================
 
-# ------------------------------------------------------------
-# Geographic bounds
-#
-# These MUST match the image-source coordinates used
-# by Mapbox.
-# ------------------------------------------------------------
+AWS_REGION = "us-east-2"
+
+S3_BUCKET = "mtl-nwslbf-model-data"
+
+S3_PREFIX = (
+    "weather-graphics/"
+    "hrrr/"
+    "reflUH/"
+    "latest"
+)
+
+
+s3 = boto3.client(
+    "s3",
+    region_name=AWS_REGION
+)
+
+
+# ============================================================
+# MAP DOMAIN
+# ============================================================
 
 WEST = -105.5
 EAST = -96.0
@@ -64,9 +78,9 @@ SOUTH = 38.5
 NORTH = 44.5
 
 
-# ------------------------------------------------------------
-# Reflectivity
-# ------------------------------------------------------------
+# ============================================================
+# REFLECTIVITY SETTINGS
+# ============================================================
 
 MIN_REFL = 10.0
 
@@ -75,37 +89,38 @@ UPSCALE = 4
 SMOOTH_SIGMA = 0.4
 
 
-# ------------------------------------------------------------
-# Updraft helicity
-# ------------------------------------------------------------
+# ============================================================
+# UPDRAFT HELICITY
+# ============================================================
 
 UH_THRESHOLD = 75.0
 
 
-# ------------------------------------------------------------
-# Image
-# ------------------------------------------------------------
+# ============================================================
+# IMAGE SETTINGS
+# ============================================================
 
 FIG_WIDTH = 16
 FIG_HEIGHT = 10
 DPI = 150
 
 
-# ------------------------------------------------------------
-# Retry settings
-# ------------------------------------------------------------
+# ============================================================
+# RETRIES
+# ============================================================
 
 MAX_RUN_LOOKBACK = 10
 
 DOWNLOAD_ATTEMPTS = 3
 
+RETRY_SLEEP_SECONDS = 10
+
 
 # ============================================================
-# PATHS
+# LOCAL OUTPUT
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
-
 
 OUTPUT_DIR = (
     BASE_DIR
@@ -115,7 +130,6 @@ OUTPUT_DIR = (
     / "latest"
 )
 
-
 OUTPUT_DIR.mkdir(
     parents=True,
     exist_ok=True
@@ -123,7 +137,7 @@ OUTPUT_DIR.mkdir(
 
 
 # ============================================================
-# RADARSCOPE-STYLE REFLECTIVITY PALETTE
+# RADARSCOPE-STYLE REFLECTIVITY COLOR TABLE
 # ============================================================
 
 REFL_POINTS = [
@@ -138,42 +152,33 @@ REFL_POINTS = [
 
     (32.50, (5, 101, 1)),
 
-
     # Yellow
     (37.49, (251, 252, 0)),
     (37.50, (199, 176, 0)),
-
 
     # Orange
     (42.49, (253, 149, 2)),
     (42.50, (172, 92, 2)),
 
-
     # Red
     (49.99, (253, 38, 0)),
     (50.00, (135, 43, 22)),
-
 
     # Pink
     (59.99, (193, 148, 179)),
     (60.00, (200, 23, 119)),
 
-
     # Purple
     (69.99, (165, 2, 215)),
     (70.00, (64, 0, 146)),
-
 
     # Cyan
     (74.99, (135, 255, 253)),
     (75.00, (54, 120, 142)),
 
-
-    # Extreme values
+    # Extreme
     (80.00, (173, 99, 64)),
-
     (85.00, (105, 0, 4)),
-
     (95.00, (0, 0, 0))
 
 ]
@@ -182,6 +187,10 @@ REFL_POINTS = [
 COLOR_MIN = -15.0
 COLOR_MAX = 95.0
 
+
+# ============================================================
+# COLORMAP
+# ============================================================
 
 def build_refl_colormap():
 
@@ -208,26 +217,22 @@ def build_refl_colormap():
             )
         )
 
-
     cmap = LinearSegmentedColormap.from_list(
         "radarscope_br",
         cmap_points,
         N=2048
     )
 
-
     norm = Normalize(
         vmin=COLOR_MIN,
         vmax=COLOR_MAX
     )
-
 
     levels = np.arange(
         MIN_REFL,
         96,
         1.0
     )
-
 
     return cmap, norm, levels
 
@@ -238,7 +243,7 @@ REFL_CMAP, REFL_NORM, REFL_LEVELS = (
 
 
 # ============================================================
-# FIND LATEST AVAILABLE HRRR RUN
+# FIND LATEST HRRR RUN
 # ============================================================
 
 def find_latest_hrrr():
@@ -251,24 +256,23 @@ def find_latest_hrrr():
         microsecond=0
     )
 
-
     print("=" * 70)
-    print("SEARCHING FOR LATEST AVAILABLE HRRR RUN")
+    print("SEARCHING FOR LATEST AVAILABLE HRRR")
     print("=" * 70)
 
+    for back in range(
+        MAX_RUN_LOOKBACK + 1
+    ):
 
-    for back in range(MAX_RUN_LOOKBACK + 1):
-
-        run = start - timedelta(
-            hours=back
+        run = (
+            start
+            - timedelta(hours=back)
         )
-
 
         print(
-            f"Trying HRRR "
-            f"{run:%Y%m%d %HZ} F000..."
+            f"Trying "
+            f"{run:%Y%m%d %HZ} F000"
         )
-
 
         try:
 
@@ -281,33 +285,27 @@ def find_latest_hrrr():
                 fxx=0
             )
 
-
             inv = H.inventory(
                 r":REFC:"
             )
-
 
             if (
                 inv is not None
                 and len(inv) > 0
             ):
 
-                print()
-
                 print(
-                    f"Using HRRR run: "
+                    f"Using HRRR "
                     f"{run:%Y-%m-%d %HZ}"
                 )
 
                 return run
-
 
         except Exception as e:
 
             print(
                 f"Unavailable: {e}"
             )
-
 
     raise RuntimeError(
         "Could not find a recent HRRR run."
@@ -333,7 +331,7 @@ def get_max_fhr(run_time):
 
 
 # ============================================================
-# GET FIRST 2-D VARIABLE
+# DATA VARIABLE HELPER
 # ============================================================
 
 def get_2d_variable(
@@ -345,13 +343,11 @@ def get_2d_variable(
 
         preferred_names = []
 
-
     for name in preferred_names:
 
         if name in ds.data_vars:
 
             return ds[name]
-
 
     for name in ds.data_vars:
 
@@ -361,14 +357,13 @@ def get_2d_variable(
 
             return candidate
 
-
     raise RuntimeError(
-        "Could not find a 2-D variable."
+        "Could not locate 2-D variable."
     )
 
 
 # ============================================================
-# LOAD A FORECAST HOUR
+# LOAD FORECAST HOUR
 # ============================================================
 
 def load_hour(
@@ -380,7 +375,7 @@ def load_hour(
     print("=" * 70)
 
     print(
-        f"PROCESSING HRRR "
+        f"HRRR "
         f"{run_time:%Y%m%d %HZ} "
         f"F{fhr:03d}"
     )
@@ -426,7 +421,7 @@ def load_hour(
 
             refl_da = get_2d_variable(
                 ds_refl,
-                preferred_names=[
+                [
                     "refc",
                     "refd",
                     "REFC"
@@ -434,38 +429,9 @@ def load_hour(
             )
 
 
-            # =================================================
-            # 2-5 KM MAXIMUM UPDRAFT HELICITY
-            #
-            # NOAA inventory:
-            #
-            # MXUPHL
-            # 5000-2000 m above ground
-            # =================================================
-
-            ds_uh = H.xarray(
-                r":MXUPHL:5000-2000 m above ground:"
-            )
-
-
-            uh_da = get_2d_variable(
-                ds_uh,
-                preferred_names=[
-                    "mxuphl",
-                    "MXUPHL",
-                    "unknown"
-                ]
-            )
-
-
-            # =================================================
-            # COORDINATES
-            # =================================================
-
             lat = ds_refl[
                 "latitude"
             ].values
-
 
             lon = ds_refl[
                 "longitude"
@@ -477,9 +443,51 @@ def load_hour(
             ).astype(float)
 
 
-            uh = np.squeeze(
-                uh_da.values
-            ).astype(float)
+            # =================================================
+            # 2-5 KM MAXIMUM UPDRAFT HELICITY
+            #
+            # F000 may occasionally not have a meaningful
+            # hourly-max UH field. If unavailable, use zeros.
+            # =================================================
+
+            try:
+
+                ds_uh = H.xarray(
+                    r":MXUPHL:5000-2000 m above ground:"
+                )
+
+
+                uh_da = get_2d_variable(
+                    ds_uh,
+                    [
+                        "mxuphl",
+                        "MXUPHL",
+                        "unknown"
+                    ]
+                )
+
+
+                uh = np.squeeze(
+                    uh_da.values
+                ).astype(float)
+
+
+            except Exception as uh_error:
+
+                print(
+                    "UH unavailable for "
+                    f"F{fhr:03d}: "
+                    f"{uh_error}"
+                )
+
+                print(
+                    "Using zero UH field."
+                )
+
+                uh = np.zeros_like(
+                    refl,
+                    dtype=float
+                )
 
 
             print(
@@ -489,9 +497,8 @@ def load_hour(
 
 
             print(
-                f"2-5 km UH max: "
-                f"{np.nanmax(uh):.1f} "
-                f"m²/s²"
+                f"UH max: "
+                f"{np.nanmax(uh):.1f}"
             )
 
 
@@ -511,9 +518,15 @@ def load_hour(
                 f"Attempt failed: {e}"
             )
 
+            if attempt < DOWNLOAD_ATTEMPTS:
+
+                time.sleep(
+                    RETRY_SLEEP_SECONDS
+                )
+
 
     raise RuntimeError(
-        f"Failed F{fhr:03d}: "
+        f"F{fhr:03d} failed: "
         f"{last_error}"
     )
 
@@ -544,9 +557,9 @@ def process_reflectivity(
     )
 
 
-    # --------------------------------------------------------
-    # 4x cubic interpolation
-    # --------------------------------------------------------
+    # ========================================================
+    # 4X CUBIC DISPLAY INTERPOLATION
+    # ========================================================
 
     refl_fine = zoom(
         refl_clean,
@@ -554,13 +567,11 @@ def process_reflectivity(
         order=3
     )
 
-
     lon_fine = zoom(
         lon,
         UPSCALE,
         order=3
     )
-
 
     lat_fine = zoom(
         lat,
@@ -569,9 +580,7 @@ def process_reflectivity(
     )
 
 
-    # --------------------------------------------------------
     # Prevent cubic overshoot
-    # --------------------------------------------------------
 
     refl_fine = np.clip(
         refl_fine,
@@ -580,9 +589,9 @@ def process_reflectivity(
     )
 
 
-    # --------------------------------------------------------
-    # Light display smoothing
-    # --------------------------------------------------------
+    # ========================================================
+    # LIGHT DISPLAY SMOOTHING
+    # ========================================================
 
     refl_fine = gaussian_filter(
         refl_fine,
@@ -597,9 +606,9 @@ def process_reflectivity(
     )
 
 
-    # --------------------------------------------------------
-    # Mask below 10 dBZ
-    # --------------------------------------------------------
+    # ========================================================
+    # HIDE < 10 DBZ
+    # ========================================================
 
     refl_plot = np.ma.masked_where(
         refl_fine < MIN_REFL,
@@ -610,7 +619,6 @@ def process_reflectivity(
     return (
         lon_fine,
         lat_fine,
-        refl_fine,
         refl_plot
     )
 
@@ -632,12 +640,8 @@ def process_uh(
     )
 
 
-    # --------------------------------------------------------
-    # Use LINEAR interpolation for UH.
-    #
-    # We intentionally do not use cubic because we do not want
-    # interpolation overshoot creating artificial >75 values.
-    # --------------------------------------------------------
+    # Linear interpolation is intentional for UH.
+    # Avoid cubic overshoot around the >=75 threshold.
 
     uh_fine = zoom(
         uh_clean,
@@ -645,13 +649,11 @@ def process_uh(
         order=1
     )
 
-
     lon_fine = zoom(
         lon,
         UPSCALE,
         order=1
     )
-
 
     lat_fine = zoom(
         lat,
@@ -668,7 +670,7 @@ def process_uh(
 
 
 # ============================================================
-# PLOT FORECAST HOUR
+# CREATE FRAME
 # ============================================================
 
 def plot_hour(
@@ -682,19 +684,13 @@ def plot_hour(
 
     output_file = (
         OUTPUT_DIR
-        /
-        f"f{fhr:03d}.png"
+        / f"f{fhr:03d}.png"
     )
 
-
-    # ========================================================
-    # REFLECTIVITY PROCESSING
-    # ========================================================
 
     (
         lon_refl,
         lat_refl,
-        refl_fine,
         refl_plot
 
     ) = process_reflectivity(
@@ -703,10 +699,6 @@ def plot_hour(
         refl
     )
 
-
-    # ========================================================
-    # UH PROCESSING
-    # ========================================================
 
     (
         lon_uh,
@@ -741,7 +733,6 @@ def plot_hour(
 
 
     fig.patch.set_alpha(0)
-
     ax.patch.set_alpha(0)
 
 
@@ -757,7 +748,7 @@ def plot_hour(
 
 
     # ========================================================
-    # COMPOSITE REFLECTIVITY
+    # REFLECTIVITY
     # ========================================================
 
     ax.contourf(
@@ -782,19 +773,16 @@ def plot_hour(
 
 
     # ========================================================
-    # 2-5 KM MAX UH >= 75
-    #
-    # Solid black fill + black outline.
+    # UH >= 75
+    # BLACK FILL + BLACK OUTLINE
     # ========================================================
 
-    if np.nanmax(
+    uh_max = np.nanmax(
         uh_fine
-    ) >= UH_THRESHOLD:
+    )
 
 
-        # ----------------------------------------------------
-        # BLACK FILL
-        # ----------------------------------------------------
+    if uh_max >= UH_THRESHOLD:
 
         ax.contourf(
             lon_uh,
@@ -804,11 +792,8 @@ def plot_hour(
             levels=[
                 UH_THRESHOLD,
                 max(
-                    1000,
-                    np.nanmax(
-                        uh_fine
-                    )
-                    + 1
+                    1000.0,
+                    uh_max + 1.0
                 )
             ],
 
@@ -823,10 +808,6 @@ def plot_hour(
             zorder=5
         )
 
-
-        # ----------------------------------------------------
-        # BLACK OUTLINE
-        # ----------------------------------------------------
 
         ax.contour(
             lon_uh,
@@ -849,15 +830,11 @@ def plot_hour(
         )
 
 
-    # ========================================================
-    # REMOVE AXES
-    # ========================================================
-
     ax.set_axis_off()
 
 
     # ========================================================
-    # SAVE PNG
+    # SAVE
     # ========================================================
 
     plt.savefig(
@@ -882,22 +859,13 @@ def plot_hour(
     )
 
 
-    print(
-        f"Saved: "
-        f"{output_file.name}"
-    )
-
-
     valid_time = (
         run_time
-        +
-        timedelta(
-            hours=fhr
-        )
+        + timedelta(hours=fhr)
     )
 
 
-    return {
+    frame = {
 
         "fhr": fhr,
 
@@ -906,8 +874,7 @@ def plot_hour(
         ),
 
         "valid": (
-            valid_time
-            .strftime(
+            valid_time.strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
             )
         )
@@ -915,48 +882,75 @@ def plot_hour(
     }
 
 
-# ============================================================
-# CLEAN OLD OUTPUTS
-# ============================================================
-
-def clean_output_directory():
-
-    print()
     print(
-        "Cleaning old HRRR frames..."
+        f"Created "
+        f"{output_file.name}"
     )
 
 
-    for file in OUTPUT_DIR.glob(
-        "f*.png"
-    ):
-
-        file.unlink()
-
-
-    manifest = (
-        OUTPUT_DIR
-        /
-        "manifest.json"
+    return (
+        output_file,
+        frame
     )
 
 
-    if manifest.exists():
-
-        manifest.unlink()
-
-
 # ============================================================
-# WRITE MANIFEST
+# UPLOAD FRAME
 # ============================================================
 
-def write_manifest(
-    run_time,
-    max_fhr,
-    hours
+def upload_frame(
+    output_file,
+    fhr
 ):
 
-    manifest = {
+    key = (
+        f"{S3_PREFIX}/"
+        f"f{fhr:03d}.png"
+    )
+
+
+    print(
+        f"Uploading "
+        f"{output_file.name}..."
+    )
+
+
+    s3.upload_file(
+        str(output_file),
+
+        S3_BUCKET,
+
+        key,
+
+        ExtraArgs={
+            "ContentType":
+                "image/png",
+
+            "CacheControl":
+                "no-cache, no-store, must-revalidate"
+        }
+    )
+
+
+    print(
+        f"Uploaded s3://"
+        f"{S3_BUCKET}/"
+        f"{key}"
+    )
+
+
+# ============================================================
+# BUILD MANIFEST
+# ============================================================
+
+def build_manifest(
+    run_time,
+    max_fhr,
+    hours,
+    status
+):
+
+    return {
 
         "model": "HRRR",
 
@@ -966,15 +960,13 @@ def write_manifest(
             "Composite Reflectivity + 2-5 km UH >= 75",
 
         "run": (
-            run_time
-            .strftime(
+            run_time.strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
             )
         ),
 
         "cycle": (
-            run_time
-            .strftime(
+            run_time.strftime(
                 "%HZ"
             )
         ),
@@ -986,6 +978,9 @@ def write_manifest(
 
         "uh_threshold":
             UH_THRESHOLD,
+
+        "status":
+            status,
 
         "bounds": {
 
@@ -1005,14 +1000,32 @@ def write_manifest(
     }
 
 
-    output = (
-        OUTPUT_DIR
-        /
-        "manifest.json"
+# ============================================================
+# WRITE + UPLOAD MANIFEST
+# ============================================================
+
+def publish_manifest(
+    run_time,
+    max_fhr,
+    hours,
+    status="building"
+):
+
+    manifest = build_manifest(
+        run_time,
+        max_fhr,
+        hours,
+        status
     )
 
 
-    with output.open(
+    manifest_file = (
+        OUTPUT_DIR
+        / "manifest.json"
+    )
+
+
+    with manifest_file.open(
         "w",
         encoding="utf-8"
     ) as f:
@@ -1024,11 +1037,128 @@ def write_manifest(
         )
 
 
-    print()
+    s3.upload_file(
+        str(manifest_file),
+
+        S3_BUCKET,
+
+        f"{S3_PREFIX}/manifest.json",
+
+        ExtraArgs={
+            "ContentType":
+                "application/json",
+
+            "CacheControl":
+                "no-cache, no-store, must-revalidate"
+        }
+    )
+
 
     print(
-        f"Saved manifest: "
-        f"{output}"
+        f"Manifest published "
+        f"({len(hours)} hours)"
+    )
+
+
+# ============================================================
+# CLEAR OLD LOCAL FILES
+# ============================================================
+
+def clean_local_output():
+
+    for file in OUTPUT_DIR.glob(
+        "f*.png"
+    ):
+
+        file.unlink()
+
+
+    manifest_file = (
+        OUTPUT_DIR
+        / "manifest.json"
+    )
+
+
+    if manifest_file.exists():
+
+        manifest_file.unlink()
+
+
+# ============================================================
+# CLEAR OLD S3 FRAMES
+# ============================================================
+
+def clear_old_s3_frames():
+
+    print()
+    print(
+        "Clearing previous latest HRRR frames..."
+    )
+
+
+    paginator = (
+        s3.get_paginator(
+            "list_objects_v2"
+        )
+    )
+
+
+    objects_to_delete = []
+
+
+    for page in paginator.paginate(
+        Bucket=S3_BUCKET,
+        Prefix=f"{S3_PREFIX}/"
+    ):
+
+        for obj in page.get(
+            "Contents",
+            []
+        ):
+
+            key = obj["Key"]
+
+            if (
+                key.endswith(".png")
+                or
+                key.endswith("manifest.json")
+            ):
+
+                objects_to_delete.append(
+                    {
+                        "Key": key
+                    }
+                )
+
+
+                if len(
+                    objects_to_delete
+                ) == 1000:
+
+                    s3.delete_objects(
+                        Bucket=S3_BUCKET,
+                        Delete={
+                            "Objects":
+                                objects_to_delete
+                        }
+                    )
+
+                    objects_to_delete = []
+
+
+    if objects_to_delete:
+
+        s3.delete_objects(
+            Bucket=S3_BUCKET,
+            Delete={
+                "Objects":
+                    objects_to_delete
+            }
+        )
+
+
+    print(
+        "Previous latest frames cleared."
     )
 
 
@@ -1039,11 +1169,7 @@ def write_manifest(
 def main():
 
     print("=" * 70)
-
-    print(
-        "HRRR REFL + UH UPDATE"
-    )
-
+    print("HRRR REFL + UH PROGRESSIVE UPDATE")
     print("=" * 70)
 
 
@@ -1061,8 +1187,6 @@ def main():
     )
 
 
-    print()
-
     print(
         f"Forecast range: "
         f"F000-F{max_fhr:03d}"
@@ -1070,18 +1194,31 @@ def main():
 
 
     # ========================================================
-    # CLEAR PREVIOUS RUN
+    # RESET CURRENT LATEST PRODUCT
     # ========================================================
 
-    clean_output_directory()
+    clean_local_output()
 
+    clear_old_s3_frames()
 
-    # ========================================================
-    # PROCESS HOURS
-    # ========================================================
 
     hours_written = []
 
+
+    # Publish empty manifest first so the site knows
+    # a new cycle is currently being built.
+
+    publish_manifest(
+        run_time,
+        max_fhr,
+        hours_written,
+        status="building"
+    )
+
+
+    # ========================================================
+    # PROCESS FORECAST HOURS
+    # ========================================================
 
     for fhr in range(
         0,
@@ -1102,7 +1239,11 @@ def main():
             )
 
 
-            frame_info = plot_hour(
+            (
+                output_file,
+                frame_info
+
+            ) = plot_hour(
                 run_time,
                 fhr,
                 lon,
@@ -1112,8 +1253,40 @@ def main():
             )
 
 
+            # =================================================
+            # UPLOAD FRAME IMMEDIATELY
+            # =================================================
+
+            upload_frame(
+                output_file,
+                fhr
+            )
+
+
+            # =================================================
+            # ADD HOUR TO MANIFEST
+            # =================================================
+
             hours_written.append(
                 frame_info
+            )
+
+
+            # =================================================
+            # PUBLISH MANIFEST IMMEDIATELY
+            # =================================================
+
+            publish_manifest(
+                run_time,
+                max_fhr,
+                hours_written,
+                status="building"
+            )
+
+
+            print(
+                f"F{fhr:03d} is now "
+                f"available on the website."
             )
 
 
@@ -1122,19 +1295,21 @@ def main():
             print()
 
             print(
-                f"Skipping F{fhr:03d}: "
+                f"Skipping "
+                f"F{fhr:03d}: "
                 f"{e}"
             )
 
 
     # ========================================================
-    # MANIFEST
+    # FINAL MANIFEST
     # ========================================================
 
-    write_manifest(
+    publish_manifest(
         run_time,
         max_fhr,
-        hours_written
+        hours_written,
+        status="complete"
     )
 
 
@@ -1142,17 +1317,12 @@ def main():
     print("=" * 70)
 
     print(
-        "HRRR UPDATE FINISHED"
+        "HRRR UPDATE COMPLETE"
     )
 
     print(
-        f"Frames written: "
+        f"Frames available: "
         f"{len(hours_written)}"
-    )
-
-    print(
-        f"Output directory: "
-        f"{OUTPUT_DIR}"
     )
 
     print("=" * 70)
