@@ -57,10 +57,6 @@
         class="hidden"
     >
 
-        <!-- =================================================
-             LEFT PANEL — HRRR
-             ================================================= -->
-
         <div class="compare-panel">
 
             <div
@@ -84,16 +80,8 @@
         </div>
 
 
-        <!-- =================================================
-             CENTER DIVIDER
-             ================================================= -->
-
         <div class="compare-divider"></div>
 
-
-        <!-- =================================================
-             RIGHT PANEL — RRFS
-             ================================================= -->
 
         <div class="compare-panel">
 
@@ -127,10 +115,6 @@
     <div id="overlay-menu">
 
 
-        <!-- =================================================
-             OVERLAYS BUTTON
-             ================================================= -->
-
         <button id="overlay-menu-button">
 
             Overlays ▼
@@ -138,23 +122,17 @@
         </button>
 
 
-        <!-- =================================================
-             OVERLAYS DROPDOWN
-             ================================================= -->
-
         <div id="overlay-menu-content">
 
 
             <!-- =================================================
-                 SPC OUTLOOKS
+                 SPC SEVERE OUTLOOKS
                  ================================================= -->
 
             <div class="overlay-section-title">
-                SPC Outlooks
+                SPC Severe Outlooks
             </div>
 
-
-            <!-- DAY 1 -->
 
             <label class="overlay-row">
 
@@ -164,12 +142,10 @@
                     checked
                 >
 
-                Day 1 Outlook
+                Day 1 Categorical
 
             </label>
 
-
-            <!-- DAY 2 -->
 
             <label class="overlay-row">
 
@@ -178,12 +154,10 @@
                     id="spc-day2-toggle"
                 >
 
-                Day 2 Outlook
+                Day 2 Categorical
 
             </label>
 
-
-            <!-- DAY 3 -->
 
             <label class="overlay-row">
 
@@ -192,7 +166,52 @@
                     id="spc-day3-toggle"
                 >
 
-                Day 3 Outlook
+                Day 3 Categorical
+
+            </label>
+
+
+            <!-- =================================================
+                 WPC EXCESSIVE RAINFALL
+                 ================================================= -->
+
+            <div class="overlay-section-title">
+                WPC Excessive Rainfall
+            </div>
+
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="wpc-day1-toggle"
+                >
+
+                Day 1 ERO
+
+            </label>
+
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="wpc-day2-toggle"
+                >
+
+                Day 2 ERO
+
+            </label>
+
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="wpc-day3-toggle"
+                >
+
+                Day 3 ERO
 
             </label>
 
@@ -280,20 +299,12 @@
     <div id="office-branding">
 
 
-        <!-- =================================================
-             NOAA / NWS LOGOS
-             ================================================= -->
-
         <img
             id="office-logo"
             src="assets/NOAANWSLogos.png"
             alt="NOAA and National Weather Service logos"
         >
 
-
-        <!-- =================================================
-             OFFICE NAME
-             ================================================= -->
 
         <div id="office-name">
 
@@ -302,74 +313,43 @@
         </div>
 
 
-        <!-- =================================================
-             VIEWER CONTROLS
-             ================================================= -->
-
         <div id="viewer-controls">
 
-
-            <!-- =================================================
-                 VIEW TYPE
-                 ================================================= -->
 
             <select id="viewer-mode-select">
 
                 <option value="single">
-
                     Single Model
-
                 </option>
-
 
                 <option value="compare">
-
                     Compare Models
-
                 </option>
 
-
                 <option value="overlays">
-
                     Overlays Only
-
                 </option>
 
             </select>
 
-
-            <!-- =================================================
-                 MODEL
-                 ================================================= -->
 
             <select id="model-select">
 
                 <option value="hrrr">
-
                     HRRR
-
                 </option>
 
-
                 <option value="rrfs">
-
                     RRFS
-
                 </option>
 
             </select>
 
 
-            <!-- =================================================
-                 PRODUCT
-                 ================================================= -->
-
             <select id="product-select">
 
                 <option value="reflUH">
-
                     Reflectivity + UH ≥ 75
-
                 </option>
 
             </select>
@@ -401,55 +381,33 @@
     >
 
 
-        <!-- =================================================
-             PLAY / PAUSE
-             ================================================= -->
-
         <button
             id="model-play-button"
             class="timeline-control-button"
             title="Play"
         >
-
             ▶
-
         </button>
 
-
-        <!-- =================================================
-             PREVIOUS HOUR
-             ================================================= -->
 
         <button
             id="model-prev-button"
             class="timeline-control-button"
             title="Previous hour"
         >
-
             ‹
-
         </button>
 
 
-        <!-- =================================================
-             FORECAST HOURS
-             ================================================= -->
-
         <div id="model-hour-list"></div>
 
-
-        <!-- =================================================
-             NEXT HOUR
-             ================================================= -->
 
         <button
             id="model-next-button"
             class="timeline-control-button"
             title="Next hour"
         >
-
             ›
-
         </button>
 
 
@@ -466,12 +424,14 @@
 
 
     <!-- =====================================================
-         GRAPHICS VIEWER JS
+         GRAPHICS JS
          ===================================================== -->
 
     <script src="graphics.js"></script>
 
 
 </body>
+
+</html>
 
 </html>
