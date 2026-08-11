@@ -2,7 +2,8 @@
 // MAPBOX TOKEN
 // ============================================================
 
-mapboxgl.accessToken = "pk.eyJ1IjoibWF0dGhld2xhYmVuejciLCJhIjoiY21zbjhxZ3ZkMXBoNDJ3cHl5eG5uNzlpZCJ9.UBy4k84SejJzzu2VF0TtcA";
+mapboxgl.accessToken =
+    "YOUR_MAPBOX_TOKEN_HERE";
 
 
 // ============================================================
@@ -118,6 +119,10 @@ let samplePopup =
     null;
 
 
+// ============================================================
+// SETTINGS
+// ============================================================
+
 const MANIFEST_REFRESH_MS =
     30000;
 
@@ -136,7 +141,11 @@ const GIF_FRAME_DELAY_MS =
 
 const overlayState = {
 
-    spc: true,
+    spcDay1: true,
+
+    spcDay2: false,
+
+    spcDay3: false,
 
     cwa: true,
 
@@ -190,7 +199,7 @@ let syncingMaps =
 
 
 // ============================================================
-// CREATE MAP HELPER
+// CREATE MAP
 // ============================================================
 
 function createMap(
@@ -248,7 +257,7 @@ function createMap(
 
 
 // ============================================================
-// ACTIVE MODEL CONFIG
+// PRODUCT CONFIG
 // ============================================================
 
 function getProductConfig(
@@ -272,7 +281,8 @@ function getProductConfig(
         model.products[
             activeProduct
         ]
-        || null
+        ||
+        null
     );
 
 }
@@ -334,11 +344,16 @@ function formatValidTimeCentral(
         type => {
 
             return (
+
                 parts.find(
                     p =>
                         p.type === type
                 )?.value
-                || ""
+
+                ||
+
+                ""
+
             );
 
         };
@@ -363,7 +378,7 @@ function formatValidTimeCentral(
 
 
 // ============================================================
-// VALID LABEL
+// VALID TIME LABEL
 // ============================================================
 
 function updateValidLabel(
@@ -462,7 +477,228 @@ function findRoadLayer(
 
 
 // ============================================================
-// SETUP COMMON OVERLAYS FOR A MAP
+// ADD SPC OUTLOOK
+// ============================================================
+
+function addSpcOutlook(
+    map,
+    day,
+    roadLayer
+) {
+
+    const sourceId =
+        `spc-day${day}-cat`;
+
+
+    const fillId =
+        `spc-day${day}-fill`;
+
+
+    const darkOutlineId =
+        `spc-day${day}-outline-dark`;
+
+
+    const outlineId =
+        `spc-day${day}-outline`;
+
+
+    const filename =
+        `data/spc_day${day}_cat.geojson`;
+
+
+    // ========================================================
+    // SOURCE
+    // ========================================================
+
+    map.addSource(
+
+        sourceId,
+
+        {
+
+            type:
+                "geojson",
+
+            data:
+                filename
+
+        }
+
+    );
+
+
+    // ========================================================
+    // FILL
+    // ========================================================
+
+    map.addLayer(
+
+        {
+
+            id:
+                fillId,
+
+            type:
+                "fill",
+
+            source:
+                sourceId,
+
+            paint: {
+
+                "fill-color": [
+
+                    "coalesce",
+
+                    [
+                        "get",
+                        "fill"
+                    ],
+
+                    "#888888"
+
+                ],
+
+                "fill-opacity":
+                    0.68
+
+            }
+
+        },
+
+        roadLayer
+
+    );
+
+
+    // ========================================================
+    // DARK OUTLINE
+    // ========================================================
+
+    map.addLayer(
+
+        {
+
+            id:
+                darkOutlineId,
+
+            type:
+                "line",
+
+            source:
+                sourceId,
+
+            paint: {
+
+                "line-color":
+                    "#1A1A1A",
+
+                "line-width": [
+
+                    "interpolate",
+
+                    [
+                        "linear"
+                    ],
+
+                    [
+                        "zoom"
+                    ],
+
+                    4,
+                    2.2,
+
+                    6,
+                    3.0,
+
+                    8,
+                    3.8,
+
+                    10,
+                    4.5
+
+                ]
+
+            }
+
+        },
+
+        roadLayer
+
+    );
+
+
+    // ========================================================
+    // COLOR OUTLINE
+    // ========================================================
+
+    map.addLayer(
+
+        {
+
+            id:
+                outlineId,
+
+            type:
+                "line",
+
+            source:
+                sourceId,
+
+            paint: {
+
+                "line-color": [
+
+                    "coalesce",
+
+                    [
+                        "get",
+                        "stroke"
+                    ],
+
+                    "#000000"
+
+                ],
+
+                "line-width": [
+
+                    "interpolate",
+
+                    [
+                        "linear"
+                    ],
+
+                    [
+                        "zoom"
+                    ],
+
+                    4,
+                    1.3,
+
+                    6,
+                    1.8,
+
+                    8,
+                    2.3,
+
+                    10,
+                    2.8
+
+                ]
+
+            }
+
+        },
+
+        roadLayer
+
+    );
+
+}
+
+
+// ============================================================
+// SETUP MAP LAYERS
 // ============================================================
 
 function setupMapLayers(
@@ -508,163 +744,27 @@ function setupMapLayers(
 
 
     // ========================================================
-    // SPC DAY 1
+    // SPC OUTLOOKS
     // ========================================================
 
-    map.addSource(
-
-        "spc-day1-cat",
-
-        {
-
-            type:
-                "geojson",
-
-            data:
-                "data/spc_day1_cat.geojson"
-
-        }
-
+    addSpcOutlook(
+        map,
+        1,
+        roadLayer
     );
 
 
-    map.addLayer(
-
-        {
-
-            id:
-                "spc-day1-fill",
-
-            type:
-                "fill",
-
-            source:
-                "spc-day1-cat",
-
-            paint: {
-
-                "fill-color": [
-
-                    "coalesce",
-
-                    [
-                        "get",
-                        "fill"
-                    ],
-
-                    "#888888"
-
-                ],
-
-                "fill-opacity":
-                    0.68
-
-            }
-
-        },
-
+    addSpcOutlook(
+        map,
+        2,
         roadLayer
-
     );
 
 
-    map.addLayer(
-
-        {
-
-            id:
-                "spc-day1-outline-dark",
-
-            type:
-                "line",
-
-            source:
-                "spc-day1-cat",
-
-            paint: {
-
-                "line-color":
-                    "#1A1A1A",
-
-                "line-width": [
-
-                    "interpolate",
-
-                    ["linear"],
-
-                    ["zoom"],
-
-                    4, 2.2,
-
-                    6, 3.0,
-
-                    8, 3.8,
-
-                    10, 4.5
-
-                ]
-
-            }
-
-        },
-
+    addSpcOutlook(
+        map,
+        3,
         roadLayer
-
-    );
-
-
-    map.addLayer(
-
-        {
-
-            id:
-                "spc-day1-outline",
-
-            type:
-                "line",
-
-            source:
-                "spc-day1-cat",
-
-            paint: {
-
-                "line-color": [
-
-                    "coalesce",
-
-                    [
-                        "get",
-                        "stroke"
-                    ],
-
-                    "#000000"
-
-                ],
-
-                "line-width": [
-
-                    "interpolate",
-
-                    ["linear"],
-
-                    ["zoom"],
-
-                    4, 1.3,
-
-                    6, 1.8,
-
-                    8, 2.3,
-
-                    10, 2.8
-
-                ]
-
-            }
-
-        },
-
-        roadLayer
-
     );
 
 
@@ -708,17 +808,25 @@ function setupMapLayers(
 
                 "interpolate",
 
-                ["linear"],
+                [
+                    "linear"
+                ],
 
-                ["zoom"],
+                [
+                    "zoom"
+                ],
 
-                4, 0.5,
+                4,
+                0.5,
 
-                6, 0.8,
+                6,
+                0.8,
 
-                8, 1.1,
+                8,
+                1.1,
 
-                10, 1.4
+                10,
+                1.4
 
             ],
 
@@ -770,17 +878,25 @@ function setupMapLayers(
 
                 "interpolate",
 
-                ["linear"],
+                [
+                    "linear"
+                ],
 
-                ["zoom"],
+                [
+                    "zoom"
+                ],
 
-                4, 2.0,
+                4,
+                2.0,
 
-                6, 2.7,
+                6,
+                2.7,
 
-                8, 3.3,
+                8,
+                3.3,
 
-                10, 4.0
+                10,
+                4.0
 
             ]
 
@@ -830,17 +946,25 @@ function setupMapLayers(
 
                 "interpolate",
 
-                ["linear"],
+                [
+                    "linear"
+                ],
 
-                ["zoom"],
+                [
+                    "zoom"
+                ],
 
-                4, 4,
+                4,
+                4,
 
-                6, 5,
+                6,
+                5,
 
-                8, 6,
+                8,
+                6,
 
-                10, 7
+                10,
+                7
 
             ]
 
@@ -869,29 +993,45 @@ function setupMapLayers(
 
                 "interpolate",
 
-                ["linear"],
+                [
+                    "linear"
+                ],
 
-                ["zoom"],
+                [
+                    "zoom"
+                ],
 
-                4, 2,
+                4,
+                2,
 
-                6, 3,
+                6,
+                3,
 
-                8, 4,
+                8,
+                4,
 
-                10, 5
+                10,
+                5
 
             ]
 
         }
 
-    });
+    );
 
+
+    // ========================================================
+    // APPLY SAVED OVERLAY STATE
+    // ========================================================
 
     applyOverlayStateToMap(
         map
     );
 
+
+    // ========================================================
+    // REMOVE UNWANTED BASEMAP LABELS
+    // ========================================================
 
     hideUnwantedBasemapLabels(
         map
@@ -901,7 +1041,7 @@ function setupMapLayers(
 
 
 // ============================================================
-// HIDE UNWANTED MAPBOX BASEMAP LABELS
+// HIDE UNWANTED BASEMAP LABELS
 // ============================================================
 
 function hideUnwantedBasemapLabels(
@@ -925,18 +1065,33 @@ function hideUnwantedBasemapLabels(
 
     const removeNames = [
 
+        // Reservations
+
         "Pine Ridge Indian Reservation",
+
         "Rosebud Indian Reservation",
+
         "Cheyenne River Indian Reservation",
+
         "Standing Rock Indian Reservation",
 
+
+        // Parks / forests / grasslands / refuges
+
         "Badlands National Park",
+
         "Black Hills National Forest",
+
         "Buffalo Gap National Grassland",
+
         "Nebraska National Forest",
+
         "Samuel R. McKelvie National Forest",
+
         "Fort Niobrara National Wildlife Refuge",
+
         "Valentine National Wildlife Refuge",
+
         "Crescent Lake National Wildlife Refuge"
 
     ];
@@ -959,14 +1114,32 @@ function hideUnwantedBasemapLabels(
                     .toLowerCase();
 
 
+            // =================================================
+            // REMOVE STATE / COUNTRY / REGION LABELS
+            // =================================================
+
             if (
-                id.includes("state-label")
+                id.includes(
+                    "state-label"
+                )
+
                 ||
-                id.includes("country-label")
+
+                id.includes(
+                    "country-label"
+                )
+
                 ||
-                id.includes("region-label")
+
+                id.includes(
+                    "region-label"
+                )
+
                 ||
-                id.includes("admin-label")
+
+                id.includes(
+                    "admin-label"
+                )
             ) {
 
                 try {
@@ -986,8 +1159,11 @@ function hideUnwantedBasemapLabels(
                 catch (error) {
 
                     console.warn(
+
                         "Could not hide:",
+
                         layer.id
+
                     );
 
                 }
@@ -997,6 +1173,10 @@ function hideUnwantedBasemapLabels(
 
             }
 
+
+            // =================================================
+            // REMOVE NAMED RESERVATIONS / PARKS
+            // =================================================
 
             try {
 
@@ -1046,7 +1226,7 @@ function hideUnwantedBasemapLabels(
 
             catch (error) {
 
-                // Some symbol layers do not accept this filter.
+                // Some symbol layers cannot accept this filter.
 
             }
 
@@ -1057,7 +1237,7 @@ function hideUnwantedBasemapLabels(
 
 
 // ============================================================
-// APPLY OVERLAY STATE
+// SET LAYER VISIBILITY
 // ============================================================
 
 function setLayerVisibility(
@@ -1095,9 +1275,17 @@ function setLayerVisibility(
 }
 
 
+// ============================================================
+// APPLY OVERLAY STATE
+// ============================================================
+
 function applyOverlayStateToMap(
     map
 ) {
+
+    // ========================================================
+    // DAY 1
+    // ========================================================
 
     setLayerVisibility(
 
@@ -1109,10 +1297,52 @@ function applyOverlayStateToMap(
             "spc-day1-outline"
         ],
 
-        overlayState.spc
+        overlayState.spcDay1
 
     );
 
+
+    // ========================================================
+    // DAY 2
+    // ========================================================
+
+    setLayerVisibility(
+
+        map,
+
+        [
+            "spc-day2-fill",
+            "spc-day2-outline-dark",
+            "spc-day2-outline"
+        ],
+
+        overlayState.spcDay2
+
+    );
+
+
+    // ========================================================
+    // DAY 3
+    // ========================================================
+
+    setLayerVisibility(
+
+        map,
+
+        [
+            "spc-day3-fill",
+            "spc-day3-outline-dark",
+            "spc-day3-outline"
+        ],
+
+        overlayState.spcDay3
+
+    );
+
+
+    // ========================================================
+    // CWA
+    // ========================================================
 
     setLayerVisibility(
 
@@ -1128,6 +1358,10 @@ function applyOverlayStateToMap(
     );
 
 
+    // ========================================================
+    // COUNTIES
+    // ========================================================
+
     setLayerVisibility(
 
         map,
@@ -1140,6 +1374,10 @@ function applyOverlayStateToMap(
 
     );
 
+
+    // ========================================================
+    // STATES
+    // ========================================================
 
     setLayerVisibility(
 
@@ -1157,7 +1395,7 @@ function applyOverlayStateToMap(
 
 
 // ============================================================
-// MANIFEST FETCH
+// FETCH MANIFEST
 // ============================================================
 
 async function fetchManifest(
@@ -1190,8 +1428,10 @@ async function fetchManifest(
             url,
 
             {
+
                 cache:
                     "no-store"
+
             }
 
         );
@@ -1201,8 +1441,9 @@ async function fetchManifest(
 
         throw new Error(
 
-            `${modelName} manifest ` +
-            `HTTP ${response.status}`
+            `${modelName} manifest HTTP ` +
+
+            `${response.status}`
 
         );
 
@@ -1217,7 +1458,7 @@ async function fetchManifest(
 
 
 // ============================================================
-// GET FRAME BY FHR
+// FIND FRAME
 // ============================================================
 
 function findFrame(
@@ -1243,16 +1484,22 @@ function findFrame(
         manifest.hours.find(
 
             frame =>
+
                 Number(
                     frame.fhr
-                ) ===
+                )
+
+                ===
+
                 Number(
                     fhr
                 )
 
         )
 
-        || null
+        ||
+
+        null
 
     );
 
@@ -1260,7 +1507,7 @@ function findFrame(
 
 
 // ============================================================
-// IMAGE COORDINATES
+// MODEL IMAGE COORDINATES
 // ============================================================
 
 function getCoordinates(
@@ -1299,7 +1546,7 @@ function getCoordinates(
 
 
 // ============================================================
-// DISPLAY MODEL IMAGE ON MAP
+// SHOW MODEL FRAME
 // ============================================================
 
 function showModelFrame(
@@ -1362,7 +1609,6 @@ function showModelFrame(
         });
 
     }
-
 
     else {
 
@@ -1442,13 +1688,28 @@ async function refreshSingleManifest() {
 
 
     availableFrames =
-        [...singleManifest.hours]
-            .sort(
-                (a, b) =>
-                    Number(a.fhr)
-                    -
-                    Number(b.fhr)
-            );
+
+        [
+            ...singleManifest.hours
+        ]
+        .sort(
+
+            (
+                a,
+                b
+            ) =>
+
+                Number(
+                    a.fhr
+                )
+
+                -
+
+                Number(
+                    b.fhr
+                )
+
+        );
 
 
     let targetFhr =
@@ -1465,13 +1726,18 @@ async function refreshSingleManifest() {
     ) {
 
         targetFhr =
+
             findFrame(
                 singleManifest,
                 0
             )
+
                 ? 0
+
                 : Number(
-                    availableFrames[0]?.fhr
+                    availableFrames[
+                        0
+                    ]?.fhr
                 );
 
     }
@@ -1481,9 +1747,16 @@ async function refreshSingleManifest() {
         availableFrames.findIndex(
 
             frame =>
-                Number(frame.fhr)
+
+                Number(
+                    frame.fhr
+                )
+
                 ===
-                Number(targetFhr)
+
+                Number(
+                    targetFhr
+                )
 
         );
 
@@ -1551,10 +1824,22 @@ async function refreshCompareManifests() {
 
 
     availableFrames.sort(
-        (a, b) =>
-            Number(a.fhr)
+
+        (
+            a,
+            b
+        ) =>
+
+            Number(
+                a.fhr
+            )
+
             -
-            Number(b.fhr)
+
+            Number(
+                b.fhr
+            )
+
     );
 
 
@@ -1564,13 +1849,22 @@ async function refreshCompareManifests() {
 
     if (
         targetFhr === null
+
         ||
+
         !availableFrames.some(
 
-            f =>
-                Number(f.fhr)
+            frame =>
+
+                Number(
+                    frame.fhr
+                )
+
                 ===
-                Number(targetFhr)
+
+                Number(
+                    targetFhr
+                )
 
         )
     ) {
@@ -1578,14 +1872,21 @@ async function refreshCompareManifests() {
         targetFhr =
 
             availableFrames.some(
-                f =>
-                    Number(f.fhr) === 0
+
+                frame =>
+
+                    Number(
+                        frame.fhr
+                    ) === 0
+
             )
 
                 ? 0
 
                 : Number(
-                    availableFrames[0]?.fhr
+                    availableFrames[
+                        0
+                    ]?.fhr
                 );
 
     }
@@ -1595,9 +1896,16 @@ async function refreshCompareManifests() {
         availableFrames.findIndex(
 
             frame =>
-                Number(frame.fhr)
+
+                Number(
+                    frame.fhr
+                )
+
                 ===
-                Number(targetFhr)
+
+                Number(
+                    targetFhr
+                )
 
         );
 
@@ -1611,7 +1919,7 @@ async function refreshCompareManifests() {
 
 
 // ============================================================
-// LOAD SAMPLE GRID
+// LOAD SAMPLING GRID
 // ============================================================
 
 async function loadSampleGrid(
@@ -1636,7 +1944,9 @@ async function loadSampleGrid(
     const cacheKey =
 
         `${modelName}_` +
+
         `${manifest.run}_` +
+
         `${frame.fhr}`;
 
 
@@ -1669,7 +1979,9 @@ async function loadSampleGrid(
     const url =
 
         `${product.baseUrl}/` +
+
         `${frame.sample_file}` +
+
         `?run=${encodeURIComponent(
             manifest.run
         )}`;
@@ -1681,8 +1993,10 @@ async function loadSampleGrid(
             url,
 
             {
+
                 cache:
                     "no-store"
+
             }
 
         );
@@ -1693,6 +2007,7 @@ async function loadSampleGrid(
         throw new Error(
 
             `Sample data HTTP ` +
+
             `${response.status}`
 
         );
@@ -1719,7 +2034,7 @@ async function loadSampleGrid(
 
 
 // ============================================================
-// SAMPLE REGULAR GRID AT LAT/LON
+// SAMPLE GRID AT POINT
 // ============================================================
 
 function sampleGridAtPoint(
@@ -1754,7 +2069,8 @@ function sampleGridAtPoint(
         Math.round(
 
             (
-                lon -
+                lon
+                -
                 data.west
             )
 
@@ -1769,7 +2085,8 @@ function sampleGridAtPoint(
         Math.round(
 
             (
-                lat -
+                lat
+                -
                 data.south
             )
 
@@ -1797,8 +2114,11 @@ function sampleGridAtPoint(
 
     const index =
 
-        iy *
-        data.nx
+        (
+            iy
+            *
+            data.nx
+        )
 
         +
 
@@ -1855,7 +2175,7 @@ function sampleGridAtPoint(
 
 
 // ============================================================
-// FORMAT SAMPLE VALUE
+// SAMPLE VALUE FORMATTER
 // ============================================================
 
 function formatSampleValue(
@@ -1886,7 +2206,7 @@ function formatSampleValue(
 
 
 // ============================================================
-// POPUP HTML
+// SINGLE MODEL SAMPLE POPUP HTML
 // ============================================================
 
 function makeSingleSampleHtml(
@@ -1914,60 +2234,86 @@ function makeSingleSampleHtml(
                 font-weight: 800;
                 margin-bottom: 3px;
             ">
-                ${modelLabel} — F${String(
+
+                ${modelLabel}
+                —
+                F${String(
                     frame.fhr
                 ).padStart(
                     3,
                     "0"
                 )}
+
             </div>
+
 
             <div style="
                 font-size: 11px;
                 color: #666;
                 margin-bottom: 8px;
             ">
+
                 ${formatValidTimeCentral(
                     frame.valid
                 )}
+
             </div>
+
 
             <div style="
                 font-size: 12px;
-                margin-bottom: 8px;
                 color: #555;
+                margin-bottom: 8px;
             ">
+
                 ${lngLat.lat.toFixed(3)}°N,
+
                 ${Math.abs(
                     lngLat.lng
                 ).toFixed(3)}°W
+
             </div>
+
 
             <div style="
                 font-size: 13px;
                 line-height: 1.7;
             ">
 
-                <b>Composite Reflectivity:</b>
+                <b>
+                    Composite Reflectivity:
+                </b>
+
                 ${formatSampleValue(
                     sample?.refl
-                )} dBZ
+                )}
+                dBZ
 
                 <br>
 
-                <b>2–5 km UH:</b>
+
+                <b>
+                    2–5 km UH:
+                </b>
+
                 ${formatSampleValue(
                     sample?.uh,
                     0
-                )} m²/s²
+                )}
+                m²/s²
 
             </div>
 
         </div>
+
     `;
 
 }
 
+
+// ============================================================
+// COMPARISON SAMPLE POPUP HTML
+// ============================================================
 
 function makeComparisonSampleHtml(
     lngLat,
@@ -1988,44 +2334,58 @@ function makeComparisonSampleHtml(
                 font-weight: 800;
                 margin-bottom: 3px;
             ">
-                Model Comparison — F${String(
+
+                Model Comparison
+                —
+                F${String(
                     hrrrFrame.fhr
                 ).padStart(
                     3,
                     "0"
                 )}
+
             </div>
+
 
             <div style="
                 font-size: 11px;
                 color: #666;
                 margin-bottom: 7px;
             ">
+
                 ${formatValidTimeCentral(
                     hrrrFrame.valid
                 )}
+
             </div>
+
 
             <div style="
                 font-size: 12px;
                 color: #555;
                 margin-bottom: 9px;
             ">
+
                 ${lngLat.lat.toFixed(3)}°N,
+
                 ${Math.abs(
                     lngLat.lng
                 ).toFixed(3)}°W
+
             </div>
 
+
             <div style="
-                font-weight: 800;
                 font-size: 14px;
+                font-weight: 800;
                 border-bottom: 1px solid #ccc;
-                padding-bottom: 2px;
                 margin-bottom: 4px;
             ">
+
                 HRRR
+
             </div>
+
 
             <div style="
                 font-size: 13px;
@@ -2034,29 +2394,36 @@ function makeComparisonSampleHtml(
             ">
 
                 <b>Composite Reflectivity:</b>
+
                 ${formatSampleValue(
                     hrrrSample?.refl
-                )} dBZ
+                )}
+                dBZ
 
                 <br>
 
                 <b>2–5 km UH:</b>
+
                 ${formatSampleValue(
                     hrrrSample?.uh,
                     0
-                )} m²/s²
+                )}
+                m²/s²
 
             </div>
+
 
             <div style="
-                font-weight: 800;
                 font-size: 14px;
+                font-weight: 800;
                 border-bottom: 1px solid #ccc;
-                padding-bottom: 2px;
                 margin-bottom: 4px;
             ">
+
                 RRFS
+
             </div>
+
 
             <div style="
                 font-size: 13px;
@@ -2064,21 +2431,26 @@ function makeComparisonSampleHtml(
             ">
 
                 <b>Composite Reflectivity:</b>
+
                 ${formatSampleValue(
                     rrfsSample?.refl
-                )} dBZ
+                )}
+                dBZ
 
                 <br>
 
                 <b>2–5 km UH:</b>
+
                 ${formatSampleValue(
                     rrfsSample?.uh,
                     0
-                )} m²/s²
+                )}
+                m²/s²
 
             </div>
 
         </div>
+
     `;
 
 }
@@ -2239,12 +2611,14 @@ async function sampleSingleModel(
 
     }
 
-
     catch (error) {
 
         console.error(
+
             "Sampling failed:",
+
             error
+
         );
 
     }
@@ -2253,7 +2627,7 @@ async function sampleSingleModel(
 
 
 // ============================================================
-// SAMPLE HRRR + RRFS COMPARISON
+// SAMPLE COMPARISON
 // ============================================================
 
 async function sampleComparison(
@@ -2346,10 +2720,6 @@ async function sampleComparison(
             !rrfsGrid
         ) {
 
-            console.warn(
-                "One or both comparison sampling files are unavailable."
-            );
-
             return;
 
         }
@@ -2401,12 +2771,14 @@ async function sampleComparison(
 
     }
 
-
     catch (error) {
 
         console.error(
+
             "Comparison sampling failed:",
+
             error
+
         );
 
     }
@@ -2415,14 +2787,16 @@ async function sampleComparison(
 
 
 // ============================================================
-// CURRENT FHR
+// GET SELECTED FORECAST HOUR
 // ============================================================
 
 function getSelectedFhr() {
 
     if (
         currentFrameIndex < 0
+
         ||
+
         !availableFrames[
             currentFrameIndex
         ]
@@ -2469,8 +2843,11 @@ function displayCurrentFrame() {
 
         const frame =
             findFrame(
+
                 singleManifest,
+
                 fhr
+
             );
 
 
@@ -2557,14 +2934,16 @@ function displayCurrentFrame() {
 
 
 // ============================================================
-// EXPECTED MAX FHR
+// MAX FORECAST HOUR
 // ============================================================
 
 function getExpectedMaxFhr() {
 
     if (
         viewerMode === "single"
+
         &&
+
         singleManifest
     ) {
 
@@ -2577,9 +2956,13 @@ function getExpectedMaxFhr() {
 
     if (
         viewerMode === "compare"
+
         &&
+
         compareManifests.hrrr
+
         &&
+
         compareManifests.rrfs
     ) {
 
@@ -2608,29 +2991,34 @@ function getExpectedMaxFhr() {
 
 
 // ============================================================
-// HOUR AVAILABILITY
+// HOUR AVAILABLE
 // ============================================================
 
 function hourIsAvailable(
     fhr
 ) {
 
-    return (
-        availableFrames.some(
+    return availableFrames.some(
 
-            frame =>
-                Number(frame.fhr)
-                ===
-                Number(fhr)
+        frame =>
 
-        )
+            Number(
+                frame.fhr
+            )
+
+            ===
+
+            Number(
+                fhr
+            )
+
     );
 
 }
 
 
 // ============================================================
-// BUILD TIMELINE
+// BUILD FORECAST HOUR BUTTONS
 // ============================================================
 
 function buildHourButtons() {
@@ -2651,9 +3039,7 @@ function buildHourButtons() {
 
     for (
         let fhr = 0;
-
         fhr <= maxFhr;
-
         fhr++
     ) {
 
@@ -2712,7 +3098,6 @@ function buildHourButtons() {
 
         }
 
-
         else {
 
             button.classList.add(
@@ -2742,7 +3127,7 @@ function buildHourButtons() {
 
 
 // ============================================================
-// SELECT FHR
+// SELECT FORECAST HOUR
 // ============================================================
 
 function selectFhr(
@@ -2753,9 +3138,16 @@ function selectFhr(
         availableFrames.findIndex(
 
             frame =>
-                Number(frame.fhr)
+
+                Number(
+                    frame.fhr
+                )
+
                 ===
-                Number(fhr)
+
+                Number(
+                    fhr
+                )
 
         );
 
@@ -2782,7 +3174,7 @@ function selectFhr(
 
 
 // ============================================================
-// SELECTED BUTTON
+// UPDATE HOUR BUTTON STYLES
 // ============================================================
 
 function updateHourButtonStyles() {
@@ -2805,7 +3197,9 @@ function updateHourButtonStyles() {
                     Number(
                         button.dataset.fhr
                     )
+
                     ===
+
                     selectedFhr
 
                 );
@@ -2817,7 +3211,7 @@ function updateHourButtonStyles() {
 
 
 // ============================================================
-// SCROLL SELECTED
+// SCROLL SELECTED HOUR
 // ============================================================
 
 function scrollSelectedHourIntoView() {
@@ -2886,7 +3280,8 @@ function moveFrame(
 
 
     if (
-        currentFrameIndex >=
+        currentFrameIndex
+        >=
         availableFrames.length
     ) {
 
@@ -2905,7 +3300,7 @@ function moveFrame(
 
 
 // ============================================================
-// PLAYBACK
+// START ANIMATION
 // ============================================================
 
 function startAnimation() {
@@ -2925,14 +3320,17 @@ function startAnimation() {
         true;
 
 
-    document.getElementById(
-        "model-play-button"
-    ).textContent =
-        "❚❚";
+    document
+        .getElementById(
+            "model-play-button"
+        )
+        .textContent =
+            "❚❚";
 
 
     animationTimer =
         setInterval(
+
             () => {
 
                 moveFrame(
@@ -2942,10 +3340,15 @@ function startAnimation() {
             },
 
             700
+
         );
 
 }
 
+
+// ============================================================
+// STOP ANIMATION
+// ============================================================
 
 function stopAnimation() {
 
@@ -2953,11 +3356,14 @@ function stopAnimation() {
         false;
 
 
-    if (animationTimer) {
+    if (
+        animationTimer
+    ) {
 
         clearInterval(
             animationTimer
         );
+
 
         animationTimer =
             null;
@@ -2982,7 +3388,44 @@ function stopAnimation() {
 
 
 // ============================================================
-// INITIALIZE COMPARISON MAPS
+// WAIT FOR MAP
+// ============================================================
+
+function waitForMapLoad(
+    map
+) {
+
+    return new Promise(
+        resolve => {
+
+            if (
+                map.loaded()
+            ) {
+
+                resolve();
+
+            }
+
+            else {
+
+                map.once(
+
+                    "load",
+
+                    resolve
+
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+// ============================================================
+// INITIALIZE COMPARISON
 // ============================================================
 
 async function initializeComparison() {
@@ -3031,16 +3474,24 @@ async function initializeComparison() {
     );
 
 
-    leftMap.getCanvas().style.cursor =
-        "crosshair";
+    leftMap
+        .getCanvas()
+        .style
+        .cursor =
+            "crosshair";
 
 
-    rightMap.getCanvas().style.cursor =
-        "crosshair";
+    rightMap
+        .getCanvas()
+        .style
+        .cursor =
+            "crosshair";
 
 
     leftMap.on(
+
         "click",
+
         event => {
 
             if (
@@ -3058,11 +3509,14 @@ async function initializeComparison() {
             }
 
         }
+
     );
 
 
     rightMap.on(
+
         "click",
+
         event => {
 
             if (
@@ -3080,6 +3534,7 @@ async function initializeComparison() {
             }
 
         }
+
     );
 
 
@@ -3093,41 +3548,7 @@ async function initializeComparison() {
 
 
 // ============================================================
-// WAIT MAP LOAD
-// ============================================================
-
-function waitForMapLoad(
-    map
-) {
-
-    return new Promise(
-        resolve => {
-
-            if (
-                map.loaded()
-            ) {
-
-                resolve();
-
-            }
-
-            else {
-
-                map.once(
-                    "load",
-                    resolve
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// ============================================================
-// SYNCHRONIZE MAPS
+// SYNC COMPARISON MAPS
 // ============================================================
 
 function syncComparisonMaps() {
@@ -3175,7 +3596,9 @@ function syncComparisonMaps() {
 
 
     leftMap.on(
+
         "move",
+
         () => {
 
             sync(
@@ -3184,11 +3607,14 @@ function syncComparisonMaps() {
             );
 
         }
+
     );
 
 
     rightMap.on(
+
         "move",
+
         () => {
 
             sync(
@@ -3197,6 +3623,7 @@ function syncComparisonMaps() {
             );
 
         }
+
     );
 
 }
@@ -3267,39 +3694,53 @@ async function switchViewerMode(
         mode === "overlays"
     ) {
 
-        singleEl.classList.remove(
-            "hidden"
-        );
+        singleEl
+            .classList
+            .remove(
+                "hidden"
+            );
 
 
-        compareEl.classList.add(
-            "hidden"
-        );
+        compareEl
+            .classList
+            .add(
+                "hidden"
+            );
 
 
-        timeline.classList.add(
-            "hidden"
-        );
+        timeline
+            .classList
+            .add(
+                "hidden"
+            );
 
 
-        validLabel.classList.add(
-            "hidden"
-        );
+        validLabel
+            .classList
+            .add(
+                "hidden"
+            );
 
 
-        productSelect.classList.add(
-            "hidden"
-        );
+        productSelect
+            .classList
+            .add(
+                "hidden"
+            );
 
 
-        modelSelect.classList.add(
-            "hidden"
-        );
+        modelSelect
+            .classList
+            .add(
+                "hidden"
+            );
 
 
-        credit.classList.add(
-            "no-timeline"
-        );
+        credit
+            .classList
+            .add(
+                "no-timeline"
+            );
 
 
         if (
@@ -3333,47 +3774,61 @@ async function switchViewerMode(
     // MODEL MODES
     // ========================================================
 
-    timeline.classList.remove(
-        "hidden"
-    );
+    timeline
+        .classList
+        .remove(
+            "hidden"
+        );
 
 
-    validLabel.classList.remove(
-        "hidden"
-    );
+    validLabel
+        .classList
+        .remove(
+            "hidden"
+        );
 
 
-    productSelect.classList.remove(
-        "hidden"
-    );
+    productSelect
+        .classList
+        .remove(
+            "hidden"
+        );
 
 
-    credit.classList.remove(
-        "no-timeline"
-    );
+    credit
+        .classList
+        .remove(
+            "no-timeline"
+        );
 
 
     // ========================================================
-    // SINGLE
+    // SINGLE MODEL
     // ========================================================
 
     if (
         mode === "single"
     ) {
 
-        modelSelect.classList.remove(
-            "hidden"
-        );
+        modelSelect
+            .classList
+            .remove(
+                "hidden"
+            );
 
 
-        singleEl.classList.remove(
-            "hidden"
-        );
+        singleEl
+            .classList
+            .remove(
+                "hidden"
+            );
 
 
-        compareEl.classList.add(
-            "hidden"
-        );
+        compareEl
+            .classList
+            .add(
+                "hidden"
+            );
 
 
         if (
@@ -3404,32 +3859,39 @@ async function switchViewerMode(
 
 
     // ========================================================
-    // COMPARE
+    // COMPARE MODE
     // ========================================================
 
     else if (
         mode === "compare"
     ) {
 
-        modelSelect.classList.add(
-            "hidden"
-        );
+        modelSelect
+            .classList
+            .add(
+                "hidden"
+            );
 
 
-        singleEl.classList.add(
-            "hidden"
-        );
+        singleEl
+            .classList
+            .add(
+                "hidden"
+            );
 
 
-        compareEl.classList.remove(
-            "hidden"
-        );
+        compareEl
+            .classList
+            .remove(
+                "hidden"
+            );
 
 
         await initializeComparison();
 
 
         leftMap.resize();
+
 
         rightMap.resize();
 
@@ -3480,7 +3942,7 @@ async function switchSingleModel(
 
 
 // ============================================================
-// REFRESH CURRENT MODE
+// REFRESH CURRENT DATA
 // ============================================================
 
 async function refreshCurrentData() {
@@ -3515,12 +3977,14 @@ async function refreshCurrentData() {
 
     }
 
-
     catch (error) {
 
         console.error(
+
             "Manifest refresh failed:",
+
             error
+
         );
 
     }
@@ -3545,16 +4009,19 @@ function roundRect(
 
 
     if (
-        typeof ctx.roundRect ===
+        typeof ctx.roundRect
+        ===
         "function"
     ) {
 
         ctx.roundRect(
+
             x,
             y,
             w,
             h,
             r
+
         );
 
     }
@@ -3562,10 +4029,12 @@ function roundRect(
     else {
 
         ctx.rect(
+
             x,
             y,
             w,
             h
+
         );
 
     }
@@ -3604,7 +4073,7 @@ function drawGraphicsCredit(
         "Graphics created by: Matthew Labenz";
 
 
-    const creditFontSize =
+    const fontSize =
         Math.max(
             12,
             14 * scale
@@ -3612,7 +4081,7 @@ function drawGraphicsCredit(
 
 
     ctx.font =
-        `600 ${creditFontSize}px Arial, sans-serif`;
+        `600 ${fontSize}px Arial, sans-serif`;
 
 
     ctx.textAlign =
@@ -3657,7 +4126,7 @@ function drawGraphicsCredit(
 
 
     const boxHeight =
-        creditFontSize
+        fontSize
         +
         paddingY * 2;
 
@@ -3683,11 +4152,9 @@ function drawGraphicsCredit(
         ctx,
 
         x,
-
         y,
 
         boxWidth,
-
         boxHeight,
 
         Math.max(
@@ -3744,13 +4211,21 @@ function drawExportBranding(
         1400;
 
 
+    // ========================================================
+    // TIMESTAMP
+    // ========================================================
+
     const timestamp =
+
         `F${String(
             frame.fhr
         ).padStart(
             3,
             "0"
-        )} • ` +
+        )} • `
+
+        +
+
         formatValidTimeCentral(
             frame.valid
         );
@@ -3798,7 +4273,7 @@ function drawExportBranding(
 
 
     ctx.fillStyle =
-        "rgba(20,24,32,0.9)";
+        "rgba(20,24,32,0.90)";
 
 
     roundRect(
@@ -3822,7 +4297,7 @@ function drawExportBranding(
 
 
     ctx.fillStyle =
-        "white";
+        "#ffffff";
 
 
     ctx.fillText(
@@ -3841,7 +4316,7 @@ function drawExportBranding(
 
 
     // ========================================================
-    // LOGOS + NWS NORTH PLATTE
+    // LOGO + OFFICE NAME
     // ========================================================
 
     if (
@@ -3856,7 +4331,9 @@ function drawExportBranding(
 
         const logoHeight =
 
-            logoWidth *
+            logoWidth
+
+            *
 
             exportLogoImage.naturalHeight
 
@@ -3865,21 +4342,42 @@ function drawExportBranding(
             exportLogoImage.naturalWidth;
 
 
-        const brandCenterX =
+        let brandingCenterX;
+
+
+        if (
             viewerMode === "compare"
-                ? canvas.width * 0.875
-                : canvas.width
-                  - logoWidth / 2
-                  - 12 * scale;
+        ) {
+
+            const panelWidth =
+                canvas.width / 2;
 
 
-        const x =
-            brandCenterX
+            brandingCenterX =
+
+                panelWidth
+
+                +
+
+                panelWidth * 0.82;
+
+        }
+
+        else {
+
+            brandingCenterX =
+                canvas.width * 0.88;
+
+        }
+
+
+        const logoX =
+            brandingCenterX
             -
             logoWidth / 2;
 
 
-        const y =
+        const logoY =
             8 * scale;
 
 
@@ -3887,8 +4385,8 @@ function drawExportBranding(
 
             exportLogoImage,
 
-            x,
-            y,
+            logoX,
+            logoY,
 
             logoWidth,
             logoHeight
@@ -3908,15 +4406,16 @@ function drawExportBranding(
             "top";
 
 
-        const textX =
-            brandCenterX;
-
-
         const textY =
-            y
+
+            logoY
+
             +
+
             logoHeight
+
             +
+
             3 * scale;
 
 
@@ -3928,14 +4427,14 @@ function drawExportBranding(
 
 
         ctx.strokeStyle =
-            "black";
+            "#000000";
 
 
         ctx.strokeText(
 
             "NWS North Platte, NE",
 
-            textX,
+            brandingCenterX,
 
             textY
 
@@ -3943,14 +4442,14 @@ function drawExportBranding(
 
 
         ctx.fillStyle =
-            "white";
+            "#ffffff";
 
 
         ctx.fillText(
 
             "NWS North Platte, NE",
 
-            textX,
+            brandingCenterX,
 
             textY
 
@@ -4048,8 +4547,11 @@ function createSingleExportCanvas(
 
 
     drawExportBranding(
+
         canvas,
+
         frame
+
     );
 
 
@@ -4174,8 +4676,12 @@ function createCompareExportCanvas(
     );
 
 
+    // ========================================================
+    // DIVIDER
+    // ========================================================
+
     ctx.fillStyle =
-        "white";
+        "#ffffff";
 
 
     ctx.fillRect(
@@ -4190,6 +4696,10 @@ function createCompareExportCanvas(
 
     );
 
+
+    // ========================================================
+    // MODEL LABELS
+    // ========================================================
 
     const labelFont =
         Math.max(
@@ -4211,7 +4721,7 @@ function createCompareExportCanvas(
 
 
     ctx.strokeStyle =
-        "black";
+        "#000000";
 
 
     ctx.lineWidth =
@@ -4222,7 +4732,7 @@ function createCompareExportCanvas(
 
 
     ctx.fillStyle =
-        "white";
+        "#ffffff";
 
 
     ctx.strokeText(
@@ -4278,8 +4788,11 @@ function createCompareExportCanvas(
 
 
     drawExportBranding(
+
         canvas,
+
         frame
+
     );
 
 
@@ -4289,7 +4802,7 @@ function createCompareExportCanvas(
 
 
 // ============================================================
-// EXPORT CANVAS FOR CURRENT MODE
+// CURRENT EXPORT CANVAS
 // ============================================================
 
 function createCurrentExportCanvas(
@@ -4324,7 +4837,7 @@ function createCurrentExportCanvas(
 
 
 // ============================================================
-// DOWNLOAD
+// DOWNLOAD BLOB
 // ============================================================
 
 function downloadBlob(
@@ -4356,11 +4869,17 @@ function downloadBlob(
 
 
     setTimeout(
-        () =>
+
+        () => {
+
             URL.revokeObjectURL(
                 url
-            ),
+            );
+
+        },
+
         1000
+
     );
 
 }
@@ -4446,7 +4965,6 @@ async function savePng() {
 
     }
 
-
     finally {
 
         exportBusy =
@@ -4530,9 +5048,7 @@ async function saveGif(
 
         for (
             let i = startIndex;
-
             i <= endIndex;
-
             i++
         ) {
 
@@ -4544,16 +5060,24 @@ async function saveGif(
 
 
             await new Promise(
-                resolve =>
+                resolve => {
+
                     setTimeout(
+
                         resolve,
+
                         500
-                    )
+
+                    );
+
+                }
             );
 
 
             const frame =
-                availableFrames[i];
+                availableFrames[
+                    i
+                ];
 
 
             const canvas =
@@ -4586,8 +5110,11 @@ async function saveGif(
 
             const palette =
                 quantize(
+
                     image.data,
+
                     256
+
                 );
 
 
@@ -4651,8 +5178,10 @@ async function saveGif(
                 ],
 
                 {
+
                     type:
                         "image/gif"
+
                 }
 
             );
@@ -4677,12 +5206,14 @@ async function saveGif(
 
     }
 
-
     catch (error) {
 
         console.error(
+
             "GIF failed:",
+
             error
+
         );
 
 
@@ -4694,7 +5225,6 @@ async function saveGif(
         }
 
     }
-
 
     finally {
 
@@ -4714,7 +5244,7 @@ async function saveGif(
 
 
 // ============================================================
-// CREATE EXPORT UI
+// CREATE EXPORT CONTROLS
 // ============================================================
 
 function createExportControls() {
@@ -4737,6 +5267,7 @@ function createExportControls() {
         >
             Save PNG
         </button>
+
 
         <button
             id="save-gif-button"
@@ -4769,6 +5300,7 @@ function createExportControls() {
             Save GIF
         </div>
 
+
         <div class="gif-select-row">
 
             <div class="gif-select-box">
@@ -4777,9 +5309,12 @@ function createExportControls() {
                     Start Hour
                 </label>
 
-                <select id="gif-start-hour"></select>
+                <select
+                    id="gif-start-hour"
+                ></select>
 
             </div>
+
 
             <div class="gif-select-box">
 
@@ -4787,23 +5322,32 @@ function createExportControls() {
                     End Hour
                 </label>
 
-                <select id="gif-end-hour"></select>
+                <select
+                    id="gif-end-hour"
+                ></select>
 
             </div>
 
         </div>
 
+
         <div id="gif-panel-actions">
 
-            <button id="gif-create-button">
+            <button
+                id="gif-create-button"
+            >
                 Create GIF
             </button>
 
-            <button id="gif-cancel-button">
+
+            <button
+                id="gif-cancel-button"
+            >
                 Cancel
             </button>
 
         </div>
+
 
         <div id="gif-status"></div>
 
@@ -4830,9 +5374,12 @@ function createExportControls() {
         .onclick =
             () => {
 
-                panel.classList.toggle(
-                    "open"
-                );
+                panel
+                    .classList
+                    .toggle(
+                        "open"
+                    );
+
 
                 rebuildGifSelectors();
 
@@ -4846,9 +5393,11 @@ function createExportControls() {
         .onclick =
             () => {
 
-                panel.classList.remove(
-                    "open"
-                );
+                panel
+                    .classList
+                    .remove(
+                        "open"
+                    );
 
             };
 
@@ -4863,19 +5412,23 @@ function createExportControls() {
                 saveGif(
 
                     Number(
+
                         document
                             .getElementById(
                                 "gif-start-hour"
                             )
                             .value
+
                     ),
 
                     Number(
+
                         document
                             .getElementById(
                                 "gif-end-hour"
                             )
                             .value
+
                     )
 
                 );
@@ -4886,7 +5439,7 @@ function createExportControls() {
 
 
 // ============================================================
-// GIF SELECTORS
+// BUILD GIF SELECTORS
 // ============================================================
 
 function rebuildGifSelectors() {
@@ -4923,12 +5476,14 @@ function rebuildGifSelectors() {
 
 
     availableFrames.forEach(
+
         (
             frame,
             index
         ) => {
 
             const label =
+
                 `F${String(
                     frame.fhr
                 ).padStart(
@@ -4938,21 +5493,32 @@ function rebuildGifSelectors() {
 
 
             start.add(
+
                 new Option(
+
                     label,
+
                     index
+
                 )
+
             );
 
 
             end.add(
+
                 new Option(
+
                     label,
+
                     index
+
                 )
+
             );
 
         }
+
     );
 
 
@@ -5005,10 +5571,14 @@ function updateExportVisibility() {
 
 
 // ============================================================
-// UI EVENT LISTENERS
+// UI EVENTS
 // ============================================================
 
 function setupUiEvents() {
+
+    // ========================================================
+    // OVERLAY MENU
+    // ========================================================
 
     document
         .getElementById(
@@ -5029,26 +5599,99 @@ function setupUiEvents() {
             };
 
 
+    // ========================================================
+    // SPC DAY 1
+    // ========================================================
+
     document
         .getElementById(
-            "spc-toggle"
+            "spc-day1-toggle"
         )
         .onchange =
             event => {
 
-                overlayState.spc =
+                overlayState.spcDay1 =
                     event.target.checked;
 
 
                 allMaps().forEach(
-                    map =>
+
+                    map => {
+
                         applyOverlayStateToMap(
                             map
-                        )
+                        );
+
+                    }
+
                 );
 
             };
 
+
+    // ========================================================
+    // SPC DAY 2
+    // ========================================================
+
+    document
+        .getElementById(
+            "spc-day2-toggle"
+        )
+        .onchange =
+            event => {
+
+                overlayState.spcDay2 =
+                    event.target.checked;
+
+
+                allMaps().forEach(
+
+                    map => {
+
+                        applyOverlayStateToMap(
+                            map
+                        );
+
+                    }
+
+                );
+
+            };
+
+
+    // ========================================================
+    // SPC DAY 3
+    // ========================================================
+
+    document
+        .getElementById(
+            "spc-day3-toggle"
+        )
+        .onchange =
+            event => {
+
+                overlayState.spcDay3 =
+                    event.target.checked;
+
+
+                allMaps().forEach(
+
+                    map => {
+
+                        applyOverlayStateToMap(
+                            map
+                        );
+
+                    }
+
+                );
+
+            };
+
+
+    // ========================================================
+    // LBF CWA
+    // ========================================================
 
     document
         .getElementById(
@@ -5062,14 +5705,23 @@ function setupUiEvents() {
 
 
                 allMaps().forEach(
-                    map =>
+
+                    map => {
+
                         applyOverlayStateToMap(
                             map
-                        )
+                        );
+
+                    }
+
                 );
 
             };
 
+
+    // ========================================================
+    // COUNTIES
+    // ========================================================
 
     document
         .getElementById(
@@ -5083,14 +5735,23 @@ function setupUiEvents() {
 
 
                 allMaps().forEach(
-                    map =>
+
+                    map => {
+
                         applyOverlayStateToMap(
                             map
-                        )
+                        );
+
+                    }
+
                 );
 
             };
 
+
+    // ========================================================
+    // STATE BORDERS
+    // ========================================================
 
     document
         .getElementById(
@@ -5104,14 +5765,23 @@ function setupUiEvents() {
 
 
                 allMaps().forEach(
-                    map =>
+
+                    map => {
+
                         applyOverlayStateToMap(
                             map
-                        )
+                        );
+
+                    }
+
                 );
 
             };
 
+
+    // ========================================================
+    // VIEWER MODE
+    // ========================================================
 
     document
         .getElementById(
@@ -5127,6 +5797,10 @@ function setupUiEvents() {
             };
 
 
+    // ========================================================
+    // MODEL SELECT
+    // ========================================================
+
     document
         .getElementById(
             "model-select"
@@ -5140,6 +5814,10 @@ function setupUiEvents() {
 
             };
 
+
+    // ========================================================
+    // PREVIOUS
+    // ========================================================
 
     document
         .getElementById(
@@ -5158,6 +5836,10 @@ function setupUiEvents() {
             };
 
 
+    // ========================================================
+    // NEXT
+    // ========================================================
+
     document
         .getElementById(
             "model-next-button"
@@ -5174,6 +5856,10 @@ function setupUiEvents() {
 
             };
 
+
+    // ========================================================
+    // PLAY
+    // ========================================================
 
     document
         .getElementById(
@@ -5202,7 +5888,7 @@ function setupUiEvents() {
 
 
 // ============================================================
-// ALL INITIALIZED MAPS
+// GET ALL INITIALIZED MAPS
 // ============================================================
 
 function allMaps() {
@@ -5240,11 +5926,13 @@ function allMaps() {
 
 
 // ============================================================
-// INITIAL SINGLE MAP LOAD
+// SINGLE MAP LOAD
 // ============================================================
 
 singleMap.on(
+
     "load",
+
     async () => {
 
         setupMapLayers(
@@ -5252,12 +5940,25 @@ singleMap.on(
         );
 
 
-        singleMap.getCanvas().style.cursor =
-            "crosshair";
+        // ====================================================
+        // SAMPLING CURSOR
+        // ====================================================
 
+        singleMap
+            .getCanvas()
+            .style
+            .cursor =
+                "crosshair";
+
+
+        // ====================================================
+        // SINGLE MODEL SAMPLING
+        // ====================================================
 
         singleMap.on(
+
             "click",
+
             event => {
 
                 if (
@@ -5275,17 +5976,34 @@ singleMap.on(
                 }
 
             }
+
         );
 
+
+        // ====================================================
+        // EXPORT CONTROLS
+        // ====================================================
 
         createExportControls();
 
 
+        // ====================================================
+        // UI
+        // ====================================================
+
         setupUiEvents();
 
 
+        // ====================================================
+        // INITIAL MODEL
+        // ====================================================
+
         await refreshSingleManifest();
 
+
+        // ====================================================
+        // PERIODIC MANIFEST REFRESH
+        // ====================================================
 
         setInterval(
 
@@ -5296,4 +6014,5 @@ singleMap.on(
         );
 
     }
+
 );
