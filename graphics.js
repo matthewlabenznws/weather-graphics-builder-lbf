@@ -4,6 +4,7 @@
 
 mapboxgl.accessToken = "pk.eyJ1IjoibWF0dGhld2xhYmVuejciLCJhIjoiY21zbjhxZ3ZkMXBoNDJ3cHl5eG5uNzlpZCJ9.UBy4k84SejJzzu2VF0TtcA";
 
+
 console.log("graphics.js started");
 
 
@@ -38,11 +39,12 @@ const MODEL_CONFIGS = {
 
 
 // ============================================================
-// EXPORT BRANDING IMAGE
+// EXPORT BRANDING
 // ============================================================
 
 const exportLogoImage =
     new Image();
+
 
 exportLogoImage.src =
     "assets/NOAANWSLogos.png";
@@ -55,30 +57,37 @@ exportLogoImage.src =
 let activeModel =
     "hrrr";
 
+
 let activeProduct =
     "reflUH";
+
 
 let currentManifest =
     null;
 
+
 let availableFrames =
     [];
+
 
 let currentFrameIndex =
     0;
 
+
 let animationPlaying =
     false;
 
+
 let animationTimer =
     null;
+
 
 let exportBusy =
     false;
 
 
 // ============================================================
-// MANIFEST REFRESH
+// REFRESH SETTINGS
 // ============================================================
 
 const MANIFEST_REFRESH_MS =
@@ -93,13 +102,9 @@ const PNG_FILENAME_PREFIX =
     "nws_lbf_hrrr_reflUH";
 
 
-// Limit GIF width so files do not become enormous.
-
 const GIF_MAX_WIDTH =
     1400;
 
-
-// GIF frame delay
 
 const GIF_FRAME_DELAY_MS =
     700;
@@ -168,7 +173,7 @@ map.on(
 
 
 // ============================================================
-// GET ACTIVE PRODUCT CONFIG
+// ACTIVE PRODUCT CONFIGURATION
 // ============================================================
 
 function getActiveProductConfig() {
@@ -196,10 +201,13 @@ function getActiveProductConfig() {
 
 
     return (
+
         model.products[
             activeProduct
         ]
+
         || null
+
     );
 
 }
@@ -243,9 +251,11 @@ function setModelUiVisible(
         );
 
 
-    // ========================================================
-    // VALID TIME
-    // ========================================================
+    const gifPanel =
+        document.getElementById(
+            "gif-panel"
+        );
+
 
     if (label) {
 
@@ -257,10 +267,6 @@ function setModelUiVisible(
     }
 
 
-    // ========================================================
-    // TIMELINE
-    // ========================================================
-
     if (timeline) {
 
         timeline.style.display =
@@ -270,10 +276,6 @@ function setModelUiVisible(
 
     }
 
-
-    // ========================================================
-    // PRODUCT SELECTOR
-    // ========================================================
 
     if (productSelect) {
 
@@ -285,10 +287,6 @@ function setModelUiVisible(
     }
 
 
-    // ========================================================
-    // CREDIT POSITION
-    // ========================================================
-
     if (credit) {
 
         credit.classList.toggle(
@@ -299,10 +297,6 @@ function setModelUiVisible(
     }
 
 
-    // ========================================================
-    // EXPORT CONTROLS
-    // ========================================================
-
     if (exportControls) {
 
         exportControls.style.display =
@@ -311,16 +305,6 @@ function setModelUiVisible(
                 : "none";
 
     }
-
-
-    // ========================================================
-    // CLOSE GIF PANEL
-    // ========================================================
-
-    const gifPanel =
-        document.getElementById(
-            "gif-panel"
-        );
 
 
     if (
@@ -335,10 +319,6 @@ function setModelUiVisible(
 
     }
 
-
-    // ========================================================
-    // MODEL RASTER
-    // ========================================================
 
     if (
         map.getLayer(
@@ -497,7 +477,7 @@ function updateValidLabel(
 
 
 // ============================================================
-// EXPORT TIMESTAMP TEXT
+// EXPORT TIMESTAMP
 // ============================================================
 
 function getExportTimestamp(
@@ -534,7 +514,7 @@ function getExportTimestamp(
 
 
 // ============================================================
-// GET IMAGE COORDINATES
+// GET MODEL IMAGE COORDINATES
 // ============================================================
 
 function getImageCoordinates() {
@@ -694,7 +674,7 @@ function displayFrame(
 
 
     // ========================================================
-    // UPDATE EXISTING IMAGE
+    // UPDATE EXISTING MODEL IMAGE
     // ========================================================
 
     if (existingSource) {
@@ -713,7 +693,7 @@ function displayFrame(
 
 
     // ========================================================
-    // CREATE IMAGE SOURCE + RASTER LAYER
+    // CREATE MODEL IMAGE
     // ========================================================
 
     else {
@@ -795,7 +775,7 @@ function displayFrame(
 
 
 // ============================================================
-// WAIT FOR MAP RENDER
+// WAIT FOR MAP TO FINISH RENDERING
 // ============================================================
 
 function waitForMapIdle(
@@ -855,7 +835,7 @@ function waitForMapIdle(
 
 
 // ============================================================
-// SET CURRENT FORECAST HOUR
+// SET CURRENT AVAILABLE FRAME
 // ============================================================
 
 function setFrameIndex(
@@ -910,6 +890,15 @@ function setFrameIndex(
 
 // ============================================================
 // BUILD FORECAST-HOUR BUTTONS
+//
+// ALWAYS display:
+// F000 -> manifest.max_fhr
+//
+// Blue:
+// Hour exists in manifest
+//
+// Dark:
+// Hour has not arrived yet
 // ============================================================
 
 function buildHourButtons() {
@@ -931,31 +920,95 @@ function buildHourButtons() {
         "";
 
 
-    availableFrames.forEach(
+    if (!currentManifest) {
 
-        (
-            frame,
-            index
-        ) => {
+        return;
 
-
-            const button =
-                document.createElement(
-                    "button"
-                );
+    }
 
 
-            button.className =
-                "model-hour-button";
+    const maxFhr =
+        Number(
+            currentManifest.max_fhr
+        );
 
 
-            button.textContent =
-                `F${String(
-                    frame.fhr
-                ).padStart(
-                    3,
-                    "0"
-                )}`;
+    if (
+        !Number.isFinite(
+            maxFhr
+        )
+    ) {
+
+        return;
+
+    }
+
+
+    for (
+        let fhr = 0;
+
+        fhr <= maxFhr;
+
+        fhr++
+    ) {
+
+        const button =
+            document.createElement(
+                "button"
+            );
+
+
+        button.className =
+            "model-hour-button";
+
+
+        button.textContent =
+            `F${String(
+                fhr
+            ).padStart(
+                3,
+                "0"
+            )}`;
+
+
+        button.dataset.fhr =
+            String(
+                fhr
+            );
+
+
+        // ====================================================
+        // FIND THIS HOUR IN AVAILABLE FRAMES
+        // ====================================================
+
+        const frameIndex =
+            availableFrames.findIndex(
+
+                frame =>
+                    Number(
+                        frame.fhr
+                    ) === fhr
+
+            );
+
+
+        const isAvailable =
+            frameIndex >= 0;
+
+
+        // ====================================================
+        // AVAILABLE HOUR
+        // ====================================================
+
+        if (isAvailable) {
+
+            button.classList.add(
+                "available"
+            );
+
+
+            button.disabled =
+                false;
 
 
             button.addEventListener(
@@ -968,21 +1021,38 @@ function buildHourButtons() {
 
 
                     setFrameIndex(
-                        index
+                        frameIndex
                     );
 
                 }
 
             );
 
+        }
 
-            container.appendChild(
-                button
+
+        // ====================================================
+        // NOT AVAILABLE YET
+        // ====================================================
+
+        else {
+
+            button.classList.add(
+                "unavailable"
             );
+
+
+            button.disabled =
+                true;
 
         }
 
-    );
+
+        container.appendChild(
+            button
+        );
+
+    }
 
 
     updateHourButtonStyles();
@@ -994,7 +1064,7 @@ function buildHourButtons() {
 
 
 // ============================================================
-// SELECTED HOUR STYLE
+// UPDATE SELECTED HOUR STYLE
 // ============================================================
 
 function updateHourButtonStyles() {
@@ -1005,56 +1075,111 @@ function updateHourButtonStyles() {
         );
 
 
-    buttons.forEach(
-
-        (
-            button,
-            index
-        ) => {
+    let selectedFhr =
+        null;
 
 
-            button.classList.toggle(
+    if (
+        availableFrames.length > 0
+        &&
+        availableFrames[
+            currentFrameIndex
+        ]
+    ) {
 
-                "selected",
+        selectedFhr =
+            Number(
 
-                index ===
+                availableFrames[
                     currentFrameIndex
+                ].fhr
 
             );
 
-        }
+    }
 
+
+    buttons.forEach(
+        button => {
+
+            const fhr =
+                Number(
+                    button.dataset.fhr
+                );
+
+
+            button.classList.remove(
+                "selected"
+            );
+
+
+            if (
+                selectedFhr !== null
+                &&
+                fhr === selectedFhr
+                &&
+                button.classList.contains(
+                    "available"
+                )
+            ) {
+
+                button.classList.add(
+                    "selected"
+                );
+
+            }
+
+        }
     );
 
 }
 
 
 // ============================================================
-// SCROLL CURRENT HOUR INTO VIEW
+// SCROLL SELECTED FORECAST HOUR INTO VIEW
 // ============================================================
 
 function scrollSelectedHourIntoView() {
 
-    const buttons =
-        document.querySelectorAll(
-            ".model-hour-button"
-        );
-
-
-    const selected =
-        buttons[
+    if (
+        availableFrames.length === 0
+        ||
+        !availableFrames[
             currentFrameIndex
-        ];
-
-
-    if (!selected) {
+        ]
+    ) {
 
         return;
 
     }
 
 
-    selected.scrollIntoView({
+    const selectedFhr =
+        Number(
+
+            availableFrames[
+                currentFrameIndex
+            ].fhr
+
+        );
+
+
+    const selectedButton =
+        document.querySelector(
+
+            `.model-hour-button[data-fhr="${selectedFhr}"]`
+
+        );
+
+
+    if (!selectedButton) {
+
+        return;
+
+    }
+
+
+    selectedButton.scrollIntoView({
 
         behavior:
             "smooth",
@@ -1071,7 +1196,7 @@ function scrollSelectedHourIntoView() {
 
 
 // ============================================================
-// PLAY ANIMATION
+// START ANIMATION
 // ============================================================
 
 function startAnimation() {
@@ -1165,7 +1290,7 @@ function stopAnimation() {
 
 
 // ============================================================
-// ROUNDED RECT HELPER
+// ROUNDED RECTANGLE
 // ============================================================
 
 function roundRect(
@@ -1238,22 +1363,21 @@ function roundRect(
 // ============================================================
 // CREATE EXPORT CANVAS
 //
-// Export includes:
+// EXPORT INCLUDES:
 //
-// MAP
-// timestamp
+// Map
+// Timestamp
 // NOAA/NWS logos
 // NWS North Platte, NE
 //
-// Export excludes:
+// DOES NOT INCLUDE:
 //
 // Overlays button
-// model dropdown
-// product dropdown
-// bottom timeline
-// Mapbox controls
-// graphics credit
-// save buttons
+// Model/product dropdown
+// Timeline
+// Save buttons
+// Graphics credit
+// Mapbox zoom controls
 // ============================================================
 
 function createExportCanvas(
@@ -1282,7 +1406,7 @@ function createExportCanvas(
 
 
     // ========================================================
-    // OPTIONAL GIF DOWNSCALING
+    // OPTIONAL DOWNSCALE FOR GIF
     // ========================================================
 
     if (
@@ -1355,7 +1479,7 @@ function createExportCanvas(
 
 
     // ========================================================
-    // SCALE BASED ON EXPORT WIDTH
+    // SCALE LABELS
     // ========================================================
 
     const cssWidth =
@@ -1369,10 +1493,6 @@ function createExportCanvas(
         width /
         cssWidth;
 
-
-    // ========================================================
-    // TIMESTAMP — UPPER LEFT
-    // ========================================================
 
     const fontSize =
         Math.max(
@@ -1392,6 +1512,10 @@ function createExportCanvas(
     const margin =
         10 * scale;
 
+
+    // ========================================================
+    // TIMESTAMP UPPER LEFT
+    // ========================================================
 
     const timestamp =
         getExportTimestamp(
@@ -1467,7 +1591,7 @@ function createExportCanvas(
 
 
     // ========================================================
-    // NOAA/NWS LOGOS — UPPER RIGHT
+    // NOAA/NWS LOGOS UPPER RIGHT
     // ========================================================
 
     const logoWidth =
@@ -1485,7 +1609,9 @@ function createExportCanvas(
     ) {
 
         logoHeight =
+
             logoWidth *
+
             (
                 exportLogoImage.naturalHeight
                 /
@@ -1504,10 +1630,15 @@ function createExportCanvas(
 
 
     const logoX =
+
         width
+
         -
+
         rightMargin
+
         -
+
         logoWidth;
 
 
@@ -1537,7 +1668,7 @@ function createExportCanvas(
 
 
     // ========================================================
-    // NWS NORTH PLATTE TEXT BELOW LOGOS
+    // NWS NORTH PLATTE TEXT
     // ========================================================
 
     const officeText =
@@ -1569,14 +1700,17 @@ function createExportCanvas(
 
 
     const officeY =
+
         logoY
+
         +
+
         logoHeight
+
         +
+
         3 * scale;
 
-
-    // Black outline behind text
 
     ctx.lineJoin =
         "round";
@@ -1603,8 +1737,6 @@ function createExportCanvas(
     );
 
 
-    // White text
-
     ctx.fillStyle =
         "#ffffff";
 
@@ -1618,8 +1750,6 @@ function createExportCanvas(
 
     );
 
-
-    // Reset
 
     ctx.textAlign =
         "left";
@@ -1685,7 +1815,7 @@ function downloadBlob(
 
 
 // ============================================================
-// FILE-SAFE TIMESTAMP
+// FILE-SAFE VALID TIME
 // ============================================================
 
 function makeFileTime(
@@ -1724,7 +1854,7 @@ function makeFileTime(
 
 
 // ============================================================
-// SAVE CURRENT PNG
+// SAVE PNG
 // ============================================================
 
 async function saveCurrentPng() {
@@ -1988,15 +2118,16 @@ async function saveGif(
 
 
         const totalFrames =
+
             (
                 endIndex -
                 startIndex
-            ) + 1;
+            )
 
+            +
 
-        // ====================================================
-        // CAPTURE FRAMES
-        // ====================================================
+            1;
+
 
         for (
             let index =
@@ -2020,7 +2151,9 @@ async function saveGif(
             if (status) {
 
                 status.textContent =
+
                     `Capturing ${frameNumber}/${totalFrames} ` +
+
                     `(F${String(
                         frame.fhr
                     ).padStart(
@@ -2045,8 +2178,6 @@ async function saveGif(
 
             await waitForMapIdle();
 
-
-            // Additional browser paint
 
             await new Promise(
                 resolve => {
@@ -2101,6 +2232,7 @@ async function saveGif(
             if (status) {
 
                 status.textContent =
+
                     `Encoding ${frameNumber}/${totalFrames}`;
 
             }
@@ -2255,8 +2387,11 @@ async function saveGif(
 
         currentFrameIndex =
             Math.min(
+
                 originalIndex,
+
                 availableFrames.length - 1
+
             );
 
 
@@ -2317,7 +2452,7 @@ function createExportControls() {
 
 
     // ========================================================
-    // PNG / GIF BUTTONS
+    // SAVE BUTTONS
     // ========================================================
 
     const controls =
@@ -2441,7 +2576,7 @@ function createExportControls() {
 
 
     // ========================================================
-    // OPEN/CLOSE GIF PANEL
+    // OPEN GIF PANEL
     // ========================================================
 
     document
@@ -2471,7 +2606,7 @@ function createExportControls() {
 
 
     // ========================================================
-    // CANCEL
+    // CANCEL GIF
     // ========================================================
 
     document
@@ -2560,6 +2695,8 @@ function createExportControls() {
 
 // ============================================================
 // BUILD GIF RANGE SELECTORS
+//
+// GIF selectors ONLY contain hours that actually exist.
 // ============================================================
 
 function rebuildGifRangeSelectors() {
@@ -2692,6 +2829,7 @@ function rebuildGifRangeSelectors() {
                 availableFrames.length
 
                 ? oldStart
+
                 : 0
 
         );
@@ -2784,6 +2922,20 @@ function updateExportButtonState() {
 
 // ============================================================
 // REFRESH MANIFEST
+//
+// IMPORTANT BEHAVIOR:
+//
+// Initial page load:
+//     Start on F000.
+//
+// New HRRR run:
+//     Start on F000.
+//
+// More hours arrive:
+//     Keep user on whatever hour they selected.
+//
+// Timeline:
+//     Always shows every expected forecast hour.
 // ============================================================
 
 async function refreshManifest() {
@@ -2814,25 +2966,33 @@ async function refreshManifest() {
             null;
 
 
+        // ====================================================
+        // REMEMBER CURRENT FORECAST HOUR
+        // ====================================================
+
         if (
             availableFrames.length > 0
+            &&
+            availableFrames[
+                currentFrameIndex
+            ]
         ) {
 
-            const current =
-                availableFrames[
-                    currentFrameIndex
-                ];
+            selectedFhr =
+                Number(
 
+                    availableFrames[
+                        currentFrameIndex
+                    ].fhr
 
-            if (current) {
-
-                selectedFhr =
-                    current.fhr;
-
-            }
+                );
 
         }
 
+
+        // ====================================================
+        // MANIFEST URL
+        // ====================================================
 
         const manifestUrl =
 
@@ -2842,6 +3002,10 @@ async function refreshManifest() {
 
             `?t=${Date.now()}`;
 
+
+        // ====================================================
+        // FETCH MANIFEST
+        // ====================================================
 
         const response =
             await fetch(
@@ -2874,6 +3038,10 @@ async function refreshManifest() {
             await response.json();
 
 
+        // ====================================================
+        // VALIDATE
+        // ====================================================
+
         if (
             !Array.isArray(
                 manifest.hours
@@ -2886,6 +3054,10 @@ async function refreshManifest() {
 
         }
 
+
+        // ====================================================
+        // DETECT NEW RUN
+        // ====================================================
 
         const runChanged =
 
@@ -2902,6 +3074,10 @@ async function refreshManifest() {
             manifest;
 
 
+        // ====================================================
+        // AVAILABLE HOURS
+        // ====================================================
+
         availableFrames =
             [...manifest.hours]
                 .sort(
@@ -2911,14 +3087,21 @@ async function refreshManifest() {
                         b
                     ) =>
 
-                        a.fhr -
-                        b.fhr
+                        Number(
+                            a.fhr
+                        )
+
+                        -
+
+                        Number(
+                            b.fhr
+                        )
 
                 );
 
 
         // ====================================================
-        // NO FRAMES YET
+        // NO HOURS AVAILABLE YET
         // ====================================================
 
         if (
@@ -2955,7 +3138,9 @@ async function refreshManifest() {
 
 
         // ====================================================
-        // PRESERVE CURRENT F-HOUR
+        // SAME RUN:
+        //
+        // Keep selected forecast hour if it still exists.
         // ====================================================
 
         if (
@@ -2968,7 +3153,9 @@ async function refreshManifest() {
                 availableFrames.findIndex(
 
                     frame =>
-                        frame.fhr ===
+                        Number(
+                            frame.fhr
+                        ) ===
                         selectedFhr
 
                 );
@@ -2977,15 +3164,33 @@ async function refreshManifest() {
 
 
         // ====================================================
-        // NEW RUN / INITIAL LOAD
+        // FIRST LOAD OR NEW RUN:
+        //
+        // AUTOMATICALLY START AT F000.
         // ====================================================
 
         if (
             targetIndex < 0
         ) {
 
+            const f000Index =
+                availableFrames.findIndex(
+
+                    frame =>
+                        Number(
+                            frame.fhr
+                        ) === 0
+
+                );
+
+
             targetIndex =
-                availableFrames.length - 1;
+
+                f000Index >= 0
+
+                    ? f000Index
+
+                    : 0;
 
         }
 
@@ -2994,8 +3199,18 @@ async function refreshManifest() {
             targetIndex;
 
 
+        // ====================================================
+        // REBUILD TIMELINE
+        //
+        // Newly available hours automatically turn blue here.
+        // ====================================================
+
         buildHourButtons();
 
+
+        // ====================================================
+        // DISPLAY SELECTED FRAME
+        // ====================================================
 
         displayFrame(
 
@@ -3219,7 +3434,7 @@ map.on(
 
 
         // ====================================================
-        // SPC SOURCE
+        // SPC DAY 1 SOURCE
         // ====================================================
 
         map.addSource(
@@ -3630,7 +3845,7 @@ map.on(
 
 
         // ====================================================
-        // OVERLAYS MENU
+        // OVERLAY MENU
         // ====================================================
 
         const overlayButton =
@@ -3996,14 +4211,19 @@ map.on(
 
 
         // ====================================================
-        // LOAD CURRENT HRRR
+        // INITIAL HRRR LOAD
+        //
+        // refreshManifest() now automatically chooses F000.
         // ====================================================
 
         await refreshManifest();
 
 
         // ====================================================
-        // CHECK FOR NEW FRAMES
+        // CHECK S3 FOR NEW FORECAST HOURS
+        //
+        // Any newly published hour automatically changes
+        // from dark -> blue.
         // ====================================================
 
         setInterval(
