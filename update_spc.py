@@ -4,9 +4,9 @@
 # Downloads categorical outlook polygons from the NOAA/NWS
 # ArcGIS REST service and writes:
 #
-#   site/data/spc_day1_cat.geojson
-#   site/data/spc_day2_cat.geojson
-#   site/data/spc_day3_cat.geojson
+#   data/spc_day1_cat.geojson
+#   data/spc_day2_cat.geojson
+#   data/spc_day3_cat.geojson
 #
 # These GeoJSON files are then read directly by graphics.js.
 # ============================================================
@@ -64,14 +64,19 @@ SPC_LAYERS = {
 # ============================================================
 # OUTPUT DIRECTORY
 #
-# If update_spc.py is in the repository root and your site is:
+# Repository structure:
 #
 # repository/
 # ├── update_spc.py
-# └── site/
-#     └── data/
+# ├── index.html
+# ├── graphics.js
+# ├── style.css
+# └── data/
+#     ├── lbf_cwa.geojson
+#     ├── spc_day1_cat.geojson
+#     ├── spc_day2_cat.geojson
+#     └── spc_day3_cat.geojson
 #
-# this writes directly into site/data.
 # ============================================================
 
 BASE_DIR = (
@@ -83,7 +88,6 @@ BASE_DIR = (
 
 OUTPUT_DIR = (
     BASE_DIR
-    / "site"
     / "data"
 )
 
@@ -100,7 +104,9 @@ OUTPUT_DIR.mkdir(
 
 REQUEST_TIMEOUT_SECONDS = 45
 
+
 DOWNLOAD_ATTEMPTS = 3
+
 
 RETRY_SLEEP_SECONDS = 5
 
@@ -108,7 +114,7 @@ RETRY_SLEEP_SECONDS = 5
 # ============================================================
 # SPC CATEGORY INFORMATION
 #
-# dn values from the NOAA/NWS categorical outlook layers:
+# dn:
 #
 # 2 = Thunderstorm
 # 3 = Marginal
@@ -117,59 +123,118 @@ RETRY_SLEEP_SECONDS = 5
 # 6 = Moderate
 # 8 = High
 #
-# The service already provides fill/stroke values, but this
-# table gives us a reliable fallback.
+# NOAA normally supplies fill/stroke properties already.
+# These colors are fallback values.
 # ============================================================
 
 CATEGORY_INFO = {
 
     2: {
-        "label": "TSTM",
-        "name": "Thunderstorm",
-        "fill": "#C1E9C1",
-        "stroke": "#55BB55",
+
+        "label":
+            "TSTM",
+
+        "name":
+            "Thunderstorm",
+
+        "fill":
+            "#C1E9C1",
+
+        "stroke":
+            "#55BB55",
+
     },
+
 
     3: {
-        "label": "MRGL",
-        "name": "Marginal",
-        "fill": "#66A366",
-        "stroke": "#005500",
+
+        "label":
+            "MRGL",
+
+        "name":
+            "Marginal",
+
+        "fill":
+            "#66A366",
+
+        "stroke":
+            "#005500",
+
     },
+
 
     4: {
-        "label": "SLGT",
-        "name": "Slight",
-        "fill": "#FFE066",
-        "stroke": "#DDAA00",
+
+        "label":
+            "SLGT",
+
+        "name":
+            "Slight",
+
+        "fill":
+            "#FFE066",
+
+        "stroke":
+            "#DDAA00",
+
     },
+
 
     5: {
-        "label": "ENH",
-        "name": "Enhanced",
-        "fill": "#FFA366",
-        "stroke": "#FF6600",
+
+        "label":
+            "ENH",
+
+        "name":
+            "Enhanced",
+
+        "fill":
+            "#FFA366",
+
+        "stroke":
+            "#FF6600",
+
     },
+
 
     6: {
-        "label": "MDT",
-        "name": "Moderate",
-        "fill": "#E06666",
-        "stroke": "#CC0000",
+
+        "label":
+            "MDT",
+
+        "name":
+            "Moderate",
+
+        "fill":
+            "#E06666",
+
+        "stroke":
+            "#CC0000",
+
     },
 
+
     8: {
-        "label": "HIGH",
-        "name": "High",
-        "fill": "#EE99EE",
-        "stroke": "#CC00CC",
+
+        "label":
+            "HIGH",
+
+        "name":
+            "High",
+
+        "fill":
+            "#EE99EE",
+
+        "stroke":
+            "#CC00CC",
+
     },
 
 }
 
 
 # ============================================================
-# DOWNLOAD ONE CATEGORICAL OUTLOOK
+# DOWNLOAD ONE SPC CATEGORICAL OUTLOOK
 # ============================================================
 
 def fetch_spc_geojson(
@@ -252,8 +317,13 @@ def fetch_spc_geojson(
             data = response.json()
 
 
+            # =================================================
+            # VALIDATE RESPONSE
+            # =================================================
+
             if (
-                "features" not in data
+                "features"
+                not in data
             ):
 
                 raise RuntimeError(
@@ -306,6 +376,13 @@ def fetch_spc_geojson(
                 DOWNLOAD_ATTEMPTS
             ):
 
+                print(
+                    f"Waiting "
+                    f"{RETRY_SLEEP_SECONDS} seconds "
+                    f"before retry..."
+                )
+
+
                 time.sleep(
                     RETRY_SLEEP_SECONDS
                 )
@@ -321,7 +398,7 @@ def fetch_spc_geojson(
 
 
 # ============================================================
-# CLEAN / NORMALIZE PROPERTIES
+# NORMALIZE FEATURE PROPERTIES
 # ============================================================
 
 def normalize_feature_properties(
@@ -339,7 +416,7 @@ def normalize_feature_properties(
 
 
     # ========================================================
-    # DN / CATEGORY
+    # DN / CATEGORY NUMBER
     # ========================================================
 
     dn = properties.get(
@@ -370,18 +447,7 @@ def normalize_feature_properties(
 
 
     # ========================================================
-    # LABEL
-    #
-    # NOAA often returns:
-    #
-    # Thunderstorm
-    # Marginal
-    # Slight
-    # Enhanced
-    # Moderate
-    # High
-    #
-    # We also preserve a short risk code.
+    # CATEGORY LABEL
     # ========================================================
 
     service_label = (
@@ -392,59 +458,84 @@ def normalize_feature_properties(
 
 
     category_name = (
+
         fallback.get(
             "name"
         )
-        or service_label
-        or "Unknown"
+
+        or
+
+        service_label
+
+        or
+
+        "Unknown"
+
     )
 
 
     risk_code = (
+
         fallback.get(
             "label"
         )
-        or str(
+
+        or
+
+        str(
             service_label
             or ""
         )
+
     )
 
 
     # ========================================================
     # COLORS
     #
-    # Prefer colors provided by NOAA.
-    #
-    # If missing, use fallback colors above.
+    # Prefer NOAA's own attributes if they exist.
     # ========================================================
 
     fill = (
+
         properties.get(
             "fill"
         )
-        or fallback.get(
+
+        or
+
+        fallback.get(
             "fill"
         )
-        or "#888888"
+
+        or
+
+        "#888888"
+
     )
 
 
     stroke = (
+
         properties.get(
             "stroke"
         )
-        or fallback.get(
+
+        or
+
+        fallback.get(
             "stroke"
         )
-        or "#000000"
+
+        or
+
+        "#000000"
+
     )
 
 
     # ========================================================
-    # CLEAN PROPERTY OBJECT
-    #
-    # Keep original fields AND add standardized fields.
+    # ADD STANDARDIZED FIELDS
     # ========================================================
 
     properties[
@@ -497,6 +588,8 @@ def normalize_geojson(
         []
     ):
 
+        # Skip features without geometry
+
         if (
             not feature.get(
                 "geometry"
@@ -508,8 +601,11 @@ def normalize_geojson(
 
         cleaned_feature = (
             normalize_feature_properties(
+
                 feature,
+
                 day
+
             )
         )
 
@@ -541,7 +637,8 @@ def write_geojson(
 
     output_file = (
         OUTPUT_DIR
-        / filename
+        /
+        filename
     )
 
 
@@ -599,7 +696,9 @@ def print_outlook_info(
 
     valid_times = set()
 
+
     issue_times = set()
+
 
     expire_times = set()
 
@@ -616,6 +715,10 @@ def print_outlook_info(
             )
         )
 
+
+        # ====================================================
+        # CATEGORY
+        # ====================================================
 
         category = (
             properties.get(
@@ -634,6 +737,10 @@ def print_outlook_info(
                 category
             )
 
+
+        # ====================================================
+        # TIMES
+        # ====================================================
 
         valid = (
             properties.get(
@@ -659,23 +766,33 @@ def print_outlook_info(
         if valid:
 
             valid_times.add(
-                str(valid)
+                str(
+                    valid
+                )
             )
 
 
         if issue:
 
             issue_times.add(
-                str(issue)
+                str(
+                    issue
+                )
             )
 
 
         if expire:
 
             expire_times.add(
-                str(expire)
+                str(
+                    expire
+                )
             )
 
+
+    # ========================================================
+    # PRINT SUMMARY
+    # ========================================================
 
     print(
         "Categories:",
@@ -722,7 +839,7 @@ def print_outlook_info(
 
 
 # ============================================================
-# PROCESS ONE DAY
+# PROCESS ONE SPC DAY
 # ============================================================
 
 def process_day(
@@ -744,21 +861,45 @@ def process_day(
     )
 
 
+    print()
+    print(
+        f"Processing SPC Day {day}"
+    )
+
+
+    # ========================================================
+    # DOWNLOAD
+    # ========================================================
+
     raw_data = (
         fetch_spc_geojson(
+
             day,
+
             layer_id
+
         )
     )
 
+
+    # ========================================================
+    # NORMALIZE
+    # ========================================================
 
     data = (
         normalize_geojson(
+
             raw_data,
+
             day
+
         )
     )
 
+
+    # ========================================================
+    # VALIDATE
+    # ========================================================
 
     if (
         len(
@@ -775,17 +916,31 @@ def process_day(
         )
 
 
+    # ========================================================
+    # WRITE
+    # ========================================================
+
     output_file = (
         write_geojson(
+
             data,
+
             filename
+
         )
     )
 
 
+    # ========================================================
+    # INFO
+    # ========================================================
+
     print_outlook_info(
+
         day,
+
         data
+
     )
 
 
@@ -800,11 +955,20 @@ def main():
 
     print()
     print("=" * 70)
+
     print(
         "SPC DAY 1 / DAY 2 / DAY 3 "
         "OUTLOOK UPDATE"
     )
+
     print("=" * 70)
+
+
+    print()
+    print(
+        f"Output directory: "
+        f"{OUTPUT_DIR}"
+    )
 
 
     completed = []
@@ -812,6 +976,10 @@ def main():
 
     failed = []
 
+
+    # ========================================================
+    # PROCESS DAYS 1–3
+    # ========================================================
 
     for day, config in (
         SPC_LAYERS.items()
@@ -821,8 +989,11 @@ def main():
 
             output_file = (
                 process_day(
+
                     day,
+
                     config
+
                 )
             )
 
@@ -839,9 +1010,18 @@ def main():
 
             print()
             print(
-                f"ERROR updating "
-                f"Day {day}:"
+                "=" * 70
             )
+
+            print(
+                f"ERROR updating "
+                f"SPC Day {day}"
+            )
+
+            print(
+                "=" * 70
+            )
+
 
             print(
                 error
@@ -851,13 +1031,15 @@ def main():
             failed.append(
                 (
                     day,
-                    str(error)
+                    str(
+                        error
+                    )
                 )
             )
 
 
     # ========================================================
-    # SUMMARY
+    # FINAL SUMMARY
     # ========================================================
 
     print()
@@ -879,6 +1061,7 @@ def main():
             f"Day {day}: OK"
         )
 
+
         print(
             f"  {output_file}"
         )
@@ -893,16 +1076,20 @@ def main():
             f"Day {day}: FAILED"
         )
 
+
         print(
             f"  {error}"
         )
 
 
     print()
+
+
     print(
         f"Successful: "
         f"{len(completed)}"
     )
+
 
     print(
         f"Failed: "
@@ -910,8 +1097,9 @@ def main():
     )
 
 
-    # If absolutely nothing worked,
-    # fail the GitHub workflow.
+    # ========================================================
+    # FAIL WORKFLOW IF NOTHING WORKED
+    # ========================================================
 
     if (
         len(completed)
@@ -923,6 +1111,26 @@ def main():
             "No SPC outlook files "
             "were successfully updated."
 
+        )
+
+
+    # ========================================================
+    # REPORT PARTIAL FAILURE
+    #
+    # We do not kill the entire job if one outlook temporarily
+    # fails, because successful days should still be written.
+    # ========================================================
+
+    if failed:
+
+        print()
+        print(
+            "WARNING:"
+        )
+
+        print(
+            "One or more SPC outlooks "
+            "failed to update."
         )
 
 
