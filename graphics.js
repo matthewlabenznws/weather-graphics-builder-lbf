@@ -876,12 +876,181 @@ function setupMapLayers(
     });
 
 
-    applyOverlayStateToMap(
+        applyOverlayStateToMap(
+        map
+    );
+
+
+    // ========================================================
+    // REMOVE UNWANTED MAPBOX BASEMAP LABELS
+    // ========================================================
+
+    hideUnwantedBasemapLabels(
         map
     );
 
 }
+// ============================================================
+// HIDE UNWANTED MAPBOX BASEMAP LABELS
+// ============================================================
 
+function hideUnwantedBasemapLabels(
+    map
+) {
+
+    const style =
+        map.getStyle();
+
+
+    if (
+        !style
+        ||
+        !style.layers
+    ) {
+
+        return;
+
+    }
+
+
+    style.layers.forEach(
+        layer => {
+
+            if (
+                layer.type !== "symbol"
+            ) {
+
+                return;
+
+            }
+
+
+            const id =
+                layer.id
+                    .toLowerCase();
+
+
+            // =================================================
+            // STATE / COUNTRY / REGION LABELS
+            //
+            // Removes labels such as:
+            // NEBRASKA
+            // United States
+            // =================================================
+
+            const hideAdministrativeLabel =
+
+                id.includes(
+                    "state-label"
+                )
+
+                ||
+
+                id.includes(
+                    "country-label"
+                )
+
+                ||
+
+                id.includes(
+                    "region-label"
+                )
+
+                ||
+
+                id.includes(
+                    "admin-label"
+                );
+
+
+            // =================================================
+            // RESERVATION / INDIGENOUS LAND LABELS
+            //
+            // Removes labels such as:
+            // Pine Ridge Indian Reservation
+            // Rosebud Indian Reservation
+            // =================================================
+
+            const hideReservationLabel =
+
+                id.includes(
+                    "reservation"
+                )
+
+                ||
+
+                id.includes(
+                    "indigenous"
+                )
+
+                ||
+
+                id.includes(
+                    "aboriginal"
+                )
+
+                ||
+
+                id.includes(
+                    "native"
+                );
+
+
+            if (
+                hideAdministrativeLabel
+                ||
+                hideReservationLabel
+            ) {
+
+                try {
+
+                    map.setLayoutProperty(
+
+                        layer.id,
+
+                        "visibility",
+
+                        "none"
+
+                    );
+
+
+                    console.log(
+
+                        "Hidden basemap label layer:",
+
+                        layer.id
+
+                    );
+
+                }
+
+
+                catch (error) {
+
+                    console.warn(
+
+                        "Could not hide basemap label layer:",
+
+                        layer.id,
+
+                        error
+
+                    );
+
+                }
+
+            }
+
+        }
+    );
+
+}
+
+
+// ============================================================
+// APPLY OVERLAY STATE
+// ============================================================
 
 // ============================================================
 // APPLY OVERLAY STATE
