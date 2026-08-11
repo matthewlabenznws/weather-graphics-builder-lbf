@@ -1,0 +1,2743 @@
+# ============================================================
+# RRFS COMPOSITE REFLECTIVITY + 2-5 KM UH >= 75
+#
+# Progressive publishing to AWS S3
+#
+# Output:
+#
+# s3://mtl-nwslbf-model-data/
+# weather-graphics/rrfs/reflUH/latest/
+#
+#     manifest.json
+#     f000.png
+#     f001.png
+#     ...
+#
+# ============================================================
+
+
+# ============================================================
+# IMPORTS
+# ============================================================
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import tempfile
+import time
+import warnings
+
+from datetime import (
+    datetime,
+    timedelta,
+    timezone
+)
+
+from pathlib import Path
+
+import boto3
+import numpy as np
+import requests
+import xarray as xr
+
+import matplotlib
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+
+from botocore import UNSIGNED
+from botocore.config import Config
+
+from matplotlib.colors import (
+    LinearSegmentedColormap,
+    Normalize
+)
+
+from scipy.ndimage import (
+    zoom,
+    gaussian_filter
+)
+
+
+warnings.filterwarnings("ignore")
+
+
+# ============================================================
+# AWS OUTPUT SETTINGS
+# ============================================================
+
+OUTPUT_AWS_REGION = "us-east-2"
+
+OUTPUT_BUCKET = (
+    "mtl-nwslbf-model-data"
+)
+
+OUTPUT_PREFIX = (
+    "weather-graphics/"
+    "rrfs/"
+    "reflUH/"
+    "latest"
+)
+
+
+output_s3 = boto3.client(
+    "s3",
+    region_name=OUTPUT_AWS_REGION
+)
+
+
+# ============================================================
+# NOAA RRFS PUBLIC S3
+# ============================================================
+
+RRFS_BUCKET = (
+    "noaa-rrfs-pds"
+)
+
+RRFS_REGION = (
+    "us-east-1"
+)
+
+
+# Anonymous client.
+#
+# NOAA NODD bucket does not require credentials.
+
+rrfs_s3 = boto3.client(
+    "s3",
+    region_name=RRFS_REGION,
+    config=Config(
+        signature_version=UNSIGNED
+    )
+)
+
+
+# ============================================================
+# RRFS DIRECTORY ROOTS
+#
+# rrfs_public = current public/operational-style feed
+#
+# rrfs_a = older prototype feed fallback
+#
+# The script tries rrfs_public FIRST.
+# ============================================================
+
+RRFS_ROOTS = [
+
+    "rrfs_public",
+
+    "rrfs_a"
+
+]
+
+
+# ============================================================
+# MAP DOMAIN
+#
+# Same geographic bounds as HRRR PNG so switching models
+# does not move/resize the image overlay in Mapbox.
+# ============================================================
+
+WEST = -105.5
+EAST = -96.0
+SOUTH = 38.5
+NORTH = 44.5
+
+
+# ============================================================
+# REFLECTIVITY
+# ============================================================
+
+MIN_REFL = 10.0
+
+UPSCALE = 4
+
+SMOOTH_SIGMA = 0.4
+
+
+# ============================================================
+# UH
+# ============================================================
+
+UH_THRESHOLD = 75.0
+
+UH_FILL_ALPHA = 0.45
+
+
+# ============================================================
+# IMAGE
+# ============================================================
+
+FIG_WIDTH = 16
+
+FIG_HEIGHT = 10
+
+DPI = 150
+
+
+# ============================================================
+# RUN SETTINGS
+# ============================================================
+
+# RRFS extended cycles
+
+EXTENDED_CYCLES = [
+    0,
+    6,
+    12,
+    18
+]
+
+
+# Extended RRFS forecast
+
+EXTENDED_MAX_FHR = 60
+
+
+# Other deterministic cycles
+
+STANDARD_MAX_FHR = 18
+
+
+# Search backward this many hours for a valid run.
+
+MAX_RUN_LOOKBACK = 12
+
+
+# Retries per forecast hour
+
+DOWNLOAD_ATTEMPTS = 3
+
+RETRY_SLEEP_SECONDS = 10
+
+
+# ============================================================
+# LOCAL OUTPUT
+# ============================================================
+
+BASE_DIR = (
+    Path(__file__)
+    .resolve()
+    .parent
+)
+
+
+OUTPUT_DIR = (
+
+    BASE_DIR
+
+    / "output"
+
+    / "rrfs"
+
+    / "reflUH"
+
+    / "latest"
+
+)
+
+
+OUTPUT_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
+
+
+TEMP_DIR = (
+
+    BASE_DIR
+
+    / "output"
+
+    / "rrfs"
+
+    / "temp"
+
+)
+
+
+TEMP_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
+
+
+# ============================================================
+# RADARSCOPE-STYLE REFLECTIVITY COLOR TABLE
+# ============================================================
+
+REFL_POINTS = [
+
+    (-15.00, (0, 0, 0)),
+
+    (5.00, (29, 37, 60)),
+
+    (17.50, (89, 155, 171)),
+
+    (22.50, (33, 186, 72)),
+
+    (32.50, (5, 101, 1)),
+
+
+    # Yellow
+
+    (37.49, (251, 252, 0)),
+
+    (37.50, (199, 176, 0)),
+
+
+    # Orange
+
+    (42.49, (253, 149, 2)),
+
+    (42.50, (172, 92, 2)),
+
+
+    # Red
+
+    (49.99, (253, 38, 0)),
+
+    (50.00, (135, 43, 22)),
+
+
+    # Pink
+
+    (59.99, (193, 148, 179)),
+
+    (60.00, (200, 23, 119)),
+
+
+    # Purple
+
+    (69.99, (165, 2, 215)),
+
+    (70.00, (64, 0, 146)),
+
+
+    # Cyan
+
+    (74.99, (135, 255, 253)),
+
+    (75.00, (54, 120, 142)),
+
+
+    # Extreme
+
+    (80.00, (173, 99, 64)),
+
+    (85.00, (105, 0, 4)),
+
+    (95.00, (0, 0, 0))
+
+]
+
+
+COLOR_MIN = -15.0
+
+COLOR_MAX = 95.0
+
+
+# ============================================================
+# BUILD REFLECTIVITY COLORMAP
+# ============================================================
+
+def build_refl_colormap():
+
+    cmap_points = []
+
+
+    for value, rgb in REFL_POINTS:
+
+        position = (
+
+            (value - COLOR_MIN)
+
+            /
+
+            (COLOR_MAX - COLOR_MIN)
+
+        )
+
+
+        color = (
+
+            rgb[0] / 255.0,
+
+            rgb[1] / 255.0,
+
+            rgb[2] / 255.0
+
+        )
+
+
+        cmap_points.append(
+            (
+                position,
+                color
+            )
+        )
+
+
+    cmap = (
+        LinearSegmentedColormap
+        .from_list(
+            "radarscope_br",
+            cmap_points,
+            N=2048
+        )
+    )
+
+
+    norm = Normalize(
+
+        vmin=COLOR_MIN,
+
+        vmax=COLOR_MAX
+
+    )
+
+
+    levels = np.arange(
+
+        MIN_REFL,
+
+        96,
+
+        1.0
+
+    )
+
+
+    return (
+        cmap,
+        norm,
+        levels
+    )
+
+
+(
+    REFL_CMAP,
+    REFL_NORM,
+    REFL_LEVELS
+
+) = build_refl_colormap()
+
+
+# ============================================================
+# RRFS PREFIX
+# ============================================================
+
+def make_run_prefix(
+    root,
+    run_time
+):
+
+    date_string = (
+        run_time.strftime(
+            "%Y%m%d"
+        )
+    )
+
+
+    cycle = (
+        run_time.strftime(
+            "%H"
+        )
+    )
+
+
+    return (
+
+        f"{root}/"
+
+        f"rrfs.{date_string}/"
+
+        f"{cycle}/"
+
+    )
+
+
+# ============================================================
+# LIST RRFS FILES FOR RUN
+# ============================================================
+
+def list_run_objects(
+    root,
+    run_time
+):
+
+    prefix = make_run_prefix(
+        root,
+        run_time
+    )
+
+
+    paginator = (
+        rrfs_s3
+        .get_paginator(
+            "list_objects_v2"
+        )
+    )
+
+
+    keys = []
+
+
+    for page in paginator.paginate(
+
+        Bucket=RRFS_BUCKET,
+
+        Prefix=prefix
+
+    ):
+
+        for obj in page.get(
+            "Contents",
+            []
+        ):
+
+            keys.append(
+                obj["Key"]
+            )
+
+
+    return keys
+
+
+# ============================================================
+# FIND RRFS 2-D CONUS FILE
+#
+# Official filename pattern:
+#
+# rrfs.tCCz.2dfld.3km.fFFF.conus.grib2
+#
+# NOAA currently describes this as the operational-style
+# 3-km CONUS 2-D product.
+# ============================================================
+
+def find_2dfld_key(
+    keys,
+    run_time,
+    fhr
+):
+
+    cycle = (
+        run_time.strftime(
+            "%H"
+        )
+    )
+
+
+    filename = (
+
+        f"rrfs.t{cycle}z."
+
+        f"2dfld.3km."
+
+        f"f{fhr:03d}."
+
+        f"conus.grib2"
+
+    )
+
+
+    # Exact match first
+
+    for key in keys:
+
+        if key.endswith(
+            filename
+        ):
+
+            return key
+
+
+    # --------------------------------------------------------
+    # Flexible fallback
+    #
+    # Handles prototype/transition naming differences.
+    # --------------------------------------------------------
+
+    pattern = re.compile(
+
+        rf"rrfs\.t{cycle}z\."
+
+        rf".*2dfld.*"
+
+        rf"f{fhr:03d}\."
+
+        rf".*conus.*"
+
+        rf"\.grib2$",
+
+        re.IGNORECASE
+
+    )
+
+
+    for key in keys:
+
+        if pattern.search(
+            key
+        ):
+
+            return key
+
+
+    return None
+
+
+# ============================================================
+# FIND LATEST RRFS RUN
+# ============================================================
+
+def find_latest_rrfs():
+
+    now = (
+        datetime
+        .now(
+            timezone.utc
+        )
+    )
+
+
+    start = (
+        now.replace(
+            minute=0,
+            second=0,
+            microsecond=0
+        )
+    )
+
+
+    print("=" * 70)
+
+    print(
+        "SEARCHING FOR LATEST RRFS"
+    )
+
+    print("=" * 70)
+
+
+    for back in range(
+        MAX_RUN_LOOKBACK + 1
+    ):
+
+        run_time = (
+
+            start
+
+            -
+
+            timedelta(
+                hours=back
+            )
+
+        )
+
+
+        print()
+
+        print(
+            f"Checking "
+            f"{run_time:%Y-%m-%d %HZ}"
+        )
+
+
+        for root in RRFS_ROOTS:
+
+            try:
+
+                keys = (
+                    list_run_objects(
+                        root,
+                        run_time
+                    )
+                )
+
+
+                if not keys:
+
+                    continue
+
+
+                # Require at least F000 2-D file
+
+                f000_key = (
+                    find_2dfld_key(
+                        keys,
+                        run_time,
+                        0
+                    )
+                )
+
+
+                if f000_key:
+
+                    print()
+
+                    print(
+                        "FOUND RRFS:"
+                    )
+
+                    print(
+                        f"Run:  "
+                        f"{run_time:%Y-%m-%d %HZ}"
+                    )
+
+                    print(
+                        f"Root: {root}"
+                    )
+
+                    print(
+                        f"File: {f000_key}"
+                    )
+
+
+                    return (
+                        run_time,
+                        root,
+                        keys
+                    )
+
+
+            except Exception as error:
+
+                print(
+                    f"  {root} error: "
+                    f"{error}"
+                )
+
+
+    raise RuntimeError(
+        "Could not find a recent RRFS run."
+    )
+
+
+# ============================================================
+# FORECAST LENGTH
+# ============================================================
+
+def get_max_fhr(
+    run_time
+):
+
+    if (
+        run_time.hour
+        in
+        EXTENDED_CYCLES
+    ):
+
+        return (
+            EXTENDED_MAX_FHR
+        )
+
+
+    return (
+        STANDARD_MAX_FHR
+    )
+
+
+# ============================================================
+# PUBLIC S3 HTTPS URL
+# ============================================================
+
+def s3_https_url(
+    key
+):
+
+    return (
+
+        "https://"
+
+        f"{RRFS_BUCKET}."
+
+        "s3.amazonaws.com/"
+
+        f"{key}"
+
+    )
+
+
+# ============================================================
+# DOWNLOAD TEXT
+# ============================================================
+
+def download_text(
+    url
+):
+
+    response = requests.get(
+
+        url,
+
+        timeout=60
+
+    )
+
+
+    response.raise_for_status()
+
+
+    return response.text
+
+
+# ============================================================
+# READ GRIB INDEX
+# ============================================================
+
+def get_idx_text(
+    grib_key
+):
+
+    idx_key = (
+        grib_key +
+        ".idx"
+    )
+
+
+    url = (
+        s3_https_url(
+            idx_key
+        )
+    )
+
+
+    print(
+        "Index:",
+        url
+    )
+
+
+    return (
+        download_text(
+            url
+        )
+    )
+
+
+# ============================================================
+# PARSE .IDX FILE
+# ============================================================
+
+def parse_idx(
+    idx_text
+):
+
+    records = []
+
+
+    for line in (
+        idx_text
+        .splitlines()
+    ):
+
+        line = (
+            line.strip()
+        )
+
+
+        if not line:
+
+            continue
+
+
+        pieces = (
+            line.split(
+                ":"
+            )
+        )
+
+
+        if (
+            len(pieces) < 5
+        ):
+
+            continue
+
+
+        try:
+
+            message_number = (
+                int(
+                    pieces[0]
+                )
+            )
+
+
+            start_byte = (
+                int(
+                    pieces[1]
+                )
+            )
+
+
+        except ValueError:
+
+            continue
+
+
+        records.append({
+
+            "message":
+                message_number,
+
+            "start":
+                start_byte,
+
+            "line":
+                line
+
+        })
+
+
+    # Add ending byte
+
+    for index in range(
+        len(records)
+    ):
+
+        if (
+            index + 1
+            <
+            len(records)
+        ):
+
+            records[index][
+                "end"
+            ] = (
+
+                records[
+                    index + 1
+                ][
+                    "start"
+                ]
+
+                -
+
+                1
+
+            )
+
+
+        else:
+
+            records[index][
+                "end"
+            ] = None
+
+
+    return records
+
+
+# ============================================================
+# FIND REFLECTIVITY RECORD
+# ============================================================
+
+def find_reflectivity_record(
+    records
+):
+
+    candidates = []
+
+
+    for record in records:
+
+        text = (
+            record[
+                "line"
+            ]
+            .upper()
+        )
+
+
+        # Composite reflectivity
+
+        if (
+            ":REFC:"
+            in text
+        ):
+
+            candidates.append(
+                record
+            )
+
+
+    if candidates:
+
+        return (
+            candidates[0]
+        )
+
+
+    raise RuntimeError(
+        "REFC not found in RRFS index."
+    )
+
+
+# ============================================================
+# FIND 2-5 KM MAX UH
+# ============================================================
+
+def find_uh_record(
+    records
+):
+
+    candidates = []
+
+
+    for record in records:
+
+        text = (
+            record[
+                "line"
+            ]
+            .upper()
+        )
+
+
+        if (
+            ":MXUPHL:"
+            not in text
+        ):
+
+            continue
+
+
+        # Explicit 5-2 km layer
+
+        if (
+            "5000-2000 M"
+            in text
+            or
+            "5000-2000 M ABOVE GROUND"
+            in text
+        ):
+
+            return record
+
+
+        candidates.append(
+            record
+        )
+
+
+    # If format changed but only one max-UH exists,
+    # use first MXUPHL candidate.
+
+    if candidates:
+
+        print(
+            "WARNING: exact 2-5 km text "
+            "not found; using first MXUPHL."
+        )
+
+        return (
+            candidates[0]
+        )
+
+
+    raise RuntimeError(
+        "MXUPHL not found in RRFS index."
+    )
+
+
+# ============================================================
+# DOWNLOAD BYTE RANGE
+# ============================================================
+
+def download_range(
+    grib_key,
+    record
+):
+
+    url = (
+        s3_https_url(
+            grib_key
+        )
+    )
+
+
+    start_byte = (
+        record[
+            "start"
+        ]
+    )
+
+
+    end_byte = (
+        record[
+            "end"
+        ]
+    )
+
+
+    if end_byte is None:
+
+        range_header = (
+            f"bytes={start_byte}-"
+        )
+
+    else:
+
+        range_header = (
+
+            f"bytes="
+
+            f"{start_byte}-"
+
+            f"{end_byte}"
+
+        )
+
+
+    response = requests.get(
+
+        url,
+
+        headers={
+            "Range":
+                range_header
+        },
+
+        timeout=120
+
+    )
+
+
+    response.raise_for_status()
+
+
+    return (
+        response.content
+    )
+
+
+# ============================================================
+# WRITE FIELD GRIB
+# ============================================================
+
+def download_field_grib(
+    grib_key,
+    record,
+    destination
+):
+
+    data = (
+        download_range(
+            grib_key,
+            record
+        )
+    )
+
+
+    with open(
+        destination,
+        "wb"
+    ) as file:
+
+        file.write(
+            data
+        )
+
+
+# ============================================================
+# OPEN SINGLE GRIB FIELD
+# ============================================================
+
+def open_grib_field(
+    filename
+):
+
+    # Each temporary file contains just one GRIB message,
+    # which avoids cfgrib conflicts.
+
+    ds = xr.open_dataset(
+
+        filename,
+
+        engine="cfgrib",
+
+        backend_kwargs={
+
+            "indexpath":
+                "",
+
+            "errors":
+                "ignore"
+
+        }
+
+    )
+
+
+    return ds
+
+
+# ============================================================
+# GET FIRST 2-D VARIABLE
+# ============================================================
+
+def get_2d_variable(
+    ds
+):
+
+    for name in (
+        ds.data_vars
+    ):
+
+        field = (
+            ds[name]
+        )
+
+
+        if (
+            field.ndim >= 2
+        ):
+
+            return field
+
+
+    raise RuntimeError(
+        "No 2-D variable found."
+    )
+
+
+# ============================================================
+# GET LAT / LON
+# ============================================================
+
+def get_lat_lon(
+    ds
+):
+
+    # Common names
+
+    possible_lat = [
+
+        "latitude",
+
+        "lat"
+
+    ]
+
+
+    possible_lon = [
+
+        "longitude",
+
+        "lon"
+
+    ]
+
+
+    lat = None
+
+    lon = None
+
+
+    for name in possible_lat:
+
+        if name in ds:
+
+            lat = (
+                ds[name]
+                .values
+            )
+
+            break
+
+
+    for name in possible_lon:
+
+        if name in ds:
+
+            lon = (
+                ds[name]
+                .values
+            )
+
+            break
+
+
+    if (
+        lat is None
+        or
+        lon is None
+    ):
+
+        raise RuntimeError(
+            "Could not find RRFS lat/lon coordinates."
+        )
+
+
+    # Some GRIB decoders return longitude 0-360.
+
+    lon = np.where(
+
+        lon > 180,
+
+        lon - 360,
+
+        lon
+
+    )
+
+
+    return (
+        lon,
+        lat
+    )
+
+
+# ============================================================
+# LOAD ONE RRFS FORECAST HOUR
+# ============================================================
+
+def load_hour(
+    run_time,
+    root,
+    known_keys,
+    fhr
+):
+
+    print()
+
+    print("=" * 70)
+
+    print(
+        f"RRFS "
+        f"{run_time:%Y%m%d %HZ} "
+        f"F{fhr:03d}"
+    )
+
+    print("=" * 70)
+
+
+    last_error = None
+
+
+    # Refresh listing each hour because a run may
+    # still be publishing while this workflow is running.
+
+    keys = (
+        list_run_objects(
+            root,
+            run_time
+        )
+    )
+
+
+    grib_key = (
+        find_2dfld_key(
+            keys,
+            run_time,
+            fhr
+        )
+    )
+
+
+    if not grib_key:
+
+        raise FileNotFoundError(
+
+            f"RRFS F{fhr:03d} "
+            "2dfld file not available yet."
+
+        )
+
+
+    for attempt in range(
+        1,
+        DOWNLOAD_ATTEMPTS + 1
+    ):
+
+        try:
+
+            print(
+                f"Attempt "
+                f"{attempt}/"
+                f"{DOWNLOAD_ATTEMPTS}"
+            )
+
+
+            print(
+                "GRIB:",
+                grib_key
+            )
+
+
+            # =================================================
+            # INVENTORY
+            # =================================================
+
+            idx_text = (
+                get_idx_text(
+                    grib_key
+                )
+            )
+
+
+            records = (
+                parse_idx(
+                    idx_text
+                )
+            )
+
+
+            refl_record = (
+                find_reflectivity_record(
+                    records
+                )
+            )
+
+
+            # =================================================
+            # REFLECTIVITY TEMP FILE
+            # =================================================
+
+            refl_file = (
+
+                TEMP_DIR
+
+                /
+
+                f"rrfs_refl_"
+                f"f{fhr:03d}.grib2"
+
+            )
+
+
+            download_field_grib(
+
+                grib_key,
+
+                refl_record,
+
+                refl_file
+
+            )
+
+
+            ds_refl = (
+                open_grib_field(
+                    refl_file
+                )
+            )
+
+
+            refl_da = (
+                get_2d_variable(
+                    ds_refl
+                )
+            )
+
+
+            refl = np.squeeze(
+
+                refl_da
+                .values
+
+            ).astype(
+                float
+            )
+
+
+            (
+                lon,
+                lat
+
+            ) = get_lat_lon(
+                ds_refl
+            )
+
+
+            # =================================================
+            # UH
+            # =================================================
+
+            try:
+
+                uh_record = (
+                    find_uh_record(
+                        records
+                    )
+                )
+
+
+                uh_file = (
+
+                    TEMP_DIR
+
+                    /
+
+                    f"rrfs_uh_"
+                    f"f{fhr:03d}.grib2"
+
+                )
+
+
+                download_field_grib(
+
+                    grib_key,
+
+                    uh_record,
+
+                    uh_file
+
+                )
+
+
+                ds_uh = (
+                    open_grib_field(
+                        uh_file
+                    )
+                )
+
+
+                uh_da = (
+                    get_2d_variable(
+                        ds_uh
+                    )
+                )
+
+
+                uh = np.squeeze(
+
+                    uh_da
+                    .values
+
+                ).astype(
+                    float
+                )
+
+
+            except Exception as uh_error:
+
+                print(
+
+                    "UH unavailable:"
+
+                )
+
+                print(
+                    uh_error
+                )
+
+
+                uh = np.zeros_like(
+                    refl
+                )
+
+
+            print(
+                f"Reflectivity max: "
+                f"{np.nanmax(refl):.1f} dBZ"
+            )
+
+
+            print(
+                f"UH max: "
+                f"{np.nanmax(uh):.1f}"
+            )
+
+
+            # Clean temporary files
+
+            try:
+
+                ds_refl.close()
+
+            except Exception:
+
+                pass
+
+
+            try:
+
+                ds_uh.close()
+
+            except Exception:
+
+                pass
+
+
+            for temp_file in (
+
+                TEMP_DIR.glob(
+                    f"*f{fhr:03d}.grib2*"
+                )
+
+            ):
+
+                try:
+
+                    temp_file.unlink()
+
+                except Exception:
+
+                    pass
+
+
+            return (
+                lon,
+                lat,
+                refl,
+                uh
+            )
+
+
+        except Exception as error:
+
+            last_error = (
+                error
+            )
+
+
+            print(
+                f"Attempt failed: "
+                f"{error}"
+            )
+
+
+            if (
+                attempt
+                <
+                DOWNLOAD_ATTEMPTS
+            ):
+
+                time.sleep(
+                    RETRY_SLEEP_SECONDS
+                )
+
+
+    raise RuntimeError(
+
+        f"F{fhr:03d} failed: "
+        f"{last_error}"
+
+    )
+
+
+# ============================================================
+# PROCESS REFLECTIVITY
+# ============================================================
+
+def process_reflectivity(
+    lon,
+    lat,
+    refl
+):
+
+    original_min = (
+        np.nanmin(
+            refl
+        )
+    )
+
+
+    original_max = (
+        np.nanmax(
+            refl
+        )
+    )
+
+
+    refl_clean = np.where(
+
+        np.isfinite(
+            refl
+        ),
+
+        refl,
+
+        -20.0
+
+    )
+
+
+    # ========================================================
+    # 4X CUBIC INTERPOLATION
+    # ========================================================
+
+    refl_fine = zoom(
+
+        refl_clean,
+
+        UPSCALE,
+
+        order=3
+
+    )
+
+
+    lon_fine = zoom(
+
+        lon,
+
+        UPSCALE,
+
+        order=3
+
+    )
+
+
+    lat_fine = zoom(
+
+        lat,
+
+        UPSCALE,
+
+        order=3
+
+    )
+
+
+    # Prevent cubic overshoot
+
+    refl_fine = np.clip(
+
+        refl_fine,
+
+        original_min,
+
+        original_max
+
+    )
+
+
+    # ========================================================
+    # LIGHT SMOOTHING
+    # ========================================================
+
+    refl_fine = gaussian_filter(
+
+        refl_fine,
+
+        sigma=
+            SMOOTH_SIGMA
+
+    )
+
+
+    refl_fine = np.clip(
+
+        refl_fine,
+
+        original_min,
+
+        original_max
+
+    )
+
+
+    # ========================================================
+    # MASK BELOW 10 DBZ
+    # ========================================================
+
+    refl_plot = (
+        np.ma.masked_where(
+
+            refl_fine
+            <
+            MIN_REFL,
+
+            refl_fine
+
+        )
+    )
+
+
+    return (
+        lon_fine,
+        lat_fine,
+        refl_plot
+    )
+
+
+# ============================================================
+# PROCESS UH
+# ============================================================
+
+def process_uh(
+    lon,
+    lat,
+    uh
+):
+
+    uh_clean = np.where(
+
+        np.isfinite(
+            uh
+        ),
+
+        uh,
+
+        0.0
+
+    )
+
+
+    # Linear interpolation avoids cubic overshoot
+    # around the 75 threshold.
+
+    uh_fine = zoom(
+
+        uh_clean,
+
+        UPSCALE,
+
+        order=1
+
+    )
+
+
+    lon_fine = zoom(
+
+        lon,
+
+        UPSCALE,
+
+        order=1
+
+    )
+
+
+    lat_fine = zoom(
+
+        lat,
+
+        UPSCALE,
+
+        order=1
+
+    )
+
+
+    return (
+        lon_fine,
+        lat_fine,
+        uh_fine
+    )
+
+
+# ============================================================
+# PLOT ONE FORECAST HOUR
+# ============================================================
+
+def plot_hour(
+    run_time,
+    fhr,
+    lon,
+    lat,
+    refl,
+    uh
+):
+
+    output_file = (
+
+        OUTPUT_DIR
+
+        /
+
+        f"f{fhr:03d}.png"
+
+    )
+
+
+    (
+        lon_refl,
+        lat_refl,
+        refl_plot
+
+    ) = process_reflectivity(
+
+        lon,
+        lat,
+        refl
+
+    )
+
+
+    (
+        lon_uh,
+        lat_uh,
+        uh_fine
+
+    ) = process_uh(
+
+        lon,
+        lat,
+        uh
+
+    )
+
+
+    # ========================================================
+    # FIGURE
+    # ========================================================
+
+    fig = plt.figure(
+
+        figsize=(
+
+            FIG_WIDTH,
+
+            FIG_HEIGHT
+
+        ),
+
+        dpi=DPI,
+
+        facecolor="none"
+
+    )
+
+
+    ax = fig.add_axes(
+
+        [
+            0,
+            0,
+            1,
+            1
+        ],
+
+        projection=
+            ccrs.PlateCarree()
+
+    )
+
+
+    fig.patch.set_alpha(
+        0
+    )
+
+
+    ax.patch.set_alpha(
+        0
+    )
+
+
+    ax.set_extent(
+
+        [
+            WEST,
+            EAST,
+            SOUTH,
+            NORTH
+        ],
+
+        crs=
+            ccrs.PlateCarree()
+
+    )
+
+
+    # ========================================================
+    # REFLECTIVITY
+    # ========================================================
+
+    ax.contourf(
+
+        lon_refl,
+
+        lat_refl,
+
+        refl_plot,
+
+        levels=
+            REFL_LEVELS,
+
+        cmap=
+            REFL_CMAP,
+
+        norm=
+            REFL_NORM,
+
+        extend=
+            "max",
+
+        transform=
+            ccrs.PlateCarree(),
+
+        antialiased=
+            True,
+
+        zorder=
+            1
+
+    )
+
+
+    # ========================================================
+    # 2-5 KM UH >= 75
+    # ========================================================
+
+    uh_max = (
+        np.nanmax(
+            uh_fine
+        )
+    )
+
+
+    if (
+        uh_max
+        >=
+        UH_THRESHOLD
+    ):
+
+        # ----------------------------------------------------
+        # SEMI-TRANSPARENT BLACK FILL
+        # ----------------------------------------------------
+
+        ax.contourf(
+
+            lon_uh,
+
+            lat_uh,
+
+            uh_fine,
+
+            levels=[
+
+                UH_THRESHOLD,
+
+                max(
+                    1000.0,
+                    uh_max + 1.0
+                )
+
+            ],
+
+            colors=[
+                "#000000"
+            ],
+
+            alpha=
+                UH_FILL_ALPHA,
+
+            transform=
+                ccrs.PlateCarree(),
+
+            antialiased=
+                True,
+
+            zorder=
+                5
+
+        )
+
+
+        # ----------------------------------------------------
+        # BLACK OUTLINE
+        # ----------------------------------------------------
+
+        ax.contour(
+
+            lon_uh,
+
+            lat_uh,
+
+            uh_fine,
+
+            levels=[
+                UH_THRESHOLD
+            ],
+
+            colors=[
+                "#000000"
+            ],
+
+            linewidths=
+                1.5,
+
+            transform=
+                ccrs.PlateCarree(),
+
+            zorder=
+                6
+
+        )
+
+
+    ax.set_axis_off()
+
+
+    # ========================================================
+    # SAVE TRANSPARENT PNG
+    # ========================================================
+
+    plt.savefig(
+
+        output_file,
+
+        dpi=DPI,
+
+        transparent=True,
+
+        facecolor="none",
+
+        edgecolor="none",
+
+        bbox_inches=None,
+
+        pad_inches=0
+
+    )
+
+
+    plt.close(
+        fig
+    )
+
+
+    valid_time = (
+
+        run_time
+
+        +
+
+        timedelta(
+            hours=fhr
+        )
+
+    )
+
+
+    frame_info = {
+
+        "fhr":
+            fhr,
+
+        "file":
+            f"f{fhr:03d}.png",
+
+        "valid":
+            valid_time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
+
+    }
+
+
+    print(
+        f"Created "
+        f"{output_file.name}"
+    )
+
+
+    return (
+        output_file,
+        frame_info
+    )
+
+
+# ============================================================
+# UPLOAD FRAME TO YOUR S3
+# ============================================================
+
+def upload_frame(
+    output_file,
+    fhr
+):
+
+    key = (
+
+        f"{OUTPUT_PREFIX}/"
+
+        f"f{fhr:03d}.png"
+
+    )
+
+
+    output_s3.upload_file(
+
+        str(
+            output_file
+        ),
+
+        OUTPUT_BUCKET,
+
+        key,
+
+        ExtraArgs={
+
+            "ContentType":
+                "image/png",
+
+            "CacheControl":
+                "no-cache, no-store, must-revalidate"
+
+        }
+
+    )
+
+
+    print(
+
+        f"Uploaded "
+        f"F{fhr:03d} to S3."
+
+    )
+
+
+# ============================================================
+# MANIFEST
+# ============================================================
+
+def build_manifest(
+    run_time,
+    max_fhr,
+    hours,
+    status
+):
+
+    return {
+
+        "model":
+            "RRFS",
+
+        "product":
+            "reflUH",
+
+        "description":
+            (
+                "Composite Reflectivity + "
+                "2-5 km UH >= 75"
+            ),
+
+        "run":
+            run_time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
+
+        "cycle":
+            run_time.strftime(
+                "%HZ"
+            ),
+
+        "max_fhr":
+            max_fhr,
+
+        "reflectivity_min_dbz":
+            MIN_REFL,
+
+        "uh_threshold":
+            UH_THRESHOLD,
+
+        "status":
+            status,
+
+        "bounds": {
+
+            "west":
+                WEST,
+
+            "east":
+                EAST,
+
+            "south":
+                SOUTH,
+
+            "north":
+                NORTH
+
+        },
+
+        "hours":
+            hours
+
+    }
+
+
+# ============================================================
+# PUBLISH MANIFEST
+# ============================================================
+
+def publish_manifest(
+    run_time,
+    max_fhr,
+    hours,
+    status
+):
+
+    manifest = (
+        build_manifest(
+
+            run_time,
+
+            max_fhr,
+
+            hours,
+
+            status
+
+        )
+    )
+
+
+    manifest_file = (
+
+        OUTPUT_DIR
+
+        /
+
+        "manifest.json"
+
+    )
+
+
+    with manifest_file.open(
+
+        "w",
+
+        encoding=
+            "utf-8"
+
+    ) as file:
+
+        json.dump(
+
+            manifest,
+
+            file,
+
+            indent=2
+
+        )
+
+
+    output_s3.upload_file(
+
+        str(
+            manifest_file
+        ),
+
+        OUTPUT_BUCKET,
+
+        (
+            f"{OUTPUT_PREFIX}/"
+            f"manifest.json"
+        ),
+
+        ExtraArgs={
+
+            "ContentType":
+                "application/json",
+
+            "CacheControl":
+                "no-cache, no-store, must-revalidate"
+
+        }
+
+    )
+
+
+    print(
+
+        f"Manifest published: "
+        f"{len(hours)} hours, "
+        f"status={status}"
+
+    )
+
+
+# ============================================================
+# CLEAN LOCAL OUTPUT
+# ============================================================
+
+def clean_local_output():
+
+    for file in OUTPUT_DIR.glob(
+        "f*.png"
+    ):
+
+        try:
+
+            file.unlink()
+
+        except Exception:
+
+            pass
+
+
+    manifest = (
+
+        OUTPUT_DIR
+
+        /
+
+        "manifest.json"
+
+    )
+
+
+    if manifest.exists():
+
+        manifest.unlink()
+
+
+    if TEMP_DIR.exists():
+
+        shutil.rmtree(
+            TEMP_DIR
+        )
+
+
+    TEMP_DIR.mkdir(
+
+        parents=True,
+
+        exist_ok=True
+
+    )
+
+
+# ============================================================
+# CLEAR PREVIOUS RRFS LATEST S3 DATA
+# ============================================================
+
+def clear_old_s3_frames():
+
+    print()
+
+    print(
+        "Clearing previous RRFS latest frames..."
+    )
+
+
+    paginator = (
+        output_s3
+        .get_paginator(
+            "list_objects_v2"
+        )
+    )
+
+
+    objects = []
+
+
+    for page in paginator.paginate(
+
+        Bucket=
+            OUTPUT_BUCKET,
+
+        Prefix=
+            f"{OUTPUT_PREFIX}/"
+
+    ):
+
+        for obj in page.get(
+            "Contents",
+            []
+        ):
+
+            key = (
+                obj["Key"]
+            )
+
+
+            if (
+
+                key.endswith(
+                    ".png"
+                )
+
+                or
+
+                key.endswith(
+                    "manifest.json"
+                )
+
+            ):
+
+                objects.append({
+
+                    "Key":
+                        key
+
+                })
+
+
+                if (
+                    len(objects)
+                    ==
+                    1000
+                ):
+
+                    output_s3.delete_objects(
+
+                        Bucket=
+                            OUTPUT_BUCKET,
+
+                        Delete={
+
+                            "Objects":
+                                objects
+
+                        }
+
+                    )
+
+
+                    objects = []
+
+
+    if objects:
+
+        output_s3.delete_objects(
+
+            Bucket=
+                OUTPUT_BUCKET,
+
+            Delete={
+
+                "Objects":
+                    objects
+
+            }
+
+        )
+
+
+    print(
+        "Previous RRFS frames cleared."
+    )
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+def main():
+
+    print("=" * 70)
+
+    print(
+        "RRFS REFL + UH PROGRESSIVE UPDATE"
+    )
+
+    print("=" * 70)
+
+
+    # ========================================================
+    # FIND LATEST RUN
+    # ========================================================
+
+    (
+        run_time,
+        root,
+        keys
+
+    ) = find_latest_rrfs()
+
+
+    max_fhr = (
+        get_max_fhr(
+            run_time
+        )
+    )
+
+
+    print()
+
+    print(
+        f"RRFS root: "
+        f"{root}"
+    )
+
+
+    print(
+        f"Forecast range: "
+        f"F000-F{max_fhr:03d}"
+    )
+
+
+    # ========================================================
+    # CLEAN CURRENT LATEST PRODUCT
+    # ========================================================
+
+    clean_local_output()
+
+
+    clear_old_s3_frames()
+
+
+    hours_written = []
+
+
+    # ========================================================
+    # EMPTY BUILDING MANIFEST
+    # ========================================================
+
+    publish_manifest(
+
+        run_time,
+
+        max_fhr,
+
+        hours_written,
+
+        status=
+            "building"
+
+    )
+
+
+    # ========================================================
+    # PROCESS FORECAST HOURS
+    # ========================================================
+
+    for fhr in range(
+        0,
+        max_fhr + 1
+    ):
+
+        try:
+
+            (
+                lon,
+                lat,
+                refl,
+                uh
+
+            ) = load_hour(
+
+                run_time,
+
+                root,
+
+                keys,
+
+                fhr
+
+            )
+
+
+            (
+                output_file,
+                frame_info
+
+            ) = plot_hour(
+
+                run_time,
+
+                fhr,
+
+                lon,
+
+                lat,
+
+                refl,
+
+                uh
+
+            )
+
+
+            # =================================================
+            # IMMEDIATE S3 UPLOAD
+            # =================================================
+
+            upload_frame(
+
+                output_file,
+
+                fhr
+
+            )
+
+
+            # =================================================
+            # ADD HOUR
+            # =================================================
+
+            hours_written.append(
+                frame_info
+            )
+
+
+            # =================================================
+            # IMMEDIATELY UPDATE MANIFEST
+            # =================================================
+
+            publish_manifest(
+
+                run_time,
+
+                max_fhr,
+
+                hours_written,
+
+                status=
+                    "building"
+
+            )
+
+
+            print()
+
+            print(
+                f"F{fhr:03d} "
+                f"is now available."
+            )
+
+
+        except Exception as error:
+
+            print()
+
+            print(
+                f"Skipping "
+                f"F{fhr:03d}: "
+                f"{error}"
+            )
+
+
+    # ========================================================
+    # FINAL MANIFEST
+    # ========================================================
+
+    publish_manifest(
+
+        run_time,
+
+        max_fhr,
+
+        hours_written,
+
+        status=
+            "complete"
+
+    )
+
+
+    print()
+
+    print("=" * 70)
+
+    print(
+        "RRFS UPDATE COMPLETE"
+    )
+
+
+    print(
+        f"Frames published: "
+        f"{len(hours_written)}"
+    )
+
+
+    print("=" * 70)
+
+
+# ============================================================
+# RUN
+# ============================================================
+
+if __name__ == "__main__":
+
+    main()
