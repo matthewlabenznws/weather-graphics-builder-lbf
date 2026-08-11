@@ -2833,6 +2833,56 @@ function drawExportBranding(
         exportLogoImage.naturalWidth
     ) {
 
+        /*
+         * In comparison mode the canvas contains two panels.
+         *
+         * We want the branding centered near the upper-right
+         * portion of the RRFS panel rather than anchored against
+         * the far-right edge of the entire combined canvas.
+         */
+
+        let brandingCenterX;
+
+
+        if (
+            viewerMode === "compare"
+        ) {
+
+            const panelWidth =
+                canvas.width / 2;
+
+
+            /*
+             * Center branding at roughly 82% across the
+             * right-hand RRFS panel.
+             *
+             * Left edge of RRFS panel = panelWidth
+             */
+
+            brandingCenterX =
+                panelWidth
+                +
+                panelWidth * 0.82;
+
+        }
+
+        else {
+
+            /*
+             * Single-model view:
+             * keep branding toward the upper-right.
+             */
+
+            brandingCenterX =
+                canvas.width * 0.88;
+
+        }
+
+
+        // ----------------------------------------------------
+        // LOGO SIZE
+        // ----------------------------------------------------
+
         const logoWidth =
             145 * scale;
 
@@ -2848,42 +2898,47 @@ function drawExportBranding(
             exportLogoImage.naturalWidth;
 
 
-        const x =
+        // Center logo around brandingCenterX
 
-            canvas.width
-
+        const logoX =
+            brandingCenterX
             -
-
-            logoWidth
-
-            -
-
-            12 * scale;
+            logoWidth / 2;
 
 
-        const y =
+        const logoY =
             8 * scale;
 
+
+        // ----------------------------------------------------
+        // DRAW LOGOS
+        // ----------------------------------------------------
 
         ctx.drawImage(
 
             exportLogoImage,
 
-            x,
-            y,
+            logoX,
+
+            logoY,
 
             logoWidth,
+
             logoHeight
 
         );
 
+
+        // ----------------------------------------------------
+        // OFFICE LABEL
+        // ----------------------------------------------------
 
         ctx.font =
             `700 ${fontSize}px Arial`;
 
 
         ctx.textAlign =
-            "right";
+            "center";
 
 
         ctx.textBaseline =
@@ -2891,18 +2946,18 @@ function drawExportBranding(
 
 
         const textX =
-            canvas.width
-            -
-            12 * scale;
+            brandingCenterX;
 
 
         const textY =
-            y
+            logoY
             +
             logoHeight
             +
             3 * scale;
 
+
+        // Black outline
 
         ctx.lineWidth =
             Math.max(
@@ -2926,6 +2981,8 @@ function drawExportBranding(
         );
 
 
+        // White text
+
         ctx.fillStyle =
             "white";
 
@@ -2940,6 +2997,8 @@ function drawExportBranding(
 
         );
 
+
+        // Reset alignment
 
         ctx.textAlign =
             "left";
