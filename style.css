@@ -4,6 +4,7 @@
 
 html,
 body {
+
     margin: 0;
     padding: 0;
 
@@ -11,16 +12,19 @@ body {
     height: 100%;
 
     overflow: hidden;
+
 }
 
 
 body {
+
     background: #111;
 
     font-family:
         Arial,
         Helvetica,
         sans-serif;
+
 }
 
 
@@ -29,86 +33,201 @@ body {
    ========================================================= */
 
 #map {
+
     position: absolute;
 
     top: 0;
+    left: 0;
+
+    right: 0;
     bottom: 0;
 
-    left: 0;
-    right: 0;
-
-    width: 100%;
-    height: 100%;
 }
 
 
 /* =========================================================
-   MAP CONTROLS
+   OVERLAYS MENU
    ========================================================= */
 
-#map-controls {
+#overlay-menu {
+
     position: absolute;
 
     top: 15px;
     left: 15px;
 
-    z-index: 20;
+    z-index: 40;
 
-    background: rgba(0, 0, 0, 0.72);
-
-    color: #ffffff;
-
-    padding: 10px 12px;
-
-    border-radius: 5px;
-
-    font-size: 15px;
-
-    font-weight: 600;
-
-    box-shadow:
-        0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 
-/* =========================================================
-   TOGGLE ROW
-   ========================================================= */
+#overlay-menu-button {
 
-.toggle-row {
+    background: rgba(20, 24, 32, 0.94);
+
+    color: #ffffff;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.18);
+
+    border-radius: 6px;
+
+    padding: 9px 13px;
+
+    font-size: 14px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 2px 6px
+        rgba(0, 0, 0, 0.35);
+
+}
+
+
+#overlay-menu-content {
+
+    display: none;
+
+    margin-top: 6px;
+
+    min-width: 190px;
+
+    padding: 10px 12px;
+
+    background:
+        rgba(20, 24, 32, 0.96);
+
+    color: #ffffff;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.12);
+
+    border-radius: 6px;
+
+    box-shadow:
+        0 3px 10px
+        rgba(0, 0, 0, 0.40);
+
+}
+
+
+#overlay-menu-content.open {
+
+    display: block;
+
+}
+
+
+.overlay-section-title {
+
+    margin-top: 8px;
+    margin-bottom: 4px;
+
+    padding-bottom: 3px;
+
+    color: #aeb7c2;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    text-transform: uppercase;
+
+    letter-spacing: 0.6px;
+
+    border-bottom:
+        1px solid
+        rgba(255, 255, 255, 0.10);
+
+}
+
+
+.overlay-section-title:first-child {
+
+    margin-top: 0;
+
+}
+
+
+.overlay-row {
+
     display: flex;
 
     align-items: center;
 
     gap: 8px;
 
+    padding: 5px 0;
+
+    font-size: 14px;
+
     cursor: pointer;
 
-    user-select: none;
 }
 
 
-.toggle-row input {
-    width: 18px;
-    height: 18px;
+.overlay-row input {
 
-    margin: 0;
+    width: 16px;
+    height: 16px;
 
     cursor: pointer;
+
 }
 
 
 /* =========================================================
-   NWS NORTH PLATTE BRANDING
+   VALID TIME
+   ========================================================= */
+
+#model-valid-label {
+
+    position: absolute;
+
+    top: 62px;
+    left: 15px;
+
+    z-index: 35;
+
+    padding: 8px 12px;
+
+    background:
+        rgba(20, 24, 32, 0.92);
+
+    color: #ffffff;
+
+    border-radius: 5px;
+
+    font-size: 18px;
+
+    font-weight: 700;
+
+    white-space: nowrap;
+
+    box-shadow:
+        0 2px 6px
+        rgba(0, 0, 0, 0.35);
+
+}
+
+
+/* =========================================================
+   OFFICE BRANDING
    ========================================================= */
 
 #office-branding {
+
     position: absolute;
 
-    top: 15px;
-    right: 60px;
+    top: 12px;
+    right: 62px;
 
-    z-index: 10;
+    z-index: 35;
 
     display: flex;
 
@@ -116,41 +235,31 @@ body {
 
     align-items: center;
 
-    justify-content: center;
-
     pointer-events: none;
+
 }
 
 
-/* =========================================================
-   NOAA + NWS LOGOS
-   ========================================================= */
-
 #office-logo {
+
     width: 150px;
 
     height: auto;
 
     display: block;
 
-    object-fit: contain;
 }
 
 
-/* =========================================================
-   OFFICE NAME
-   ========================================================= */
-
 #office-name {
-    margin-top: 4px;
+
+    margin-top: 3px;
 
     color: #ffffff;
 
     font-size: 20px;
 
     font-weight: 700;
-
-    text-align: center;
 
     white-space: nowrap;
 
@@ -159,44 +268,307 @@ body {
          2px -2px 2px #000000,
         -2px  2px 2px #000000,
          2px  2px 2px #000000;
+
 }
 
 
 /* =========================================================
-   SMALLER SCREENS
+   MODEL / PRODUCT CONTROLS
    ========================================================= */
 
-@media (max-width: 700px) {
+#model-product-controls {
 
-    #map-controls {
-        top: 10px;
-        left: 10px;
+    margin-top: 8px;
 
-        padding: 8px 10px;
+    display: flex;
 
-        font-size: 13px;
-    }
+    gap: 6px;
 
+    pointer-events: auto;
 
-    .toggle-row input {
-        width: 16px;
-        height: 16px;
-    }
+}
 
 
-    #office-branding {
-        top: 10px;
-        right: 50px;
-    }
+#model-product-controls select {
 
+    height: 36px;
+
+    padding:
+        0 34px
+        0 11px;
+
+    background:
+        rgba(20, 24, 32, 0.94);
+
+    color: #ffffff;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.18);
+
+    border-radius: 6px;
+
+    font-size: 14px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+    outline: none;
+
+}
+
+
+#model-select {
+
+    min-width: 120px;
+
+}
+
+
+#product-select {
+
+    min-width: 210px;
+
+}
+
+
+/* =========================================================
+   BOTTOM MODEL TIMELINE
+   ========================================================= */
+
+#model-timeline {
+
+    position: absolute;
+
+    left: 0;
+    right: 0;
+
+    bottom: 0;
+
+    z-index: 40;
+
+    height: 64px;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    padding: 0 10px;
+
+    box-sizing: border-box;
+
+    background:
+        rgba(20, 24, 32, 0.96);
+
+    border-top:
+        1px solid
+        rgba(255, 255, 255, 0.12);
+
+    box-shadow:
+        0 -2px 8px
+        rgba(0, 0, 0, 0.30);
+
+}
+
+
+/* =========================================================
+   TIMELINE CONTROL BUTTONS
+   ========================================================= */
+
+.timeline-control-button {
+
+    width: 44px;
+    height: 44px;
+
+    flex-shrink: 0;
+
+    background:
+        rgba(255, 255, 255, 0.06);
+
+    color: #ffffff;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.18);
+
+    border-radius: 7px;
+
+    font-size: 20px;
+
+    cursor: pointer;
+
+}
+
+
+.timeline-control-button:hover {
+
+    background:
+        rgba(255, 255, 255, 0.12);
+
+}
+
+
+/* =========================================================
+   FORECAST-HOUR LIST
+   ========================================================= */
+
+#model-hour-list {
+
+    flex: 1;
+
+    height: 100%;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 6px;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+
+    white-space: nowrap;
+
+    scrollbar-width: thin;
+
+}
+
+
+/* =========================================================
+   FORECAST-HOUR BUTTON
+   ========================================================= */
+
+.model-hour-button {
+
+    flex-shrink: 0;
+
+    height: 36px;
+
+    padding: 0 10px;
+
+    background:
+        rgba(255, 255, 255, 0.04);
+
+    color: #bbc3cc;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.10);
+
+    border-radius: 5px;
+
+    font-size: 13px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+}
+
+
+.model-hour-button:hover {
+
+    background:
+        rgba(255, 255, 255, 0.11);
+
+    color: #ffffff;
+
+}
+
+
+.model-hour-button.selected {
+
+    background: #4f8fd8;
+
+    color: #ffffff;
+
+    border-color: #74a9e5;
+
+}
+
+
+/* =========================================================
+   HIDDEN MODEL UI
+   ========================================================= */
+
+.model-ui.hidden {
+
+    display: none !important;
+
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 800px) {
 
     #office-logo {
-        width: 115px;
+
+        width: 110px;
+
     }
 
 
     #office-name {
+
         font-size: 15px;
+
+    }
+
+
+    #model-product-controls {
+
+        flex-direction: column;
+
+        width: 180px;
+
+    }
+
+
+    #model-product-controls select {
+
+        width: 180px;
+
+        min-width: 0;
+
+        font-size: 12px;
+
+    }
+
+
+    #model-valid-label {
+
+        font-size: 14px;
+
+    }
+
+
+    #model-timeline {
+
+        height: 58px;
+
+    }
+
+
+    .timeline-control-button {
+
+        width: 38px;
+        height: 38px;
+
+    }
+
+
+    .model-hour-button {
+
+        padding: 0 8px;
+
+        font-size: 12px;
+
     }
 
 }
