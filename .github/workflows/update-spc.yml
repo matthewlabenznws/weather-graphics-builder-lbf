@@ -1,4 +1,4 @@
-name: Update SPC Outlook
+name: Update SPC Outlooks
 
 on:
   workflow_dispatch:
@@ -44,24 +44,42 @@ jobs:
       # RUN SPC UPDATE SCRIPT
       # ======================================================
 
-      - name: Update SPC Day 1 outlook
+      - name: Update SPC Day 1 Day 2 Day 3 outlooks
         run: |
           python update_spc.py
 
 
       # ======================================================
-      # CHECK WHETHER GEOJSON CHANGED
+      # SHOW GENERATED FILES
+      # ======================================================
+
+      - name: Show SPC files
+        run: |
+          echo "Files in data directory:"
+          ls -lh data/
+
+          echo ""
+          echo "SPC outlook files:"
+          ls -lh data/spc_day*.geojson || true
+
+
+      # ======================================================
+      # CHECK WHETHER ANY SPC GEOJSON CHANGED
       # ======================================================
 
       - name: Check for changes
         id: changes
         run: |
-          if git diff --quiet data/spc_day1_cat.geojson; then
+          git add data/spc_day1_cat.geojson
+          git add data/spc_day2_cat.geojson
+          git add data/spc_day3_cat.geojson
+
+          if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "No SPC outlook changes detected."
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "New SPC outlook detected."
+            echo "New SPC outlook changes detected."
           fi
 
 
@@ -69,14 +87,12 @@ jobs:
       # COMMIT NEW SPC GEOJSON
       # ======================================================
 
-      - name: Commit updated SPC outlook
+      - name: Commit updated SPC outlooks
         if: steps.changes.outputs.changed == 'true'
         run: |
           git config user.name "SPC Outlook Bot"
           git config user.email "actions@github.com"
 
-          git add data/spc_day1_cat.geojson
-
-          git commit -m "Update SPC Day 1 outlook"
+          git commit -m "Update SPC Day 1 Day 2 Day 3 outlooks"
 
           git push
