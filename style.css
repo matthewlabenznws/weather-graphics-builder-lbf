@@ -4,7 +4,6 @@
 
 html,
 body {
-
     margin: 0;
     padding: 0;
 
@@ -12,19 +11,16 @@ body {
     height: 100%;
 
     overflow: hidden;
-
 }
 
 
 body {
-
     background: #111;
 
     font-family:
         Arial,
         Helvetica,
         sans-serif;
-
 }
 
 
@@ -33,15 +29,13 @@ body {
    ========================================================= */
 
 #map {
-
     position: absolute;
 
     top: 0;
     left: 0;
 
-    right: 0;
-    bottom: 0;
-
+    width: 100%;
+    height: 100%;
 }
 
 
@@ -50,19 +44,16 @@ body {
    ========================================================= */
 
 #overlay-menu {
-
     position: absolute;
 
     top: 15px;
     left: 15px;
 
     z-index: 40;
-
 }
 
 
 #overlay-menu-button {
-
     background: rgba(20, 24, 32, 0.94);
 
     color: #ffffff;
@@ -84,12 +75,15 @@ body {
     box-shadow:
         0 2px 6px
         rgba(0, 0, 0, 0.35);
+}
 
+
+#overlay-menu-button:hover {
+    background: rgba(35, 40, 50, 0.96);
 }
 
 
 #overlay-menu-content {
-
     display: none;
 
     margin-top: 6px;
@@ -112,19 +106,15 @@ body {
     box-shadow:
         0 3px 10px
         rgba(0, 0, 0, 0.40);
-
 }
 
 
 #overlay-menu-content.open {
-
     display: block;
-
 }
 
 
 .overlay-section-title {
-
     margin-top: 8px;
     margin-bottom: 4px;
 
@@ -143,19 +133,15 @@ body {
     border-bottom:
         1px solid
         rgba(255, 255, 255, 0.10);
-
 }
 
 
 .overlay-section-title:first-child {
-
     margin-top: 0;
-
 }
 
 
 .overlay-row {
-
     display: flex;
 
     align-items: center;
@@ -167,26 +153,22 @@ body {
     font-size: 14px;
 
     cursor: pointer;
-
 }
 
 
 .overlay-row input {
-
     width: 16px;
     height: 16px;
 
     cursor: pointer;
-
 }
 
 
 /* =========================================================
-   VALID TIME
+   MODEL VALID TIME
    ========================================================= */
 
 #model-valid-label {
-
     position: absolute;
 
     top: 62px;
@@ -212,16 +194,14 @@ body {
     box-shadow:
         0 2px 6px
         rgba(0, 0, 0, 0.35);
-
 }
 
 
 /* =========================================================
-   OFFICE BRANDING
+   NWS NORTH PLATTE BRANDING
    ========================================================= */
 
 #office-branding {
-
     position: absolute;
 
     top: 12px;
@@ -236,23 +216,19 @@ body {
     align-items: center;
 
     pointer-events: none;
-
 }
 
 
 #office-logo {
-
     width: 150px;
 
     height: auto;
 
     display: block;
-
 }
 
 
 #office-name {
-
     margin-top: 3px;
 
     color: #ffffff;
@@ -268,7 +244,6 @@ body {
          2px -2px 2px #000000,
         -2px  2px 2px #000000,
          2px  2px 2px #000000;
-
 }
 
 
@@ -277,7 +252,6 @@ body {
    ========================================================= */
 
 #model-product-controls {
-
     margin-top: 8px;
 
     display: flex;
@@ -285,12 +259,10 @@ body {
     gap: 6px;
 
     pointer-events: auto;
-
 }
 
 
 #model-product-controls select {
-
     height: 36px;
 
     padding:
@@ -315,21 +287,78 @@ body {
     cursor: pointer;
 
     outline: none;
+}
 
+
+#model-product-controls select:hover {
+    background:
+        rgba(35, 40, 50, 0.96);
 }
 
 
 #model-select {
-
     min-width: 120px;
-
 }
 
 
 #product-select {
-
     min-width: 210px;
+}
 
+
+/* =========================================================
+   GRAPHICS CREDIT
+   ========================================================= */
+
+#graphics-credit {
+    position: absolute;
+
+    left: 10px;
+
+    /*
+       Timeline is 64px tall.
+       This places the credit just above it.
+    */
+
+    bottom: 72px;
+
+    z-index: 35;
+
+    padding: 5px 8px;
+
+    background:
+        rgba(20, 24, 32, 0.70);
+
+    color:
+        rgba(255, 255, 255, 0.90);
+
+    border-radius: 4px;
+
+    font-size: 12px;
+
+    font-weight: 600;
+
+    white-space: nowrap;
+
+    text-shadow:
+        1px 1px 2px
+        rgba(0, 0, 0, 0.90);
+
+    pointer-events: none;
+
+    transition:
+        bottom 0.15s ease;
+}
+
+
+/*
+   When no model is displayed, the timeline disappears.
+
+   Move the graphics credit down to the actual bottom-left.
+*/
+
+#graphics-credit.no-timeline {
+    bottom: 10px;
 }
 
 
@@ -338,12 +367,10 @@ body {
    ========================================================= */
 
 #model-timeline {
-
     position: absolute;
 
     left: 0;
     right: 0;
-
     bottom: 0;
 
     z-index: 40;
@@ -370,7 +397,6 @@ body {
     box-shadow:
         0 -2px 8px
         rgba(0, 0, 0, 0.30);
-
 }
 
 
@@ -379,7 +405,6 @@ body {
    ========================================================= */
 
 .timeline-control-button {
-
     width: 44px;
     height: 44px;
 
@@ -399,15 +424,12 @@ body {
     font-size: 20px;
 
     cursor: pointer;
-
 }
 
 
 .timeline-control-button:hover {
-
     background:
         rgba(255, 255, 255, 0.12);
-
 }
 
 
@@ -416,7 +438,6 @@ body {
    ========================================================= */
 
 #model-hour-list {
-
     flex: 1;
 
     height: 100%;
@@ -433,7 +454,6 @@ body {
     white-space: nowrap;
 
     scrollbar-width: thin;
-
 }
 
 
@@ -442,7 +462,6 @@ body {
    ========================================================= */
 
 .model-hour-button {
-
     flex-shrink: 0;
 
     height: 36px;
@@ -465,39 +484,42 @@ body {
     font-weight: 700;
 
     cursor: pointer;
-
 }
 
 
 .model-hour-button:hover {
-
     background:
         rgba(255, 255, 255, 0.11);
 
     color: #ffffff;
-
 }
 
 
 .model-hour-button.selected {
-
     background: #4f8fd8;
 
     color: #ffffff;
 
     border-color: #74a9e5;
-
 }
 
 
 /* =========================================================
-   HIDDEN MODEL UI
+   GENERIC HIDDEN MODEL UI
    ========================================================= */
 
 .model-ui.hidden {
-
     display: none !important;
+}
 
+
+/* =========================================================
+   MAPBOX CONTROL POSITION
+   ========================================================= */
+
+.mapboxgl-ctrl-top-right {
+    top: 5px;
+    right: 5px;
 }
 
 
@@ -507,68 +529,69 @@ body {
 
 @media (max-width: 800px) {
 
+    #office-branding {
+        right: 50px;
+    }
+
+
     #office-logo {
-
         width: 110px;
-
     }
 
 
     #office-name {
-
         font-size: 15px;
-
     }
 
 
     #model-product-controls {
-
         flex-direction: column;
 
         width: 180px;
-
     }
 
 
     #model-product-controls select {
-
         width: 180px;
 
         min-width: 0;
 
         font-size: 12px;
-
     }
 
 
     #model-valid-label {
-
         font-size: 14px;
-
     }
 
 
     #model-timeline {
-
         height: 58px;
+    }
 
+
+    #graphics-credit {
+        bottom: 66px;
+
+        font-size: 10px;
+    }
+
+
+    #graphics-credit.no-timeline {
+        bottom: 8px;
     }
 
 
     .timeline-control-button {
-
         width: 38px;
         height: 38px;
-
     }
 
 
     .model-hour-button {
-
         padding: 0 8px;
 
         font-size: 12px;
-
     }
 
 }
