@@ -57,12 +57,17 @@
         class="hidden"
     >
 
+        <!-- =================================================
+             LEFT PANEL — HRRR
+             ================================================= -->
+
         <div class="compare-panel">
 
             <div
                 id="left-map"
                 class="compare-map"
             ></div>
+
 
             <div class="compare-panel-label">
 
@@ -79,8 +84,16 @@
         </div>
 
 
+        <!-- =================================================
+             CENTER DIVIDER
+             ================================================= -->
+
         <div class="compare-divider"></div>
 
+
+        <!-- =================================================
+             RIGHT PANEL — RRFS
+             ================================================= -->
 
         <div class="compare-panel">
 
@@ -88,6 +101,7 @@
                 id="right-map"
                 class="compare-map"
             ></div>
+
 
             <div class="compare-panel-label">
 
@@ -107,29 +121,46 @@
 
 
     <!-- =====================================================
-         OVERLAYS
+         OVERLAYS MENU
          ===================================================== -->
 
     <div id="overlay-menu">
 
+
+        <!-- =================================================
+             OVERLAYS BUTTON
+             ================================================= -->
+
         <button id="overlay-menu-button">
+
             Overlays ▼
+
         </button>
 
+
+        <!-- =================================================
+             OVERLAYS DROPDOWN
+             ================================================= -->
 
         <div id="overlay-menu-content">
 
 
+            <!-- =================================================
+                 SPC OUTLOOKS
+                 ================================================= -->
+
             <div class="overlay-section-title">
-                SPC
+                SPC Outlooks
             </div>
 
+
+            <!-- DAY 1 -->
 
             <label class="overlay-row">
 
                 <input
                     type="checkbox"
-                    id="spc-toggle"
+                    id="spc-day1-toggle"
                     checked
                 >
 
@@ -137,6 +168,38 @@
 
             </label>
 
+
+            <!-- DAY 2 -->
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="spc-day2-toggle"
+                >
+
+                Day 2 Outlook
+
+            </label>
+
+
+            <!-- DAY 3 -->
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="spc-day3-toggle"
+                >
+
+                Day 3 Outlook
+
+            </label>
+
+
+            <!-- =================================================
+                 NWS
+                 ================================================= -->
 
             <div class="overlay-section-title">
                 NWS
@@ -155,6 +218,10 @@
 
             </label>
 
+
+            <!-- =================================================
+                 BOUNDARIES
+                 ================================================= -->
 
             <div class="overlay-section-title">
                 Boundaries
@@ -200,7 +267,9 @@
         id="model-valid-label"
         class="model-ui"
     >
+
         Loading model...
+
     </div>
 
 
@@ -210,60 +279,101 @@
 
     <div id="office-branding">
 
+
+        <!-- =================================================
+             NOAA / NWS LOGOS
+             ================================================= -->
+
         <img
             id="office-logo"
             src="assets/NOAANWSLogos.png"
             alt="NOAA and National Weather Service logos"
         >
 
+
+        <!-- =================================================
+             OFFICE NAME
+             ================================================= -->
+
         <div id="office-name">
+
             NWS North Platte, NE
+
         </div>
 
 
         <!-- =================================================
-             VIEW MODE
+             VIEWER CONTROLS
              ================================================= -->
 
         <div id="viewer-controls">
 
+
+            <!-- =================================================
+                 VIEW TYPE
+                 ================================================= -->
+
             <select id="viewer-mode-select">
 
                 <option value="single">
+
                     Single Model
+
                 </option>
+
 
                 <option value="compare">
+
                     Compare Models
+
                 </option>
 
+
                 <option value="overlays">
+
                     Overlays Only
+
                 </option>
 
             </select>
 
+
+            <!-- =================================================
+                 MODEL
+                 ================================================= -->
 
             <select id="model-select">
 
                 <option value="hrrr">
+
                     HRRR
+
                 </option>
 
+
                 <option value="rrfs">
+
                     RRFS
+
                 </option>
 
             </select>
 
+
+            <!-- =================================================
+                 PRODUCT
+                 ================================================= -->
 
             <select id="product-select">
 
                 <option value="reflUH">
+
                     Reflectivity + UH ≥ 75
+
                 </option>
 
             </select>
+
 
         </div>
 
@@ -275,7 +385,9 @@
          ===================================================== -->
 
     <div id="graphics-credit">
+
         Graphics created by: Matthew Labenz
+
     </div>
 
 
@@ -288,34 +400,58 @@
         class="model-ui"
     >
 
+
+        <!-- =================================================
+             PLAY / PAUSE
+             ================================================= -->
+
         <button
             id="model-play-button"
             class="timeline-control-button"
             title="Play"
         >
+
             ▶
+
         </button>
 
+
+        <!-- =================================================
+             PREVIOUS HOUR
+             ================================================= -->
 
         <button
             id="model-prev-button"
             class="timeline-control-button"
             title="Previous hour"
         >
+
             ‹
+
         </button>
 
 
+        <!-- =================================================
+             FORECAST HOURS
+             ================================================= -->
+
         <div id="model-hour-list"></div>
 
+
+        <!-- =================================================
+             NEXT HOUR
+             ================================================= -->
 
         <button
             id="model-next-button"
             class="timeline-control-button"
             title="Next hour"
         >
+
             ›
+
         </button>
+
 
     </div>
 
@@ -325,12 +461,12 @@
          ===================================================== -->
 
     <script
-        src="https://api.mapbox.com/mapbox-gl-js/v3.25.0/mapbox-gl.js">
-    </script>
+        src="https://api.mapbox.com/mapbox-gl-js/v3.25.0/mapbox-gl.js"
+    ></script>
 
 
     <!-- =====================================================
-         SITE JS
+         GRAPHICS VIEWER JS
          ===================================================== -->
 
     <script src="graphics.js"></script>
