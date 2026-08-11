@@ -931,14 +931,10 @@ function hideUnwantedBasemapLabels(
 
 
             // =================================================
-            // STATE / COUNTRY / REGION LABELS
-            //
-            // Removes labels such as:
-            // NEBRASKA
-            // United States
+            // REMOVE STATE / COUNTRY / REGION LABEL LAYERS
             // =================================================
 
-            const hideAdministrativeLabel =
+            const hideWholeLayer =
 
                 id.includes(
                     "state-label"
@@ -963,43 +959,8 @@ function hideUnwantedBasemapLabels(
                 );
 
 
-            // =================================================
-            // RESERVATION / INDIGENOUS LAND LABELS
-            //
-            // Removes labels such as:
-            // Pine Ridge Indian Reservation
-            // Rosebud Indian Reservation
-            // =================================================
-
-            const hideReservationLabel =
-
-                id.includes(
-                    "reservation"
-                )
-
-                ||
-
-                id.includes(
-                    "indigenous"
-                )
-
-                ||
-
-                id.includes(
-                    "aboriginal"
-                )
-
-                ||
-
-                id.includes(
-                    "native"
-                );
-
-
             if (
-                hideAdministrativeLabel
-                ||
-                hideReservationLabel
+                hideWholeLayer
             ) {
 
                 try {
@@ -1014,31 +975,128 @@ function hideUnwantedBasemapLabels(
 
                     );
 
-
-                    console.log(
-
-                        "Hidden basemap label layer:",
-
-                        layer.id
-
-                    );
-
                 }
-
 
                 catch (error) {
 
                     console.warn(
-
-                        "Could not hide basemap label layer:",
-
+                        "Could not hide layer:",
                         layer.id,
-
                         error
-
                     );
 
                 }
+
+
+                return;
+
+            }
+
+
+            // =================================================
+            // REMOVE RESERVATION FEATURES WITHOUT HIDING
+            // THE ENTIRE PLACE/POI LAYER
+            // =================================================
+
+            try {
+
+                const existingFilter =
+                    layer.filter || null;
+
+
+                const reservationFilter = [
+
+                    "all",
+
+                    existingFilter
+                        ? existingFilter
+                        : true,
+
+                    [
+                        "!",
+
+                        [
+                            "any",
+
+                            [
+                                "in",
+
+                                "reservation",
+
+                                [
+                                    "downcase",
+
+                                    [
+                                        "coalesce",
+
+                                        [
+                                            "get",
+                                            "name_en"
+                                        ],
+
+                                        [
+                                            "get",
+                                            "name"
+                                        ],
+
+                                        ""
+                                    ]
+
+                                ]
+
+                            ],
+
+                            [
+                                "in",
+
+                                "indian reservation",
+
+                                [
+                                    "downcase",
+
+                                    [
+                                        "coalesce",
+
+                                        [
+                                            "get",
+                                            "name_en"
+                                        ],
+
+                                        [
+                                            "get",
+                                            "name"
+                                        ],
+
+                                        ""
+                                    ]
+
+                                ]
+
+                            ]
+
+                        ]
+
+                    ]
+
+                ];
+
+
+                map.setFilter(
+
+                    layer.id,
+
+                    reservationFilter
+
+                );
+
+            }
+
+            catch (error) {
+
+                /*
+                 * Some symbol layers can't use this filter.
+                 * Ignore those and keep going.
+                 */
 
             }
 
