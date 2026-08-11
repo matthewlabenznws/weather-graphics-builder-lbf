@@ -62,11 +62,37 @@ let animationPlaying =
 let animationTimer =
     null;
 
+let exportBusy =
+    false;
 
-// Check S3 for newly generated frames every 30 seconds.
 
 const MANIFEST_REFRESH_MS =
     30000;
+
+
+// ============================================================
+// EXPORT SETTINGS
+// ============================================================
+
+// PNG stays at full Mapbox-canvas resolution.
+
+const PNG_FILENAME_PREFIX =
+    "nws_lbf_hrrr_reflUH";
+
+
+// GIFs can become enormous at full browser resolution.
+//
+// Limit GIF width while preserving aspect ratio.
+// Change this higher if you want larger GIFs.
+
+const GIF_MAX_WIDTH =
+    1400;
+
+
+// Animation speed.
+
+const GIF_FRAME_DELAY_MS =
+    700;
 
 
 // ============================================================
@@ -102,7 +128,7 @@ console.log(
 
 
 // ============================================================
-// MAP NAVIGATION
+// NAVIGATION
 // ============================================================
 
 map.addControl(
@@ -115,7 +141,7 @@ map.addControl(
 
 
 // ============================================================
-// MAPBOX ERROR HANDLING
+// MAPBOX ERRORS
 // ============================================================
 
 map.on(
@@ -132,7 +158,7 @@ map.on(
 
 
 // ============================================================
-// GET CURRENT PRODUCT CONFIGURATION
+// ACTIVE PRODUCT CONFIG
 // ============================================================
 
 function getActiveProductConfig() {
@@ -160,17 +186,20 @@ function getActiveProductConfig() {
 
 
     return (
+
         model.products[
             activeProduct
         ]
+
         || null
+
     );
 
 }
 
 
 // ============================================================
-// SHOW / HIDE MODEL-SPECIFIC UI
+// MODEL UI VISIBILITY
 // ============================================================
 
 function setModelUiVisible(
@@ -201,9 +230,11 @@ function setModelUiVisible(
         );
 
 
-    // ========================================================
-    // VALID TIME
-    // ========================================================
+    const exportControls =
+        document.getElementById(
+            "export-controls"
+        );
+
 
     if (label) {
 
@@ -215,10 +246,6 @@ function setModelUiVisible(
     }
 
 
-    // ========================================================
-    // TIMELINE
-    // ========================================================
-
     if (timeline) {
 
         timeline.style.display =
@@ -228,10 +255,6 @@ function setModelUiVisible(
 
     }
 
-
-    // ========================================================
-    // PRODUCT SELECTOR
-    // ========================================================
 
     if (productSelect) {
 
@@ -243,10 +266,6 @@ function setModelUiVisible(
     }
 
 
-    // ========================================================
-    // GRAPHICS CREDIT POSITION
-    // ========================================================
-
     if (credit) {
 
         credit.classList.toggle(
@@ -257,9 +276,35 @@ function setModelUiVisible(
     }
 
 
-    // ========================================================
-    // MODEL IMAGE
-    // ========================================================
+    if (exportControls) {
+
+        exportControls.style.display =
+            visible
+                ? "flex"
+                : "none";
+
+    }
+
+
+    if (
+        !visible
+        &&
+        document.getElementById(
+            "gif-panel"
+        )
+    ) {
+
+        document
+            .getElementById(
+                "gif-panel"
+            )
+            .classList
+            .remove(
+                "open"
+            );
+
+    }
+
 
     if (
         map.getLayer(
@@ -285,7 +330,7 @@ function setModelUiVisible(
 
 
 // ============================================================
-// FORMAT VALID TIME IN CENTRAL TIME
+// CENTRAL TIME FORMATTER
 // ============================================================
 
 function formatValidTimeCentral(
@@ -372,7 +417,7 @@ function formatValidTimeCentral(
 
 
 // ============================================================
-// UPDATE VALID-TIME LABEL
+// UPDATE ON-SCREEN VALID TIME
 // ============================================================
 
 function updateValidLabel(
@@ -418,7 +463,41 @@ function updateValidLabel(
 
 
 // ============================================================
-// GET MODEL IMAGE COORDINATES
+// TEXT USED IN PNG / GIF
+// ============================================================
+
+function getExportTimestamp(
+    frame
+) {
+
+    if (!frame) {
+
+        return "";
+
+    }
+
+
+    const fhr =
+        String(
+            frame.fhr
+        ).padStart(
+            3,
+            "0"
+        );
+
+
+    return (
+        `F${fhr} • ` +
+        formatValidTimeCentral(
+            frame.valid
+        )
+    );
+
+}
+
+
+// ============================================================
+// MODEL IMAGE COORDINATES
 // ============================================================
 
 function getImageCoordinates() {
@@ -437,13 +516,6 @@ function getImageCoordinates() {
     const b =
         currentManifest.bounds;
 
-
-    // Mapbox ImageSource order:
-    //
-    // top-left
-    // top-right
-    // bottom-right
-    // bottom-left
 
     return [
 
@@ -578,12 +650,6 @@ function displayFrame(
         )}`;
 
 
-    console.log(
-        "Displaying:",
-        imageUrl
-    );
-
-
     const existingSource =
         map.getSource(
             "model-image-source"
@@ -639,10 +705,6 @@ function displayFrame(
             findFirstRoadLayerId();
 
 
-        // ====================================================
-        // MODEL RASTER
-        // ====================================================
-
         map.addLayer(
 
             {
@@ -696,6 +758,65 @@ function displayFrame(
 
 
 // ============================================================
+// WAIT UNTIL MAP FINISHES RENDERING CURRENT FRAME
+// ============================================================
+
+function waitForMapIdle(
+    timeoutMs = 8000
+) {
+
+    return new Promise(
+        resolve => {
+
+            let finished =
+                false;
+
+
+            const finish = () => {
+
+                if (finished) {
+
+                    return;
+
+                }
+
+
+                finished =
+                    true;
+
+
+                clearTimeout(
+                    fallback
+                );
+
+
+                resolve();
+
+            };
+
+
+            const fallback =
+                setTimeout(
+                    finish,
+                    timeoutMs
+                );
+
+
+            map.once(
+                "idle",
+                finish
+            );
+
+
+            map.triggerRepaint();
+
+        }
+    );
+
+}
+
+
+// ============================================================
 // CHANGE FORECAST HOUR
 // ============================================================
 
@@ -712,8 +833,6 @@ function setFrameIndex(
     }
 
 
-    // Wrap backward.
-
     if (index < 0) {
 
         index =
@@ -721,8 +840,6 @@ function setFrameIndex(
 
     }
 
-
-    // Wrap forward.
 
     if (
         index >=
@@ -803,12 +920,6 @@ function buildHourButtons() {
                 )}`;
 
 
-            button.dataset.index =
-                String(
-                    index
-                );
-
-
             button.addEventListener(
 
                 "click",
@@ -838,11 +949,14 @@ function buildHourButtons() {
 
     updateHourButtonStyles();
 
+
+    rebuildGifRangeSelectors();
+
 }
 
 
 // ============================================================
-// UPDATE SELECTED F-HOUR STYLE
+// SELECTED F-HOUR STYLE
 // ============================================================
 
 function updateHourButtonStyles() {
@@ -919,7 +1033,7 @@ function scrollSelectedHourIntoView() {
 
 
 // ============================================================
-// START ANIMATION
+// ANIMATION
 // ============================================================
 
 function startAnimation() {
@@ -928,6 +1042,8 @@ function startAnimation() {
         animationPlaying
         ||
         availableFrames.length === 0
+        ||
+        exportBusy
     ) {
 
         return;
@@ -1011,6 +1127,1551 @@ function stopAnimation() {
 
 
 // ============================================================
+// EXPORT CANVAS
+//
+// IMPORTANT:
+//
+// The Mapbox canvas contains:
+// satellite
+// roads
+// labels
+// reflectivity/UH
+// SPC
+// counties
+// states
+// CWA
+//
+// HTML controls do NOT exist in this canvas.
+//
+// We manually add ONLY:
+//
+// 1. Timestamp / F-hour
+// 2. NWS North Platte, NE
+// ============================================================
+
+function createExportCanvas(
+    frame,
+    targetWidth = null
+) {
+
+    const sourceCanvas =
+        map.getCanvas();
+
+
+    const sourceWidth =
+        sourceCanvas.width;
+
+
+    const sourceHeight =
+        sourceCanvas.height;
+
+
+    let width =
+        sourceWidth;
+
+
+    let height =
+        sourceHeight;
+
+
+    if (
+        targetWidth
+        &&
+        sourceWidth > targetWidth
+    ) {
+
+        const ratio =
+            targetWidth /
+            sourceWidth;
+
+
+        width =
+            Math.round(
+                sourceWidth *
+                ratio
+            );
+
+
+        height =
+            Math.round(
+                sourceHeight *
+                ratio
+            );
+
+    }
+
+
+    const exportCanvas =
+        document.createElement(
+            "canvas"
+        );
+
+
+    exportCanvas.width =
+        width;
+
+
+    exportCanvas.height =
+        height;
+
+
+    const ctx =
+        exportCanvas.getContext(
+            "2d",
+            {
+                alpha:
+                    false
+            }
+        );
+
+
+    // ========================================================
+    // MAP
+    // ========================================================
+
+    ctx.drawImage(
+
+        sourceCanvas,
+
+        0,
+        0,
+
+        width,
+        height
+
+    );
+
+
+    // ========================================================
+    // SCALE UI TEXT BASED ON OUTPUT SIZE
+    // ========================================================
+
+    const scale =
+        width /
+        Math.max(
+            1,
+            sourceCanvas.clientWidth
+        );
+
+
+    const fontSize =
+        Math.max(
+            17,
+            18 * scale
+        );
+
+
+    const paddingX =
+        11 * scale;
+
+
+    const paddingY =
+        7 * scale;
+
+
+    const margin =
+        10 * scale;
+
+
+    const timestamp =
+        getExportTimestamp(
+            frame
+        );
+
+
+    // ========================================================
+    // TIMESTAMP — UPPER LEFT
+    // ========================================================
+
+    ctx.font =
+        `700 ${fontSize}px Arial, sans-serif`;
+
+
+    ctx.textBaseline =
+        "middle";
+
+
+    const timestampMetrics =
+        ctx.measureText(
+            timestamp
+        );
+
+
+    const timestampWidth =
+        timestampMetrics.width +
+        paddingX * 2;
+
+
+    const timestampHeight =
+        fontSize +
+        paddingY * 2;
+
+
+    ctx.fillStyle =
+        "rgba(20,24,32,0.90)";
+
+
+    roundRect(
+
+        ctx,
+
+        margin,
+        margin,
+
+        timestampWidth,
+        timestampHeight,
+
+        5 * scale
+
+    );
+
+
+    ctx.fill();
+
+
+    ctx.fillStyle =
+        "#ffffff";
+
+
+    ctx.fillText(
+
+        timestamp,
+
+        margin +
+        paddingX,
+
+        margin +
+        timestampHeight / 2
+
+    );
+
+
+    // ========================================================
+    // NWS NORTH PLATTE — UPPER RIGHT
+    // ========================================================
+
+    const officeText =
+        "NWS North Platte, NE";
+
+
+    ctx.font =
+        `700 ${fontSize}px Arial, sans-serif`;
+
+
+    ctx.textAlign =
+        "right";
+
+
+    ctx.textBaseline =
+        "top";
+
+
+    const officeX =
+        width -
+        margin;
+
+
+    const officeY =
+        margin;
+
+
+    ctx.lineJoin =
+        "round";
+
+
+    ctx.strokeStyle =
+        "rgba(0,0,0,0.95)";
+
+
+    ctx.lineWidth =
+        Math.max(
+            3,
+            4 * scale
+        );
+
+
+    ctx.strokeText(
+
+        officeText,
+
+        officeX,
+        officeY
+
+    );
+
+
+    ctx.fillStyle =
+        "#ffffff";
+
+
+    ctx.fillText(
+
+        officeText,
+
+        officeX,
+        officeY
+
+    );
+
+
+    // Reset
+
+    ctx.textAlign =
+        "left";
+
+
+    return exportCanvas;
+
+}
+
+
+// ============================================================
+// ROUNDED RECTANGLE
+// ============================================================
+
+function roundRect(
+    ctx,
+    x,
+    y,
+    width,
+    height,
+    radius
+) {
+
+    const r =
+        Math.min(
+            radius,
+            width / 2,
+            height / 2
+        );
+
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        x + r,
+        y
+    );
+
+    ctx.arcTo(
+        x + width,
+        y,
+        x + width,
+        y + height,
+        r
+    );
+
+    ctx.arcTo(
+        x + width,
+        y + height,
+        x,
+        y + height,
+        r
+    );
+
+    ctx.arcTo(
+        x,
+        y + height,
+        x,
+        y,
+        r
+    );
+
+    ctx.arcTo(
+        x,
+        y,
+        x + width,
+        y,
+        r
+    );
+
+    ctx.closePath();
+
+}
+
+
+// ============================================================
+// DOWNLOAD BLOB
+// ============================================================
+
+function downloadBlob(
+    blob,
+    filename
+) {
+
+    const url =
+        URL.createObjectURL(
+            blob
+        );
+
+
+    const link =
+        document.createElement(
+            "a"
+        );
+
+
+    link.href =
+        url;
+
+
+    link.download =
+        filename;
+
+
+    document.body.appendChild(
+        link
+    );
+
+
+    link.click();
+
+
+    link.remove();
+
+
+    setTimeout(
+        () => {
+
+            URL.revokeObjectURL(
+                url
+            );
+
+        },
+        1000
+    );
+
+}
+
+
+// ============================================================
+// SAFE FILE TIMESTAMP
+// ============================================================
+
+function makeFileTime(
+    frame
+) {
+
+    if (!frame) {
+
+        return "unknown";
+
+    }
+
+
+    return (
+        frame.valid
+            .replace(
+                /[:-]/g,
+                ""
+            )
+            .replace(
+                ".000",
+                ""
+            )
+            .replace(
+                "T",
+                "_"
+            )
+            .replace(
+                "Z",
+                "Z"
+            )
+    );
+
+}
+
+
+// ============================================================
+// SAVE PNG
+// ============================================================
+
+async function saveCurrentPng() {
+
+    if (
+        exportBusy
+        ||
+        availableFrames.length === 0
+    ) {
+
+        return;
+
+    }
+
+
+    stopAnimation();
+
+
+    exportBusy =
+        true;
+
+
+    updateExportButtonState();
+
+
+    try {
+
+        const frame =
+            availableFrames[
+                currentFrameIndex
+            ];
+
+
+        await waitForMapIdle();
+
+
+        const canvas =
+            createExportCanvas(
+                frame
+            );
+
+
+        const blob =
+            await new Promise(
+                (
+                    resolve,
+                    reject
+                ) => {
+
+                    canvas.toBlob(
+                        result => {
+
+                            if (result) {
+
+                                resolve(
+                                    result
+                                );
+
+                            }
+
+                            else {
+
+                                reject(
+                                    new Error(
+                                        "PNG creation failed."
+                                    )
+                                );
+
+                            }
+
+                        },
+
+                        "image/png"
+
+                    );
+
+                }
+            );
+
+
+        const filename =
+
+            `${PNG_FILENAME_PREFIX}_` +
+
+            `f${String(
+                frame.fhr
+            ).padStart(
+                3,
+                "0"
+            )}_` +
+
+            `${makeFileTime(
+                frame
+            )}.png`;
+
+
+        downloadBlob(
+            blob,
+            filename
+        );
+
+    }
+
+
+    catch (error) {
+
+        console.error(
+            "PNG export failed:",
+            error
+        );
+
+
+        alert(
+            "Unable to create the PNG. Check the browser console for details."
+        );
+
+    }
+
+
+    finally {
+
+        exportBusy =
+            false;
+
+
+        updateExportButtonState();
+
+    }
+
+}
+
+
+// ============================================================
+// DYNAMICALLY LOAD GIFENC
+// ============================================================
+
+let gifencModulePromise =
+    null;
+
+
+function loadGifenc() {
+
+    if (
+        !gifencModulePromise
+    ) {
+
+        gifencModulePromise =
+            import(
+                "https://unpkg.com/gifenc@1.0.3?module"
+            );
+
+    }
+
+
+    return gifencModulePromise;
+
+}
+
+
+// ============================================================
+// CREATE GIF
+// ============================================================
+
+async function saveGif(
+    startIndex,
+    endIndex
+) {
+
+    if (
+        exportBusy
+        ||
+        availableFrames.length === 0
+    ) {
+
+        return;
+
+    }
+
+
+    if (
+        startIndex < 0
+        ||
+        endIndex < 0
+        ||
+        startIndex >=
+            availableFrames.length
+        ||
+        endIndex >=
+            availableFrames.length
+    ) {
+
+        return;
+
+    }
+
+
+    if (
+        startIndex >
+        endIndex
+    ) {
+
+        const temp =
+            startIndex;
+
+
+        startIndex =
+            endIndex;
+
+
+        endIndex =
+            temp;
+
+    }
+
+
+    stopAnimation();
+
+
+    exportBusy =
+        true;
+
+
+    updateExportButtonState();
+
+
+    const originalIndex =
+        currentFrameIndex;
+
+
+    const status =
+        document.getElementById(
+            "gif-status"
+        );
+
+
+    try {
+
+        if (status) {
+
+            status.textContent =
+                "Loading GIF encoder...";
+
+        }
+
+
+        const {
+            GIFEncoder,
+            quantize,
+            applyPalette
+        } =
+            await loadGifenc();
+
+
+        const gif =
+            GIFEncoder();
+
+
+        let gifWidth =
+            null;
+
+
+        let gifHeight =
+            null;
+
+
+        let frameNumber =
+            0;
+
+
+        const totalFrames =
+            (
+                endIndex -
+                startIndex
+            ) + 1;
+
+
+        // ====================================================
+        // CAPTURE SELECTED HOURS
+        // ====================================================
+
+        for (
+            let index =
+                startIndex;
+
+            index <=
+                endIndex;
+
+            index++
+        ) {
+
+            frameNumber++;
+
+
+            const frame =
+                availableFrames[
+                    index
+                ];
+
+
+            if (status) {
+
+                status.textContent =
+                    `Capturing frame ` +
+                    `${frameNumber}/${totalFrames} ` +
+                    `(F${String(
+                        frame.fhr
+                    ).padStart(
+                        3,
+                        "0"
+                    )})`;
+
+            }
+
+
+            currentFrameIndex =
+                index;
+
+
+            displayFrame(
+                frame
+            );
+
+
+            updateHourButtonStyles();
+
+
+            await waitForMapIdle();
+
+
+            // Give WebGL/browser one additional paint cycle.
+
+            await new Promise(
+                resolve => {
+
+                    requestAnimationFrame(
+                        () => {
+
+                            requestAnimationFrame(
+                                resolve
+                            );
+
+                        }
+                    );
+
+                }
+            );
+
+
+            const exportCanvas =
+                createExportCanvas(
+
+                    frame,
+
+                    GIF_MAX_WIDTH
+
+                );
+
+
+            const ctx =
+                exportCanvas.getContext(
+                    "2d"
+                );
+
+
+            const width =
+                exportCanvas.width;
+
+
+            const height =
+                exportCanvas.height;
+
+
+            gifWidth =
+                width;
+
+
+            gifHeight =
+                height;
+
+
+            const image =
+                ctx.getImageData(
+                    0,
+                    0,
+                    width,
+                    height
+                );
+
+
+            if (status) {
+
+                status.textContent =
+                    `Encoding frame ` +
+                    `${frameNumber}/${totalFrames}`;
+
+            }
+
+
+            // =================================================
+            // REDUCE TO GIF COLOR PALETTE
+            // =================================================
+
+            const palette =
+                quantize(
+                    image.data,
+                    256
+                );
+
+
+            const indexed =
+                applyPalette(
+                    image.data,
+                    palette
+                );
+
+
+            gif.writeFrame(
+
+                indexed,
+
+                width,
+                height,
+
+                {
+
+                    palette:
+                        palette,
+
+                    delay:
+                        GIF_FRAME_DELAY_MS,
+
+                    repeat:
+                        0
+
+                }
+
+            );
+
+        }
+
+
+        if (
+            !gifWidth
+            ||
+            !gifHeight
+        ) {
+
+            throw new Error(
+                "No GIF frames were generated."
+            );
+
+        }
+
+
+        if (status) {
+
+            status.textContent =
+                "Finishing GIF...";
+
+        }
+
+
+        gif.finish();
+
+
+        const bytes =
+            gif.bytes();
+
+
+        const blob =
+            new Blob(
+                [
+                    bytes
+                ],
+                {
+                    type:
+                        "image/gif"
+                }
+            );
+
+
+        const firstFrame =
+            availableFrames[
+                startIndex
+            ];
+
+
+        const lastFrame =
+            availableFrames[
+                endIndex
+            ];
+
+
+        const filename =
+
+            `${PNG_FILENAME_PREFIX}_` +
+
+            `f${String(
+                firstFrame.fhr
+            ).padStart(
+                3,
+                "0"
+            )}-` +
+
+            `f${String(
+                lastFrame.fhr
+            ).padStart(
+                3,
+                "0"
+            )}.gif`;
+
+
+        downloadBlob(
+            blob,
+            filename
+        );
+
+
+        if (status) {
+
+            status.textContent =
+                "GIF complete.";
+
+        }
+
+    }
+
+
+    catch (error) {
+
+        console.error(
+            "GIF export failed:",
+            error
+        );
+
+
+        if (status) {
+
+            status.textContent =
+                "GIF export failed.";
+
+        }
+
+
+        alert(
+            "Unable to create the GIF. Check the browser console for details."
+        );
+
+    }
+
+
+    finally {
+
+        // ====================================================
+        // RETURN USER TO ORIGINAL FRAME
+        // ====================================================
+
+        currentFrameIndex =
+            Math.min(
+                originalIndex,
+                availableFrames.length - 1
+            );
+
+
+        if (
+            currentFrameIndex >= 0
+            &&
+            availableFrames[
+                currentFrameIndex
+            ]
+        ) {
+
+            displayFrame(
+
+                availableFrames[
+                    currentFrameIndex
+                ]
+
+            );
+
+
+            await waitForMapIdle();
+
+        }
+
+
+        updateHourButtonStyles();
+
+
+        scrollSelectedHourIntoView();
+
+
+        exportBusy =
+            false;
+
+
+        updateExportButtonState();
+
+    }
+
+}
+
+
+// ============================================================
+// CREATE SAVE UI
+// ============================================================
+
+function createExportControls() {
+
+    if (
+        document.getElementById(
+            "export-controls"
+        )
+    ) {
+
+        return;
+
+    }
+
+
+    // ========================================================
+    // BUTTON ROW
+    // ========================================================
+
+    const controls =
+        document.createElement(
+            "div"
+        );
+
+
+    controls.id =
+        "export-controls";
+
+
+    controls.innerHTML = `
+
+        <button
+            id="save-png-button"
+            class="export-button"
+        >
+            Save PNG
+        </button>
+
+        <button
+            id="save-gif-button"
+            class="export-button"
+        >
+            Save GIF
+        </button>
+
+    `;
+
+
+    document.body.appendChild(
+        controls
+    );
+
+
+    // ========================================================
+    // GIF PANEL
+    // ========================================================
+
+    const panel =
+        document.createElement(
+            "div"
+        );
+
+
+    panel.id =
+        "gif-panel";
+
+
+    panel.innerHTML = `
+
+        <div id="gif-panel-title">
+            Save GIF
+        </div>
+
+
+        <div class="gif-select-row">
+
+            <div class="gif-select-box">
+
+                <label for="gif-start-hour">
+                    Start Hour
+                </label>
+
+                <select id="gif-start-hour">
+                </select>
+
+            </div>
+
+
+            <div class="gif-select-box">
+
+                <label for="gif-end-hour">
+                    End Hour
+                </label>
+
+                <select id="gif-end-hour">
+                </select>
+
+            </div>
+
+        </div>
+
+
+        <div id="gif-panel-actions">
+
+            <button id="gif-create-button">
+                Create GIF
+            </button>
+
+            <button id="gif-cancel-button">
+                Cancel
+            </button>
+
+        </div>
+
+
+        <div id="gif-status"></div>
+
+    `;
+
+
+    document.body.appendChild(
+        panel
+    );
+
+
+    // ========================================================
+    // PNG BUTTON
+    // ========================================================
+
+    document
+        .getElementById(
+            "save-png-button"
+        )
+        .addEventListener(
+            "click",
+            saveCurrentPng
+        );
+
+
+    // ========================================================
+    // OPEN GIF PANEL
+    // ========================================================
+
+    document
+        .getElementById(
+            "save-gif-button"
+        )
+        .addEventListener(
+            "click",
+            () => {
+
+                if (exportBusy) {
+
+                    return;
+
+                }
+
+
+                panel.classList.toggle(
+                    "open"
+                );
+
+
+                rebuildGifRangeSelectors();
+
+            }
+        );
+
+
+    // ========================================================
+    // CANCEL GIF
+    // ========================================================
+
+    document
+        .getElementById(
+            "gif-cancel-button"
+        )
+        .addEventListener(
+            "click",
+            () => {
+
+                if (exportBusy) {
+
+                    return;
+
+                }
+
+
+                panel.classList.remove(
+                    "open"
+                );
+
+            }
+        );
+
+
+    // ========================================================
+    // CREATE GIF
+    // ========================================================
+
+    document
+        .getElementById(
+            "gif-create-button"
+        )
+        .addEventListener(
+            "click",
+            async () => {
+
+                const startSelect =
+                    document.getElementById(
+                        "gif-start-hour"
+                    );
+
+
+                const endSelect =
+                    document.getElementById(
+                        "gif-end-hour"
+                    );
+
+
+                if (
+                    !startSelect
+                    ||
+                    !endSelect
+                ) {
+
+                    return;
+
+                }
+
+
+                const startIndex =
+                    Number(
+                        startSelect.value
+                    );
+
+
+                const endIndex =
+                    Number(
+                        endSelect.value
+                    );
+
+
+                await saveGif(
+                    startIndex,
+                    endIndex
+                );
+
+            }
+        );
+
+
+    updateExportButtonState();
+
+}
+
+
+// ============================================================
+// POPULATE GIF HOUR SELECTORS
+// ============================================================
+
+function rebuildGifRangeSelectors() {
+
+    const start =
+        document.getElementById(
+            "gif-start-hour"
+        );
+
+
+    const end =
+        document.getElementById(
+            "gif-end-hour"
+        );
+
+
+    if (
+        !start
+        ||
+        !end
+    ) {
+
+        return;
+
+    }
+
+
+    const oldStart =
+        Number(
+            start.value
+        );
+
+
+    const oldEnd =
+        Number(
+            end.value
+        );
+
+
+    start.innerHTML =
+        "";
+
+
+    end.innerHTML =
+        "";
+
+
+    availableFrames.forEach(
+
+        (
+            frame,
+            index
+        ) => {
+
+
+            const label =
+                `F${String(
+                    frame.fhr
+                ).padStart(
+                    3,
+                    "0"
+                )}`;
+
+
+            const startOption =
+                document.createElement(
+                    "option"
+                );
+
+
+            startOption.value =
+                String(
+                    index
+                );
+
+
+            startOption.textContent =
+                label;
+
+
+            start.appendChild(
+                startOption
+            );
+
+
+            const endOption =
+                document.createElement(
+                    "option"
+                );
+
+
+            endOption.value =
+                String(
+                    index
+                );
+
+
+            endOption.textContent =
+                label;
+
+
+            end.appendChild(
+                endOption
+            );
+
+        }
+
+    );
+
+
+    if (
+        availableFrames.length === 0
+    ) {
+
+        return;
+
+    }
+
+
+    start.value =
+        String(
+
+            Number.isFinite(
+                oldStart
+            )
+            &&
+            oldStart >= 0
+            &&
+            oldStart <
+                availableFrames.length
+
+                ? oldStart
+
+                : 0
+
+        );
+
+
+    end.value =
+        String(
+
+            Number.isFinite(
+                oldEnd
+            )
+            &&
+            oldEnd >= 0
+            &&
+            oldEnd <
+                availableFrames.length
+
+                ? oldEnd
+
+                :
+                availableFrames.length - 1
+
+        );
+
+}
+
+
+// ============================================================
+// EXPORT BUTTON ENABLE / DISABLE
+// ============================================================
+
+function updateExportButtonState() {
+
+    const png =
+        document.getElementById(
+            "save-png-button"
+        );
+
+
+    const gif =
+        document.getElementById(
+            "save-gif-button"
+        );
+
+
+    const gifCreate =
+        document.getElementById(
+            "gif-create-button"
+        );
+
+
+    const disabled =
+
+        exportBusy
+
+        ||
+
+        activeModel === "none"
+
+        ||
+
+        availableFrames.length === 0;
+
+
+    if (png) {
+
+        png.disabled =
+            disabled;
+
+    }
+
+
+    if (gif) {
+
+        gif.disabled =
+            disabled;
+
+    }
+
+
+    if (gifCreate) {
+
+        gifCreate.disabled =
+            disabled;
+
+    }
+
+}
+
+
+// ============================================================
 // LOAD / REFRESH MODEL MANIFEST
 // ============================================================
 
@@ -1042,10 +2703,6 @@ async function refreshManifest() {
             null;
 
 
-        // ====================================================
-        // REMEMBER CURRENT FORECAST HOUR
-        // ====================================================
-
         if (
             availableFrames.length > 0
         ) {
@@ -1066,10 +2723,6 @@ async function refreshManifest() {
         }
 
 
-        // ====================================================
-        // MANIFEST URL
-        // ====================================================
-
         const manifestUrl =
 
             `${product.baseUrl}/` +
@@ -1078,16 +2731,6 @@ async function refreshManifest() {
 
             `?t=${Date.now()}`;
 
-
-        console.log(
-            "Fetching manifest:",
-            manifestUrl
-        );
-
-
-        // ====================================================
-        // FETCH MANIFEST
-        // ====================================================
 
         const response =
             await fetch(
@@ -1120,10 +2763,6 @@ async function refreshManifest() {
             await response.json();
 
 
-        // ====================================================
-        // VALIDATE HOURS
-        // ====================================================
-
         if (
             !Array.isArray(
                 manifest.hours
@@ -1136,10 +2775,6 @@ async function refreshManifest() {
 
         }
 
-
-        // ====================================================
-        // DETECT NEW RUN
-        // ====================================================
 
         const runChanged =
 
@@ -1156,10 +2791,6 @@ async function refreshManifest() {
             manifest;
 
 
-        // ====================================================
-        // SORT AVAILABLE FORECAST HOURS
-        // ====================================================
-
         availableFrames =
             [...manifest.hours]
                 .sort(
@@ -1174,23 +2805,6 @@ async function refreshManifest() {
 
                 );
 
-
-        console.log(
-
-            "Manifest loaded:",
-
-            currentManifest.run,
-
-            availableFrames.length,
-
-            "frames"
-
-        );
-
-
-        // ====================================================
-        // NO HOURS YET
-        // ====================================================
 
         if (
             availableFrames.length === 0
@@ -1213,6 +2827,9 @@ async function refreshManifest() {
             buildHourButtons();
 
 
+            updateExportButtonState();
+
+
             return;
 
         }
@@ -1221,10 +2838,6 @@ async function refreshManifest() {
         let targetIndex =
             -1;
 
-
-        // ====================================================
-        // KEEP SAME F-HOUR WHEN MANIFEST GAINS MORE FRAMES
-        // ====================================================
 
         if (
             !runChanged
@@ -1244,12 +2857,6 @@ async function refreshManifest() {
         }
 
 
-        // ====================================================
-        // NEW RUN / FIRST LOAD
-        //
-        // Display newest currently available frame.
-        // ====================================================
-
         if (
             targetIndex < 0
         ) {
@@ -1264,16 +2871,8 @@ async function refreshManifest() {
             targetIndex;
 
 
-        // ====================================================
-        // UPDATE TIMELINE
-        // ====================================================
-
         buildHourButtons();
 
-
-        // ====================================================
-        // DISPLAY FRAME
-        // ====================================================
 
         displayFrame(
 
@@ -1285,6 +2884,9 @@ async function refreshManifest() {
 
 
         scrollSelectedHourIntoView();
+
+
+        updateExportButtonState();
 
     }
 
@@ -1310,13 +2912,16 @@ async function refreshManifest() {
 
         }
 
+
+        updateExportButtonState();
+
     }
 
 }
 
 
 // ============================================================
-// OVERLAY VISIBILITY HELPER
+// OVERLAY VISIBILITY
 // ============================================================
 
 function setLayersVisible(
@@ -1372,10 +2977,6 @@ async function switchModel(
         modelName;
 
 
-    // ========================================================
-    // OVERLAYS ONLY
-    // ========================================================
-
     if (
         modelName === "none"
     ) {
@@ -1388,21 +2989,22 @@ async function switchModel(
         currentManifest =
             null;
 
+
         availableFrames =
             [];
 
+
         currentFrameIndex =
             0;
+
+
+        updateExportButtonState();
 
 
         return;
 
     }
 
-
-    // ========================================================
-    // MODEL VIEW
-    // ========================================================
 
     setModelUiVisible(
         true
@@ -1430,8 +3032,10 @@ async function switchModel(
     currentManifest =
         null;
 
+
     availableFrames =
         [];
+
 
     currentFrameIndex =
         0;
@@ -1459,7 +3063,7 @@ map.on(
 
 
         // ====================================================
-        // MAPBOX BOUNDARY SOURCE
+        // BOUNDARIES
         // ====================================================
 
         map.addSource(
@@ -1479,16 +3083,12 @@ map.on(
         );
 
 
-        // ====================================================
-        // FIND ROAD LAYER
-        // ====================================================
-
         const roadLayer =
             findFirstRoadLayerId();
 
 
         // ====================================================
-        // SPC DAY 1 SOURCE
+        // SPC SOURCE
         // ====================================================
 
         map.addSource(
@@ -1509,7 +3109,7 @@ map.on(
 
 
         // ====================================================
-        // SPC DAY 1 FILL
+        // SPC FILL
         // ====================================================
 
         map.addLayer(
@@ -1806,7 +3406,7 @@ map.on(
 
 
         // ====================================================
-        // LBF CWA BLACK HALO
+        // CWA BLACK HALO
         // ====================================================
 
         map.addLayer({
@@ -1849,7 +3449,7 @@ map.on(
 
 
         // ====================================================
-        // LBF CWA WHITE LINE
+        // CWA WHITE LINE
         // ====================================================
 
         map.addLayer({
@@ -1889,6 +3489,13 @@ map.on(
             }
 
         });
+
+
+        // ====================================================
+        // CREATE SAVE CONTROLS
+        // ====================================================
+
+        createExportControls();
 
 
         // ====================================================
@@ -2265,7 +3872,7 @@ map.on(
 
 
         // ====================================================
-        // CHECK FOR NEW MODEL FRAMES
+        // CHECK S3 FOR NEW HOURS
         // ====================================================
 
         setInterval(
@@ -2273,8 +3880,9 @@ map.on(
             () => {
 
                 if (
-                    activeModel !==
-                    "none"
+                    activeModel !== "none"
+                    &&
+                    !exportBusy
                 ) {
 
                     refreshManifest();
