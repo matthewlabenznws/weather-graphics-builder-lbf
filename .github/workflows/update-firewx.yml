@@ -1,0 +1,69 @@
+name: Update SPC Fire Weather
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-firewx:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+
+      - name: Update SPC Day 1 and Day 2 Fire Weather
+        run: |
+          python update_firewx.py
+
+
+      - name: Show generated files
+        run: |
+          echo "Files in data directory:"
+          ls -lh data/
+
+          echo ""
+          echo "SPC Fire Weather files:"
+          ls -lh data/spc_fire_day*.geojson || true
+
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add data/spc_fire_day1.geojson
+          git add data/spc_fire_day2.geojson
+
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No SPC Fire Weather changes detected."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "New SPC Fire Weather changes detected."
+          fi
+
+
+      - name: Commit updated SPC Fire Weather
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "SPC Fire Weather Bot"
+          git config user.email "actions@github.com"
+
+          git commit -m "Update SPC Day 1 Day 2 Fire Weather"
+
+          git push
