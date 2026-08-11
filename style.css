@@ -25,10 +25,10 @@ body {
 
 
 /* =========================================================
-   MAP
+   MAPS
    ========================================================= */
 
-#map {
+.map-panel {
     position: absolute;
 
     top: 0;
@@ -36,6 +36,115 @@ body {
 
     width: 100%;
     height: 100%;
+}
+
+
+#single-map {
+    z-index: 1;
+}
+
+
+#comparison-container {
+    position: absolute;
+
+    top: 0;
+    left: 0;
+
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+
+    z-index: 1;
+}
+
+
+.compare-panel {
+    position: relative;
+
+    flex: 1;
+
+    min-width: 0;
+    height: 100%;
+}
+
+
+.compare-map {
+    position: absolute;
+
+    inset: 0;
+}
+
+
+.compare-divider {
+    width: 3px;
+
+    flex-shrink: 0;
+
+    background:
+        rgba(255, 255, 255, 0.85);
+
+    z-index: 10;
+}
+
+
+.compare-panel-label {
+    position: absolute;
+
+    top: 14px;
+    left: 50%;
+
+    transform:
+        translateX(-50%);
+
+    z-index: 25;
+
+    min-width: 190px;
+
+    padding:
+        7px 12px;
+
+    background:
+        rgba(20, 24, 32, 0.90);
+
+    color: white;
+
+    border-radius: 6px;
+
+    text-align: center;
+
+    pointer-events: none;
+
+    box-shadow:
+        0 2px 6px
+        rgba(0, 0, 0, 0.35);
+}
+
+
+.compare-model-name {
+    font-size: 17px;
+
+    font-weight: 800;
+}
+
+
+.compare-product-name {
+    margin-top: 2px;
+
+    color: #c4ccd6;
+
+    font-size: 11px;
+
+    font-weight: 600;
+}
+
+
+/* =========================================================
+   HIDDEN
+   ========================================================= */
+
+.hidden {
+    display: none !important;
 }
 
 
@@ -49,7 +158,7 @@ body {
     top: 15px;
     left: 15px;
 
-    z-index: 40;
+    z-index: 50;
 }
 
 
@@ -65,7 +174,8 @@ body {
 
     border-radius: 6px;
 
-    padding: 9px 13px;
+    padding:
+        9px 13px;
 
     font-size: 14px;
 
@@ -161,13 +271,11 @@ body {
 .overlay-row input {
     width: 16px;
     height: 16px;
-
-    cursor: pointer;
 }
 
 
 /* =========================================================
-   MODEL VALID TIME
+   VALID TIME
    ========================================================= */
 
 #model-valid-label {
@@ -176,9 +284,10 @@ body {
     top: 62px;
     left: 15px;
 
-    z-index: 35;
+    z-index: 45;
 
-    padding: 8px 12px;
+    padding:
+        8px 12px;
 
     background:
         rgba(20, 24, 32, 0.92);
@@ -200,7 +309,7 @@ body {
 
 
 /* =========================================================
-   NWS NORTH PLATTE BRANDING
+   OFFICE BRANDING
    ========================================================= */
 
 #office-branding {
@@ -209,7 +318,7 @@ body {
     top: 12px;
     right: 62px;
 
-    z-index: 35;
+    z-index: 45;
 
     display: flex;
 
@@ -225,8 +334,6 @@ body {
     width: 150px;
 
     height: auto;
-
-    display: block;
 }
 
 
@@ -250,10 +357,10 @@ body {
 
 
 /* =========================================================
-   MODEL / PRODUCT CONTROLS
+   VIEWER CONTROLS
    ========================================================= */
 
-#model-product-controls {
+#viewer-controls {
     margin-top: 8px;
 
     display: flex;
@@ -264,116 +371,12 @@ body {
 }
 
 
-#model-product-controls select {
+#viewer-controls select {
     height: 36px;
 
     padding:
-        0 34px
-        0 11px;
-
-    background:
-        rgba(20, 24, 32, 0.94);
-
-    color: #ffffff;
-
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.18);
-
-    border-radius: 6px;
-
-    font-size: 14px;
-
-    font-weight: 700;
-
-    cursor: pointer;
-
-    outline: none;
-}
-
-
-#model-product-controls select:hover {
-    background:
-        rgba(35, 40, 50, 0.96);
-}
-
-
-#model-select {
-    min-width: 120px;
-}
-
-
-#product-select {
-    min-width: 210px;
-}
-
-
-/* =========================================================
-   GRAPHICS CREDIT
-   ========================================================= */
-
-#graphics-credit {
-    position: absolute;
-
-    left: 10px;
-    bottom: 72px;
-
-    z-index: 35;
-
-    padding: 5px 8px;
-
-    background:
-        rgba(20, 24, 32, 0.70);
-
-    color:
-        rgba(255, 255, 255, 0.90);
-
-    border-radius: 4px;
-
-    font-size: 12px;
-
-    font-weight: 600;
-
-    white-space: nowrap;
-
-    text-shadow:
-        1px 1px 2px
-        rgba(0, 0, 0, 0.90);
-
-    pointer-events: none;
-
-    transition:
-        bottom 0.15s ease;
-}
-
-
-#graphics-credit.no-timeline {
-    bottom: 10px;
-}
-
-
-/* =========================================================
-   SAVE PNG / GIF CONTROLS
-   ========================================================= */
-
-#export-controls {
-    position: absolute;
-
-    right: 12px;
-    bottom: 76px;
-
-    z-index: 45;
-
-    display: flex;
-
-    gap: 7px;
-}
-
-
-.export-button {
-    height: 36px;
-
-    padding: 0 13px;
+        0 31px
+        0 10px;
 
     background:
         rgba(20, 24, 32, 0.94);
@@ -392,9 +395,103 @@ body {
 
     cursor: pointer;
 
-    box-shadow:
-        0 2px 6px
-        rgba(0, 0, 0, 0.35);
+    outline: none;
+}
+
+
+#viewer-mode-select {
+    min-width: 145px;
+}
+
+
+#model-select {
+    min-width: 100px;
+}
+
+
+#product-select {
+    min-width: 205px;
+}
+
+
+/* =========================================================
+   GRAPHICS CREDIT
+   ========================================================= */
+
+#graphics-credit {
+    position: absolute;
+
+    left: 10px;
+    bottom: 72px;
+
+    z-index: 45;
+
+    padding:
+        5px 8px;
+
+    background:
+        rgba(20, 24, 32, 0.70);
+
+    color:
+        rgba(255, 255, 255, 0.90);
+
+    border-radius: 4px;
+
+    font-size: 12px;
+
+    font-weight: 600;
+
+    white-space: nowrap;
+
+    pointer-events: none;
+}
+
+
+#graphics-credit.no-timeline {
+    bottom: 10px;
+}
+
+
+/* =========================================================
+   EXPORT CONTROLS
+   ========================================================= */
+
+#export-controls {
+    position: absolute;
+
+    right: 12px;
+    bottom: 76px;
+
+    z-index: 50;
+
+    display: flex;
+
+    gap: 7px;
+}
+
+
+.export-button {
+    height: 36px;
+
+    padding:
+        0 13px;
+
+    background:
+        rgba(20, 24, 32, 0.94);
+
+    color: white;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.18);
+
+    border-radius: 6px;
+
+    font-size: 13px;
+
+    font-weight: 700;
+
+    cursor: pointer;
 }
 
 
@@ -412,7 +509,7 @@ body {
 
 
 /* =========================================================
-   GIF RANGE PANEL
+   GIF PANEL
    ========================================================= */
 
 #gif-panel {
@@ -421,7 +518,7 @@ body {
     right: 12px;
     bottom: 120px;
 
-    z-index: 50;
+    z-index: 55;
 
     display: none;
 
@@ -441,10 +538,6 @@ body {
         rgba(255, 255, 255, 0.15);
 
     border-radius: 7px;
-
-    box-shadow:
-        0 3px 12px
-        rgba(0, 0, 0, 0.45);
 }
 
 
@@ -491,20 +584,16 @@ body {
     width: 100%;
     height: 34px;
 
-    padding: 0 7px;
-
     background:
         rgba(255, 255, 255, 0.07);
 
-    color: #ffffff;
+    color: white;
 
     border:
         1px solid
         rgba(255, 255, 255, 0.15);
 
     border-radius: 5px;
-
-    outline: none;
 }
 
 
@@ -523,7 +612,7 @@ body {
     background:
         rgba(255, 255, 255, 0.07);
 
-    color: #ffffff;
+    color: white;
 
     border:
         1px solid
@@ -534,12 +623,6 @@ body {
     font-weight: 700;
 
     cursor: pointer;
-}
-
-
-#gif-panel-actions button:hover {
-    background:
-        rgba(255, 255, 255, 0.13);
 }
 
 
@@ -555,7 +638,7 @@ body {
 
 
 /* =========================================================
-   BOTTOM MODEL TIMELINE
+   BOTTOM TIMELINE
    ========================================================= */
 
 #model-timeline {
@@ -565,7 +648,7 @@ body {
     right: 0;
     bottom: 0;
 
-    z-index: 40;
+    z-index: 50;
 
     height: 64px;
 
@@ -575,7 +658,8 @@ body {
 
     gap: 8px;
 
-    padding: 0 10px;
+    padding:
+        0 10px;
 
     box-sizing: border-box;
 
@@ -585,16 +669,8 @@ body {
     border-top:
         1px solid
         rgba(255, 255, 255, 0.12);
-
-    box-shadow:
-        0 -2px 8px
-        rgba(0, 0, 0, 0.30);
 }
 
-
-/* =========================================================
-   TIMELINE CONTROL BUTTONS
-   ========================================================= */
 
 .timeline-control-button {
     width: 44px;
@@ -605,7 +681,7 @@ body {
     background:
         rgba(255, 255, 255, 0.06);
 
-    color: #ffffff;
+    color: white;
 
     border:
         1px solid
@@ -618,16 +694,6 @@ body {
     cursor: pointer;
 }
 
-
-.timeline-control-button:hover {
-    background:
-        rgba(255, 255, 255, 0.12);
-}
-
-
-/* =========================================================
-   FORECAST-HOUR LIST
-   ========================================================= */
 
 #model-hour-list {
     flex: 1;
@@ -650,7 +716,7 @@ body {
 
 
 /* =========================================================
-   FORECAST-HOUR BUTTON BASE
+   FORECAST HOURS
    ========================================================= */
 
 .model-hour-button {
@@ -658,86 +724,73 @@ body {
 
     height: 36px;
 
-    padding: 0 10px;
+    padding:
+        0 10px;
 
     border-radius: 5px;
 
     font-size: 13px;
 
     font-weight: 700;
-
-    transition:
-        background 0.15s ease,
-        color 0.15s ease,
-        border-color 0.15s ease,
-        box-shadow 0.15s ease;
 }
 
 
-/* =========================================================
-   AVAILABLE FORECAST HOUR
-   ========================================================= */
+/* available */
 
 .model-hour-button.available {
-    background: #315f96;
+    background:
+        #315f96;
 
-    color: #ffffff;
+    color:
+        #ffffff;
 
     border:
         1px solid #4f8fd8;
 
-    cursor: pointer;
+    cursor:
+        pointer;
 }
 
 
 .model-hour-button.available:hover {
-    background: #447fbd;
-
-    border-color: #74a9e5;
+    background:
+        #447fbd;
 }
 
 
-/* =========================================================
-   CURRENTLY SELECTED AVAILABLE HOUR
-   ========================================================= */
+/* selected */
 
 .model-hour-button.available.selected {
-    background: #4f8fd8;
+    background:
+        #4f8fd8;
 
-    color: #ffffff;
-
-    border-color: #91c2f7;
+    border-color:
+        #91c2f7;
 
     box-shadow:
         0 0 0 1px
-        rgba(255, 255, 255, 0.18)
+        rgba(255,255,255,0.18)
         inset;
 }
 
 
-/* =========================================================
-   FORECAST HOUR NOT AVAILABLE YET
-   ========================================================= */
+/* unavailable */
 
 .model-hour-button.unavailable {
     background:
-        rgba(0, 0, 0, 0.72);
+        rgba(0, 0, 0, 0.75);
 
     color:
-        rgba(255, 255, 255, 0.27);
+        rgba(255, 255, 255, 0.28);
 
     border:
         1px solid
         rgba(255, 255, 255, 0.08);
 
-    cursor: default;
+    cursor:
+        default;
 }
 
-
-/*
-   Prevent browser disabled styling from making the
-   unavailable buttons disappear.
-*/
 
 .model-hour-button:disabled {
     opacity: 1;
@@ -745,16 +798,7 @@ body {
 
 
 /* =========================================================
-   GENERIC HIDDEN MODEL UI
-   ========================================================= */
-
-.model-ui.hidden {
-    display: none !important;
-}
-
-
-/* =========================================================
-   MAPBOX CONTROLS
+   MAPBOX
    ========================================================= */
 
 .mapboxgl-ctrl-top-right {
@@ -767,36 +811,29 @@ body {
    MOBILE
    ========================================================= */
 
-@media (max-width: 800px) {
-
-    #office-branding {
-        right: 50px;
-    }
-
+@media (max-width: 850px) {
 
     #office-logo {
-        width: 110px;
+        width: 105px;
     }
 
 
     #office-name {
-        font-size: 15px;
+        font-size: 14px;
     }
 
 
-    #model-product-controls {
+    #viewer-controls {
         flex-direction: column;
 
         width: 180px;
     }
 
 
-    #model-product-controls select {
+    #viewer-controls select {
         width: 180px;
 
         min-width: 0;
-
-        font-size: 12px;
     }
 
 
@@ -817,35 +854,6 @@ body {
     }
 
 
-    #graphics-credit.no-timeline {
-        bottom: 8px;
-    }
-
-
-    #export-controls {
-        bottom: 68px;
-
-        right: 8px;
-    }
-
-
-    .export-button {
-        height: 32px;
-
-        padding: 0 9px;
-
-        font-size: 11px;
-    }
-
-
-    #gif-panel {
-        right: 8px;
-        bottom: 106px;
-
-        width: 245px;
-    }
-
-
     .timeline-control-button {
         width: 38px;
         height: 38px;
@@ -853,9 +861,25 @@ body {
 
 
     .model-hour-button {
-        padding: 0 8px;
+        font-size: 11px;
 
-        font-size: 12px;
+        padding:
+            0 7px;
+    }
+
+
+    .compare-panel-label {
+        min-width: 125px;
+    }
+
+
+    .compare-model-name {
+        font-size: 14px;
+    }
+
+
+    .compare-product-name {
+        font-size: 9px;
     }
 
 }
