@@ -106,6 +106,18 @@ let exportBusy =
     false;
 
 
+// ============================================================
+// SAMPLING STATE
+// ============================================================
+
+const sampleCache =
+    new Map();
+
+
+let samplePopup =
+    null;
+
+
 const MANIFEST_REFRESH_MS =
     30000;
 
@@ -876,20 +888,18 @@ function setupMapLayers(
     });
 
 
-        applyOverlayStateToMap(
+    applyOverlayStateToMap(
         map
     );
 
-
-    // ========================================================
-    // REMOVE UNWANTED MAPBOX BASEMAP LABELS
-    // ========================================================
 
     hideUnwantedBasemapLabels(
         map
     );
 
 }
+
+
 // ============================================================
 // HIDE UNWANTED MAPBOX BASEMAP LABELS
 // ============================================================
@@ -913,6 +923,25 @@ function hideUnwantedBasemapLabels(
     }
 
 
+    const removeNames = [
+
+        "Pine Ridge Indian Reservation",
+        "Rosebud Indian Reservation",
+        "Cheyenne River Indian Reservation",
+        "Standing Rock Indian Reservation",
+
+        "Badlands National Park",
+        "Black Hills National Forest",
+        "Buffalo Gap National Grassland",
+        "Nebraska National Forest",
+        "Samuel R. McKelvie National Forest",
+        "Fort Niobrara National Wildlife Refuge",
+        "Valentine National Wildlife Refuge",
+        "Crescent Lake National Wildlife Refuge"
+
+    ];
+
+
     style.layers.forEach(
         layer => {
 
@@ -929,10 +958,6 @@ function hideUnwantedBasemapLabels(
                 layer.id
                     .toLowerCase();
 
-
-            // =================================================
-            // HIDE STATE / COUNTRY / REGION LABEL LAYERS
-            // =================================================
 
             if (
                 id.includes("state-label")
@@ -973,10 +998,6 @@ function hideUnwantedBasemapLabels(
             }
 
 
-            // =================================================
-            // FILTER SPECIFIC RESERVATIONS + PARKS
-            // =================================================
-
             try {
 
                 const existingFilter =
@@ -1002,42 +1023,7 @@ function hideUnwantedBasemapLabels(
                             "name"
                         ],
 
-                        [
-
-                            // ---------------------------------
-                            // RESERVATIONS
-                            // ---------------------------------
-
-                            "Pine Ridge Indian Reservation",
-
-                            "Rosebud Indian Reservation",
-
-                            "Cheyenne River Indian Reservation",
-
-                            "Standing Rock Indian Reservation",
-
-
-                            // ---------------------------------
-                            // PARKS / FORESTS
-                            // ---------------------------------
-
-                            "Badlands National Park",
-
-                            "Black Hills National Forest",
-
-                            "Buffalo Gap National Grassland",
-
-                            "Nebraska National Forest",
-
-                            "Samuel R. McKelvie National Forest",
-
-                            "Fort Niobrara National Wildlife Refuge",
-
-                            "Valentine National Wildlife Refuge",
-
-                            "Crescent Lake National Wildlife Refuge"
-
-                        ],
+                        removeNames,
 
                         false,
 
@@ -1060,8 +1046,7 @@ function hideUnwantedBasemapLabels(
 
             catch (error) {
 
-                // Some layers cannot accept this filter.
-                // Ignore them safely.
+                // Some symbol layers do not accept this filter.
 
             }
 
@@ -1070,10 +1055,6 @@ function hideUnwantedBasemapLabels(
 
 }
 
-
-// ============================================================
-// APPLY OVERLAY STATE
-// ============================================================
 
 // ============================================================
 // APPLY OVERLAY STATE
@@ -1625,6 +1606,810 @@ async function refreshCompareManifests() {
 
 
     displayCurrentFrame();
+
+}
+
+
+// ============================================================
+// LOAD SAMPLE GRID
+// ============================================================
+
+async function loadSampleGrid(
+    modelName,
+    manifest,
+    frame
+) {
+
+    if (
+        !manifest
+        ||
+        !frame
+        ||
+        !frame.sample_file
+    ) {
+
+        return null;
+
+    }
+
+
+    const cacheKey =
+
+        `${modelName}_` +
+        `${manifest.run}_` +
+        `${frame.fhr}`;
+
+
+    if (
+        sampleCache.has(
+            cacheKey
+        )
+    ) {
+
+        return sampleCache.get(
+            cacheKey
+        );
+
+    }
+
+
+    const product =
+        getProductConfig(
+            modelName
+        );
+
+
+    if (!product) {
+
+        return null;
+
+    }
+
+
+    const url =
+
+        `${product.baseUrl}/` +
+        `${frame.sample_file}` +
+        `?run=${encodeURIComponent(
+            manifest.run
+        )}`;
+
+
+    const response =
+        await fetch(
+
+            url,
+
+            {
+                cache:
+                    "no-store"
+            }
+
+        );
+
+
+    if (!response.ok) {
+
+        throw new Error(
+
+            `Sample data HTTP ` +
+            `${response.status}`
+
+        );
+
+    }
+
+
+    const data =
+        await response.json();
+
+
+    sampleCache.set(
+
+        cacheKey,
+
+        data
+
+    );
+
+
+    return data;
+
+}
+
+
+// ============================================================
+// SAMPLE REGULAR GRID AT LAT/LON
+// ============================================================
+
+function sampleGridAtPoint(
+    data,
+    lon,
+    lat
+) {
+
+    if (!data) {
+
+        return null;
+
+    }
+
+
+    if (
+        lon < data.west
+        ||
+        lon > data.east
+        ||
+        lat < data.south
+        ||
+        lat > data.north
+    ) {
+
+        return null;
+
+    }
+
+
+    const ix =
+        Math.round(
+
+            (
+                lon -
+                data.west
+            )
+
+            /
+
+            data.dx
+
+        );
+
+
+    const iy =
+        Math.round(
+
+            (
+                lat -
+                data.south
+            )
+
+            /
+
+            data.dy
+
+        );
+
+
+    if (
+        ix < 0
+        ||
+        iy < 0
+        ||
+        ix >= data.nx
+        ||
+        iy >= data.ny
+    ) {
+
+        return null;
+
+    }
+
+
+    const index =
+
+        iy *
+        data.nx
+
+        +
+
+        ix;
+
+
+    let refl =
+        Number(
+            data.refl[
+                index
+            ]
+        );
+
+
+    let uh =
+        Number(
+            data.uh[
+                index
+            ]
+        );
+
+
+    if (
+        refl <= -9990
+    ) {
+
+        refl =
+            null;
+
+    }
+
+
+    if (
+        uh <= -9990
+    ) {
+
+        uh =
+            null;
+
+    }
+
+
+    return {
+
+        refl:
+            refl,
+
+        uh:
+            uh
+
+    };
+
+}
+
+
+// ============================================================
+// FORMAT SAMPLE VALUE
+// ============================================================
+
+function formatSampleValue(
+    value,
+    digits = 1
+) {
+
+    if (
+        value === null
+        ||
+        value === undefined
+        ||
+        !Number.isFinite(
+            value
+        )
+    ) {
+
+        return "N/A";
+
+    }
+
+
+    return value.toFixed(
+        digits
+    );
+
+}
+
+
+// ============================================================
+// POPUP HTML
+// ============================================================
+
+function makeSingleSampleHtml(
+    modelName,
+    lngLat,
+    sample,
+    frame
+) {
+
+    const modelLabel =
+        MODEL_CONFIGS[
+            modelName
+        ].name;
+
+
+    return `
+
+        <div style="
+            font-family: Arial, sans-serif;
+            min-width: 215px;
+        ">
+
+            <div style="
+                font-size: 15px;
+                font-weight: 800;
+                margin-bottom: 3px;
+            ">
+                ${modelLabel} — F${String(
+                    frame.fhr
+                ).padStart(
+                    3,
+                    "0"
+                )}
+            </div>
+
+            <div style="
+                font-size: 11px;
+                color: #666;
+                margin-bottom: 8px;
+            ">
+                ${formatValidTimeCentral(
+                    frame.valid
+                )}
+            </div>
+
+            <div style="
+                font-size: 12px;
+                margin-bottom: 8px;
+                color: #555;
+            ">
+                ${lngLat.lat.toFixed(3)}°N,
+                ${Math.abs(
+                    lngLat.lng
+                ).toFixed(3)}°W
+            </div>
+
+            <div style="
+                font-size: 13px;
+                line-height: 1.7;
+            ">
+
+                <b>Composite Reflectivity:</b>
+                ${formatSampleValue(
+                    sample?.refl
+                )} dBZ
+
+                <br>
+
+                <b>2–5 km UH:</b>
+                ${formatSampleValue(
+                    sample?.uh,
+                    0
+                )} m²/s²
+
+            </div>
+
+        </div>
+    `;
+
+}
+
+
+function makeComparisonSampleHtml(
+    lngLat,
+    hrrrSample,
+    rrfsSample,
+    hrrrFrame
+) {
+
+    return `
+
+        <div style="
+            font-family: Arial, sans-serif;
+            min-width: 245px;
+        ">
+
+            <div style="
+                font-size: 14px;
+                font-weight: 800;
+                margin-bottom: 3px;
+            ">
+                Model Comparison — F${String(
+                    hrrrFrame.fhr
+                ).padStart(
+                    3,
+                    "0"
+                )}
+            </div>
+
+            <div style="
+                font-size: 11px;
+                color: #666;
+                margin-bottom: 7px;
+            ">
+                ${formatValidTimeCentral(
+                    hrrrFrame.valid
+                )}
+            </div>
+
+            <div style="
+                font-size: 12px;
+                color: #555;
+                margin-bottom: 9px;
+            ">
+                ${lngLat.lat.toFixed(3)}°N,
+                ${Math.abs(
+                    lngLat.lng
+                ).toFixed(3)}°W
+            </div>
+
+            <div style="
+                font-weight: 800;
+                font-size: 14px;
+                border-bottom: 1px solid #ccc;
+                padding-bottom: 2px;
+                margin-bottom: 4px;
+            ">
+                HRRR
+            </div>
+
+            <div style="
+                font-size: 13px;
+                line-height: 1.7;
+                margin-bottom: 9px;
+            ">
+
+                <b>Composite Reflectivity:</b>
+                ${formatSampleValue(
+                    hrrrSample?.refl
+                )} dBZ
+
+                <br>
+
+                <b>2–5 km UH:</b>
+                ${formatSampleValue(
+                    hrrrSample?.uh,
+                    0
+                )} m²/s²
+
+            </div>
+
+            <div style="
+                font-weight: 800;
+                font-size: 14px;
+                border-bottom: 1px solid #ccc;
+                padding-bottom: 2px;
+                margin-bottom: 4px;
+            ">
+                RRFS
+            </div>
+
+            <div style="
+                font-size: 13px;
+                line-height: 1.7;
+            ">
+
+                <b>Composite Reflectivity:</b>
+                ${formatSampleValue(
+                    rrfsSample?.refl
+                )} dBZ
+
+                <br>
+
+                <b>2–5 km UH:</b>
+                ${formatSampleValue(
+                    rrfsSample?.uh,
+                    0
+                )} m²/s²
+
+            </div>
+
+        </div>
+    `;
+
+}
+
+
+// ============================================================
+// SHOW SAMPLE POPUP
+// ============================================================
+
+function showSamplePopup(
+    map,
+    lngLat,
+    html
+) {
+
+    if (
+        samplePopup
+    ) {
+
+        samplePopup.remove();
+
+    }
+
+
+    samplePopup =
+        new mapboxgl.Popup({
+
+            closeButton:
+                true,
+
+            closeOnClick:
+                true,
+
+            offset:
+                10,
+
+            maxWidth:
+                "320px"
+
+        })
+        .setLngLat(
+            lngLat
+        )
+        .setHTML(
+            html
+        )
+        .addTo(
+            map
+        );
+
+}
+
+
+// ============================================================
+// SAMPLE SINGLE MODEL
+// ============================================================
+
+async function sampleSingleModel(
+    map,
+    lngLat
+) {
+
+    const fhr =
+        getSelectedFhr();
+
+
+    if (
+        fhr === null
+        ||
+        !singleManifest
+    ) {
+
+        return;
+
+    }
+
+
+    const frame =
+        findFrame(
+
+            singleManifest,
+
+            fhr
+
+        );
+
+
+    if (!frame) {
+
+        return;
+
+    }
+
+
+    try {
+
+        const grid =
+            await loadSampleGrid(
+
+                activeModel,
+
+                singleManifest,
+
+                frame
+
+            );
+
+
+        if (!grid) {
+
+            console.warn(
+                "No sampling file listed for this frame."
+            );
+
+            return;
+
+        }
+
+
+        const sample =
+            sampleGridAtPoint(
+
+                grid,
+
+                lngLat.lng,
+
+                lngLat.lat
+
+            );
+
+
+        if (!sample) {
+
+            return;
+
+        }
+
+
+        showSamplePopup(
+
+            map,
+
+            lngLat,
+
+            makeSingleSampleHtml(
+
+                activeModel,
+
+                lngLat,
+
+                sample,
+
+                frame
+
+            )
+
+        );
+
+    }
+
+
+    catch (error) {
+
+        console.error(
+            "Sampling failed:",
+            error
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// SAMPLE HRRR + RRFS COMPARISON
+// ============================================================
+
+async function sampleComparison(
+    map,
+    lngLat
+) {
+
+    const fhr =
+        getSelectedFhr();
+
+
+    if (
+        fhr === null
+        ||
+        !compareManifests.hrrr
+        ||
+        !compareManifests.rrfs
+    ) {
+
+        return;
+
+    }
+
+
+    const hrrrFrame =
+        findFrame(
+
+            compareManifests.hrrr,
+
+            fhr
+
+        );
+
+
+    const rrfsFrame =
+        findFrame(
+
+            compareManifests.rrfs,
+
+            fhr
+
+        );
+
+
+    if (
+        !hrrrFrame
+        ||
+        !rrfsFrame
+    ) {
+
+        return;
+
+    }
+
+
+    try {
+
+        const [
+            hrrrGrid,
+            rrfsGrid
+        ] =
+            await Promise.all([
+
+                loadSampleGrid(
+
+                    "hrrr",
+
+                    compareManifests.hrrr,
+
+                    hrrrFrame
+
+                ),
+
+                loadSampleGrid(
+
+                    "rrfs",
+
+                    compareManifests.rrfs,
+
+                    rrfsFrame
+
+                )
+
+            ]);
+
+
+        if (
+            !hrrrGrid
+            ||
+            !rrfsGrid
+        ) {
+
+            console.warn(
+                "One or both comparison sampling files are unavailable."
+            );
+
+            return;
+
+        }
+
+
+        const hrrrSample =
+            sampleGridAtPoint(
+
+                hrrrGrid,
+
+                lngLat.lng,
+
+                lngLat.lat
+
+            );
+
+
+        const rrfsSample =
+            sampleGridAtPoint(
+
+                rrfsGrid,
+
+                lngLat.lng,
+
+                lngLat.lat
+
+            );
+
+
+        showSamplePopup(
+
+            map,
+
+            lngLat,
+
+            makeComparisonSampleHtml(
+
+                lngLat,
+
+                hrrrSample,
+
+                rrfsSample,
+
+                hrrrFrame
+
+            )
+
+        );
+
+    }
+
+
+    catch (error) {
+
+        console.error(
+            "Comparison sampling failed:",
+            error
+        );
+
+    }
 
 }
 
@@ -2246,6 +3031,58 @@ async function initializeComparison() {
     );
 
 
+    leftMap.getCanvas().style.cursor =
+        "crosshair";
+
+
+    rightMap.getCanvas().style.cursor =
+        "crosshair";
+
+
+    leftMap.on(
+        "click",
+        event => {
+
+            if (
+                viewerMode === "compare"
+            ) {
+
+                sampleComparison(
+
+                    leftMap,
+
+                    event.lngLat
+
+                );
+
+            }
+
+        }
+    );
+
+
+    rightMap.on(
+        "click",
+        event => {
+
+            if (
+                viewerMode === "compare"
+            ) {
+
+                sampleComparison(
+
+                    rightMap,
+
+                    event.lngLat
+
+                );
+
+            }
+
+        }
+    );
+
+
     syncComparisonMaps();
 
 
@@ -2837,10 +3674,6 @@ function drawGraphicsCredit(
         boxHeight;
 
 
-    // ========================================================
-    // DARK BACKGROUND
-    // ========================================================
-
     ctx.fillStyle =
         "rgba(20,24,32,0.75)";
 
@@ -2867,10 +3700,6 @@ function drawGraphicsCredit(
 
     ctx.fill();
 
-
-    // ========================================================
-    // WHITE CREDIT TEXT
-    // ========================================================
 
     ctx.fillStyle =
         "#ffffff";
@@ -2914,10 +3743,6 @@ function drawExportBranding(
         canvas.width /
         1400;
 
-
-    // ========================================================
-    // VALID TIME
-    // ========================================================
 
     const timestamp =
         `F${String(
@@ -3025,56 +3850,6 @@ function drawExportBranding(
         exportLogoImage.naturalWidth
     ) {
 
-        /*
-         * In comparison mode the canvas contains two panels.
-         *
-         * We want the branding centered near the upper-right
-         * portion of the RRFS panel rather than anchored against
-         * the far-right edge of the entire combined canvas.
-         */
-
-        let brandingCenterX;
-
-
-        if (
-            viewerMode === "compare"
-        ) {
-
-            const panelWidth =
-                canvas.width / 2;
-
-
-            /*
-             * Center branding at roughly 82% across the
-             * right-hand RRFS panel.
-             *
-             * Left edge of RRFS panel = panelWidth
-             */
-
-            brandingCenterX =
-                panelWidth
-                +
-                panelWidth * 0.82;
-
-        }
-
-        else {
-
-            /*
-             * Single-model view:
-             * keep branding toward the upper-right.
-             */
-
-            brandingCenterX =
-                canvas.width * 0.88;
-
-        }
-
-
-        // ----------------------------------------------------
-        // LOGO SIZE
-        // ----------------------------------------------------
-
         const logoWidth =
             145 * scale;
 
@@ -3090,40 +3865,36 @@ function drawExportBranding(
             exportLogoImage.naturalWidth;
 
 
-        // Center logo around brandingCenterX
+        const brandCenterX =
+            viewerMode === "compare"
+                ? canvas.width * 0.875
+                : canvas.width
+                  - logoWidth / 2
+                  - 12 * scale;
 
-        const logoX =
-            brandingCenterX
+
+        const x =
+            brandCenterX
             -
             logoWidth / 2;
 
 
-        const logoY =
+        const y =
             8 * scale;
 
-
-        // ----------------------------------------------------
-        // DRAW LOGOS
-        // ----------------------------------------------------
 
         ctx.drawImage(
 
             exportLogoImage,
 
-            logoX,
-
-            logoY,
+            x,
+            y,
 
             logoWidth,
-
             logoHeight
 
         );
 
-
-        // ----------------------------------------------------
-        // OFFICE LABEL
-        // ----------------------------------------------------
 
         ctx.font =
             `700 ${fontSize}px Arial`;
@@ -3138,18 +3909,16 @@ function drawExportBranding(
 
 
         const textX =
-            brandingCenterX;
+            brandCenterX;
 
 
         const textY =
-            logoY
+            y
             +
             logoHeight
             +
             3 * scale;
 
-
-        // Black outline
 
         ctx.lineWidth =
             Math.max(
@@ -3173,8 +3942,6 @@ function drawExportBranding(
         );
 
 
-        // White text
-
         ctx.fillStyle =
             "white";
 
@@ -3190,17 +3957,11 @@ function drawExportBranding(
         );
 
 
-        // Reset alignment
-
         ctx.textAlign =
             "left";
 
     }
 
-
-    // ========================================================
-    // GRAPHICS CREDIT
-    // ========================================================
 
     drawGraphicsCredit(
         canvas
@@ -3387,10 +4148,6 @@ function createCompareExportCanvas(
         );
 
 
-    // ========================================================
-    // LEFT HRRR MAP
-    // ========================================================
-
     ctx.drawImage(
 
         leftCanvas,
@@ -3404,10 +4161,6 @@ function createCompareExportCanvas(
     );
 
 
-    // ========================================================
-    // RIGHT RRFS MAP
-    // ========================================================
-
     ctx.drawImage(
 
         rightCanvas,
@@ -3420,10 +4173,6 @@ function createCompareExportCanvas(
 
     );
 
-
-    // ========================================================
-    // CENTER DIVIDER
-    // ========================================================
 
     ctx.fillStyle =
         "white";
@@ -3441,10 +4190,6 @@ function createCompareExportCanvas(
 
     );
 
-
-    // ========================================================
-    // MODEL LABELS
-    // ========================================================
 
     const labelFont =
         Math.max(
@@ -3480,8 +4225,6 @@ function createCompareExportCanvas(
         "white";
 
 
-    // HRRR
-
     ctx.strokeText(
 
         "HRRR",
@@ -3503,8 +4246,6 @@ function createCompareExportCanvas(
 
     );
 
-
-    // RRFS
 
     ctx.strokeText(
 
@@ -3535,10 +4276,6 @@ function createCompareExportCanvas(
     ctx.textAlign =
         "left";
 
-
-    // ========================================================
-    // TIMESTAMP + LOGOS + OFFICE + CREDIT
-    // ========================================================
 
     drawExportBranding(
         canvas,
@@ -4273,10 +5010,6 @@ function updateExportVisibility() {
 
 function setupUiEvents() {
 
-    // ========================================================
-    // OVERLAY MENU
-    // ========================================================
-
     document
         .getElementById(
             "overlay-menu-button"
@@ -4295,10 +5028,6 @@ function setupUiEvents() {
 
             };
 
-
-    // ========================================================
-    // SPC
-    // ========================================================
 
     document
         .getElementById(
@@ -4321,10 +5050,6 @@ function setupUiEvents() {
             };
 
 
-    // ========================================================
-    // CWA
-    // ========================================================
-
     document
         .getElementById(
             "cwa-toggle"
@@ -4345,10 +5070,6 @@ function setupUiEvents() {
 
             };
 
-
-    // ========================================================
-    // COUNTIES
-    // ========================================================
 
     document
         .getElementById(
@@ -4371,10 +5092,6 @@ function setupUiEvents() {
             };
 
 
-    // ========================================================
-    // STATES
-    // ========================================================
-
     document
         .getElementById(
             "state-toggle"
@@ -4396,10 +5113,6 @@ function setupUiEvents() {
             };
 
 
-    // ========================================================
-    // VIEW MODE
-    // ========================================================
-
     document
         .getElementById(
             "viewer-mode-select"
@@ -4414,10 +5127,6 @@ function setupUiEvents() {
             };
 
 
-    // ========================================================
-    // MODEL
-    // ========================================================
-
     document
         .getElementById(
             "model-select"
@@ -4431,10 +5140,6 @@ function setupUiEvents() {
 
             };
 
-
-    // ========================================================
-    // PREVIOUS
-    // ========================================================
 
     document
         .getElementById(
@@ -4453,10 +5158,6 @@ function setupUiEvents() {
             };
 
 
-    // ========================================================
-    // NEXT
-    // ========================================================
-
     document
         .getElementById(
             "model-next-button"
@@ -4473,10 +5174,6 @@ function setupUiEvents() {
 
             };
 
-
-    // ========================================================
-    // PLAY
-    // ========================================================
 
     document
         .getElementById(
@@ -4552,6 +5249,32 @@ singleMap.on(
 
         setupMapLayers(
             singleMap
+        );
+
+
+        singleMap.getCanvas().style.cursor =
+            "crosshair";
+
+
+        singleMap.on(
+            "click",
+            event => {
+
+                if (
+                    viewerMode === "single"
+                ) {
+
+                    sampleSingleModel(
+
+                        singleMap,
+
+                        event.lngLat
+
+                    );
+
+                }
+
+            }
         );
 
 
