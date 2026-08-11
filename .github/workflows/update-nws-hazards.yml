@@ -1,0 +1,92 @@
+name: Update NWS Hazards
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-nws-hazards:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ======================================================
+      # CHECK OUT REPOSITORY
+      # ======================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      # ======================================================
+      # SET UP PYTHON
+      # ======================================================
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+
+      # ======================================================
+      # INSTALL PYTHON PACKAGES
+      # ======================================================
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+
+      # ======================================================
+      # RUN NWS HAZARDS UPDATE SCRIPT
+      # ======================================================
+
+      - name: Update NWS hazards
+        run: |
+          python update_nws_hazards.py
+
+
+      # ======================================================
+      # SHOW GENERATED FILE
+      # ======================================================
+
+      - name: Show generated hazard file
+        run: |
+          echo "NWS hazard file:"
+          ls -lh data/nws_hazards.geojson
+
+
+      # ======================================================
+      # CHECK WHETHER GEOJSON CHANGED
+      # ======================================================
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add data/nws_hazards.geojson
+
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No NWS hazard changes detected."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "NWS hazards changed."
+          fi
+
+
+      # ======================================================
+      # COMMIT UPDATED HAZARDS
+      # ======================================================
+
+      - name: Commit updated NWS hazards
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "NWS Hazards Bot"
+          git config user.email "actions@github.com"
+
+          git commit -m "Update NWS hazards"
+
+          git push
