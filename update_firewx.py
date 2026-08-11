@@ -28,7 +28,6 @@
 # This lets graphics.js display each complete day with one toggle.
 # ============================================================
 
-
 import json
 import time
 
@@ -49,8 +48,6 @@ SPC_FIRE_MAPSERVER = (
 
 # ============================================================
 # FIRE WEATHER LAYERS
-#
-# Official NOAA service:
 #
 # Day 1:
 #   1 = Wind / RH outlook
@@ -123,6 +120,14 @@ FIREWX_CONFIG = {
 
 # ============================================================
 # OUTPUT DIRECTORY
+#
+# Repository:
+#
+# repository/
+# ├── update_firewx.py
+# └── data/
+#     ├── spc_fire_day1.geojson
+#     └── spc_fire_day2.geojson
 # ============================================================
 
 BASE_DIR = (
@@ -148,26 +153,19 @@ OUTPUT_DIR.mkdir(
 # REQUEST SETTINGS
 # ============================================================
 
-REQUEST_TIMEOUT_SECONDS =
-    45
+REQUEST_TIMEOUT_SECONDS = 45
 
+DOWNLOAD_ATTEMPTS = 3
 
-DOWNLOAD_ATTEMPTS =
-    3
-
-
-RETRY_SLEEP_SECONDS =
-    5
+RETRY_SLEEP_SECONDS = 5
 
 
 # ============================================================
 # NORMAL FIRE WEATHER CATEGORIES
 #
-# NOAA SPC renderer:
-#
-# 5  = Elevated
-# 8  = Critical
-# 10 = Extreme
+# dn = 5  -> Elevated
+# dn = 8  -> Critical
+# dn = 10 -> Extremely Critical
 # ============================================================
 
 FIRE_CATEGORY_INFO = {
@@ -228,12 +226,10 @@ FIRE_CATEGORY_INFO = {
 # ============================================================
 # DRY THUNDERSTORM CATEGORIES
 #
-# NOAA SPC renderer:
+# dn = 5 -> Isolated Dry Thunderstorm
+# dn = 8 -> Scattered Dry Thunderstorm
 #
-# 5 = Isolated Dry Thunderstorm
-# 8 = Scattered Dry Thunderstorm
-#
-# These are kept in the SAME output file.
+# These remain in the SAME GeoJSON file for each day.
 # ============================================================
 
 DRYT_CATEGORY_INFO = {
@@ -275,7 +271,7 @@ DRYT_CATEGORY_INFO = {
 
 
 # ============================================================
-# FETCH ONE FEATURE LAYER
+# FETCH ONE SPC FIRE WEATHER LAYER
 # ============================================================
 
 def fetch_layer(
@@ -363,6 +359,10 @@ def fetch_layer(
             data = response.json()
 
 
+            # =================================================
+            # VALIDATE RESPONSE
+            # =================================================
+
             if (
                 "features"
                 not in data
@@ -403,6 +403,13 @@ def fetch_layer(
                 DOWNLOAD_ATTEMPTS
             ):
 
+                print(
+                    f"Waiting "
+                    f"{RETRY_SLEEP_SECONDS} seconds "
+                    f"before retry..."
+                )
+
+
                 time.sleep(
                     RETRY_SLEEP_SECONDS
                 )
@@ -419,7 +426,7 @@ def fetch_layer(
 
 
 # ============================================================
-# SAFE INTEGER DN
+# GET DN VALUE SAFELY
 # ============================================================
 
 def get_dn(
@@ -485,7 +492,7 @@ def normalize_feature(
 
 
     # ========================================================
-    # NORMAL FIRE WEATHER
+    # NORMAL WIND / RH FIRE WEATHER
     # ========================================================
 
     if (
@@ -516,41 +523,112 @@ def normalize_feature(
         )
 
 
+    # ========================================================
+    # FALL BACK TO SERVICE VALUES IF NEEDED
+    # ========================================================
+
+    service_label = (
+
+        properties.get(
+            "label"
+        )
+
+        or
+
+        properties.get(
+            "LABEL"
+        )
+
+        or
+
+        properties.get(
+            "outlook"
+        )
+
+        or
+
+        properties.get(
+            "OUTLOOK"
+        )
+
+    )
+
+
     category = (
+
         info.get(
             "category"
         )
+
         or
+
+        service_label
+
+        or
+
         "Unknown"
+
     )
 
 
     risk = (
+
         info.get(
             "risk"
         )
+
         or
-        "UNKNOWN"
+
+        str(
+            service_label
+            or
+            "UNKNOWN"
+        )
+
     )
 
 
     fill = (
+
+        properties.get(
+            "fill"
+        )
+
+        or
+
         info.get(
             "fill"
         )
+
         or
+
         "#888888"
+
     )
 
 
     stroke = (
+
+        properties.get(
+            "stroke"
+        )
+
+        or
+
         info.get(
             "stroke"
         )
+
         or
+
         "#000000"
+
     )
 
+
+    # ========================================================
+    # ADD STANDARDIZED FIELDS
+    # ========================================================
 
     properties[
         "day"
@@ -605,7 +683,7 @@ def normalize_layer(
     outlook_type,
 ):
 
-    cleaned = []
+    cleaned_features = []
 
 
     for feature in data.get(
@@ -613,17 +691,21 @@ def normalize_layer(
         []
     ):
 
-        if (
-            not feature.get(
+        geometry = (
+            feature.get(
                 "geometry"
             )
+        )
+
+
+        if (
+            not geometry
         ):
 
             continue
 
 
-        cleaned.append(
-
+        cleaned_feature = (
             normalize_feature(
 
                 feature,
@@ -633,11 +715,182 @@ def normalize_layer(
                 outlook_type
 
             )
+        )
+
+
+        cleaned_features.append(
+            cleaned_feature
+        )
+
+
+    return cleaned_features
+
+
+# ============================================================
+# WRITE GEOJSON
+# ============================================================
+
+def write_geojson(
+    data,
+    filename,
+):
+
+    output_file = (
+        OUTPUT_DIR
+        /
+        filename
+    )
+
+
+    with output_file.open(
+
+        "w",
+
+        encoding=
+            "utf-8"
+
+    ) as file:
+
+        json.dump(
+
+            data,
+
+            file,
+
+            separators=(
+                ",",
+                ":"
+            )
 
         )
 
 
-    return cleaned
+    print()
+    print(
+        f"Wrote: "
+        f"{output_file}"
+    )
+
+
+    return output_file
+
+
+# ============================================================
+# PRINT SUMMARY FOR ONE DAY
+# ============================================================
+
+def print_day_summary(
+    day,
+    features,
+):
+
+    print()
+    print(
+        f"SPC FIRE WEATHER DAY {day} SUMMARY"
+    )
+
+    print("-" * 70)
+
+
+    categories = []
+
+
+    fire_count = 0
+
+    dry_thunder_count = 0
+
+
+    for feature in features:
+
+        properties = (
+            feature.get(
+                "properties",
+                {}
+            )
+        )
+
+
+        category = (
+            properties.get(
+                "category"
+            )
+        )
+
+
+        outlook_type = (
+            properties.get(
+                "outlook_type"
+            )
+        )
+
+
+        if (
+            category
+            and
+            category not in categories
+        ):
+
+            categories.append(
+                category
+            )
+
+
+        if (
+            outlook_type
+            ==
+            "fire"
+        ):
+
+            fire_count += 1
+
+
+        elif (
+            outlook_type
+            ==
+            "dry_thunder"
+        ):
+
+            dry_thunder_count += 1
+
+
+    print(
+        f"Total polygons: "
+        f"{len(features)}"
+    )
+
+
+    print(
+        f"Wind/RH polygons: "
+        f"{fire_count}"
+    )
+
+
+    print(
+        f"Dry thunder polygons: "
+        f"{dry_thunder_count}"
+    )
+
+
+    if categories:
+
+        print(
+            "Categories:"
+        )
+
+
+        for category in categories:
+
+            print(
+                f"  - {category}"
+            )
+
+
+    else:
+
+        print(
+            "No Fire Weather polygons "
+            "were present."
+        )
 
 
 # ============================================================
@@ -649,8 +902,22 @@ def process_day(
     config,
 ):
 
+    print()
+    print("=" * 70)
+
+    print(
+        f"PROCESSING SPC FIRE WEATHER DAY {day}"
+    )
+
+    print("=" * 70)
+
+
     all_features = []
 
+
+    # ========================================================
+    # DOWNLOAD EACH SUBLAYER
+    # ========================================================
 
     for layer_config in (
         config[
@@ -685,7 +952,7 @@ def process_day(
         )
 
 
-        normalized = (
+        normalized_features = (
             normalize_layer(
 
                 raw_data,
@@ -699,15 +966,12 @@ def process_day(
 
 
         all_features.extend(
-            normalized
+            normalized_features
         )
 
 
     # ========================================================
-    # EMPTY OUTLOOK IS VALID
-    #
-    # For example, there may be no dry-thunderstorm polygons.
-    # The regular outlook may also be empty on a quiet day.
+    # ONE COMBINED GEOJSON FOR EACH DAY
     # ========================================================
 
     output_data = {
@@ -721,111 +985,26 @@ def process_day(
     }
 
 
-    filename = (
-        config[
-            "filename"
-        ]
-    )
-
-
     output_file = (
-        OUTPUT_DIR
-        /
-        filename
-    )
-
-
-    with output_file.open(
-
-        "w",
-
-        encoding=
-            "utf-8"
-
-    ) as file:
-
-        json.dump(
+        write_geojson(
 
             output_data,
 
-            file,
-
-            separators=(
-                ",",
-                ":"
-            )
+            config[
+                "filename"
+            ]
 
         )
-
-
-    print()
-    print(
-        f"Wrote:"
-    )
-
-    print(
-        output_file
     )
 
 
-    print(
-        f"Total Day {day} features: "
-        f"{len(all_features)}"
+    print_day_summary(
+
+        day,
+
+        all_features
+
     )
-
-
-    # ========================================================
-    # PRINT CATEGORIES
-    # ========================================================
-
-    categories = []
-
-
-    for feature in all_features:
-
-        category = (
-            feature
-            .get(
-                "properties",
-                {}
-            )
-            .get(
-                "category"
-            )
-        )
-
-
-        if (
-            category
-            and
-            category not in categories
-        ):
-
-            categories.append(
-                category
-            )
-
-
-    if categories:
-
-        print(
-            "Categories:"
-        )
-
-
-        for category in categories:
-
-            print(
-                f"  - {category}"
-            )
-
-
-    else:
-
-        print(
-            "No fire-weather polygons "
-            "were present for this day."
-        )
 
 
     return output_file
@@ -848,6 +1027,7 @@ def main():
     print("=" * 70)
 
 
+    print()
     print(
         f"Output directory: "
         f"{OUTPUT_DIR}"
@@ -856,9 +1036,12 @@ def main():
 
     completed = []
 
-
     failed = []
 
+
+    # ========================================================
+    # PROCESS DAY 1 AND DAY 2
+    # ========================================================
 
     for day, config in (
         FIREWX_CONFIG.items()
@@ -914,7 +1097,7 @@ def main():
 
 
     # ========================================================
-    # SUMMARY
+    # FINAL SUMMARY
     # ========================================================
 
     print()
@@ -970,9 +1153,14 @@ def main():
     )
 
 
+    # ========================================================
+    # FAIL IF NOTHING WORKED
+    # ========================================================
+
     if (
         len(completed)
-        == 0
+        ==
+        0
     ):
 
         raise RuntimeError(
@@ -980,6 +1168,23 @@ def main():
             "No SPC Fire Weather files "
             "were successfully updated."
 
+        )
+
+
+    # ========================================================
+    # PARTIAL FAILURE WARNING
+    # ========================================================
+
+    if failed:
+
+        print()
+        print(
+            "WARNING:"
+        )
+
+        print(
+            "One or more Fire Weather "
+            "outlooks failed to update."
         )
 
 
