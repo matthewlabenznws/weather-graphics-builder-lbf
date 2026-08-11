@@ -1,57 +1,95 @@
 mapboxgl.accessToken = "pk.eyJ1IjoibWF0dGhld2xhYmVuejciLCJhIjoiY21zbjhxZ3ZkMXBoNDJ3cHl5eG5uNzlpZCJ9.UBy4k84SejJzzu2VF0TtcA";
 
 // ============================================================
-// AWS HRRR SETTINGS
+// MODEL CONFIGURATION
 // ============================================================
 
-const HRRR_BASE_URL =
-    "https://mtl-nwslbf-model-data.s3.us-east-2.amazonaws.com/" +
-    "weather-graphics/hrrr/reflUH/latest";
+const MODEL_CONFIGS = {
 
+    hrrr: {
 
-const HRRR_MANIFEST_URL =
-    `${HRRR_BASE_URL}/manifest.json`;
+        name:
+            "HRRR",
 
+        products: {
 
-// Refresh manifest every 30 seconds while the page is open
+            reflUH: {
 
-const MANIFEST_REFRESH_MS = 30000;
+                name:
+                    "Reflectivity + UH ≥ 75",
+
+                baseUrl:
+                    "https://mtl-nwslbf-model-data.s3.us-east-2.amazonaws.com/" +
+                    "weather-graphics/hrrr/reflUH/latest"
+
+            }
+
+        }
+
+    }
+
+};
 
 
 // ============================================================
-// HRRR STATE
+// CURRENT VIEWER STATE
 // ============================================================
 
-let hrrrManifest = null;
+let activeModel =
+    "hrrr";
 
-let availableHrrrFrames = [];
+let activeProduct =
+    "reflUH";
 
-let currentHrrrIndex = 0;
+let currentManifest =
+    null;
 
-let hrrrSourceCreated = false;
+let availableFrames =
+    [];
+
+let currentFrameIndex =
+    0;
+
+let animationTimer =
+    null;
+
+let animationPlaying =
+    false;
+
+
+// ============================================================
+// MANIFEST POLLING
+// ============================================================
+
+const MANIFEST_REFRESH_MS =
+    30000;
 
 
 // ============================================================
 // CREATE MAP
 // ============================================================
 
-const map = new mapboxgl.Map({
+const map =
+    new mapboxgl.Map({
 
-    container: "map",
+        container:
+            "map",
 
-    style:
-        "mapbox://styles/mapbox/satellite-streets-v12",
+        style:
+            "mapbox://styles/mapbox/satellite-streets-v12",
 
-    center: [
-        -100.75,
-        41.1
-    ],
+        center: [
+            -100.75,
+            41.1
+        ],
 
-    zoom: 6,
+        zoom:
+            6,
 
-    preserveDrawingBuffer: true
+        preserveDrawingBuffer:
+            true
 
-});
+    });
 
 
 // ============================================================
@@ -59,243 +97,120 @@ const map = new mapboxgl.Map({
 // ============================================================
 
 map.addControl(
+
     new mapboxgl.NavigationControl(),
+
     "top-right"
+
 );
 
 
 // ============================================================
-// CREATE HRRR USER INTERFACE
+// GET ACTIVE PRODUCT CONFIG
 // ============================================================
 
-function createHrrrUI() {
+function getActiveProductConfig() {
 
-    let controls =
+    if (
+        activeModel === "none"
+    ) {
+
+        return null;
+
+    }
+
+
+    const model =
+        MODEL_CONFIGS[
+            activeModel
+        ];
+
+
+    if (!model) {
+
+        return null;
+
+    }
+
+
+    return model.products[
+        activeProduct
+    ] || null;
+
+}
+
+
+// ============================================================
+// MODEL UI VISIBILITY
+// ============================================================
+
+function setModelUiVisible(
+    visible
+) {
+
+    const elements = [
+
         document.getElementById(
-            "map-controls"
-        );
+            "model-valid-label"
+        ),
+
+        document.getElementById(
+            "model-timeline"
+        ),
+
+        document.getElementById(
+            "product-select"
+        )
+
+    ];
 
 
-    // --------------------------------------------------------
-    // Create controls container if needed
-    // --------------------------------------------------------
+    elements.forEach(
+        element => {
 
-    if (!controls) {
+            if (!element) {
 
-        controls =
-            document.createElement(
-                "div"
-            );
+                return;
 
-        controls.id =
-            "map-controls";
-
-        controls.style.position =
-            "absolute";
-
-        controls.style.top =
-            "15px";
-
-        controls.style.left =
-            "15px";
-
-        controls.style.zIndex =
-            "20";
-
-        controls.style.background =
-            "rgba(0,0,0,0.72)";
-
-        controls.style.color =
-            "white";
-
-        controls.style.padding =
-            "10px 12px";
-
-        controls.style.borderRadius =
-            "5px";
-
-        controls.style.fontFamily =
-            "Arial, sans-serif";
-
-        document.body.appendChild(
-            controls
-        );
-
-    }
+            }
 
 
-    // ========================================================
-    // HRRR TOGGLE
-    // ========================================================
+            if (visible) {
+
+                element.classList.remove(
+                    "hidden"
+                );
+
+            }
+
+            else {
+
+                element.classList.add(
+                    "hidden"
+                );
+
+            }
+
+        }
+    );
+
 
     if (
-        !document.getElementById(
-            "hrrr-toggle"
+        map.getLayer(
+            "model-raster-layer"
         )
     ) {
 
-        const toggleRow =
-            document.createElement(
-                "label"
-            );
+        map.setLayoutProperty(
 
-        toggleRow.style.display =
-            "flex";
+            "model-raster-layer",
 
-        toggleRow.style.alignItems =
-            "center";
+            "visibility",
 
-        toggleRow.style.gap =
-            "8px";
+            visible
+                ? "visible"
+                : "none"
 
-        toggleRow.style.marginTop =
-            "8px";
-
-        toggleRow.style.cursor =
-            "pointer";
-
-
-        toggleRow.innerHTML = `
-
-            <input
-                type="checkbox"
-                id="hrrr-toggle"
-                checked
-            >
-
-            <span>
-                HRRR Refl + UH
-            </span>
-
-        `;
-
-
-        controls.appendChild(
-            toggleRow
-        );
-
-    }
-
-
-    // ========================================================
-    // HRRR SLIDER
-    // ========================================================
-
-    if (
-        !document.getElementById(
-            "hrrr-slider"
-        )
-    ) {
-
-        const sliderWrap =
-            document.createElement(
-                "div"
-            );
-
-
-        sliderWrap.id =
-            "hrrr-slider-wrap";
-
-
-        sliderWrap.style.marginTop =
-            "10px";
-
-
-        sliderWrap.innerHTML = `
-
-            <input
-                type="range"
-                id="hrrr-slider"
-                min="0"
-                max="0"
-                value="0"
-                step="1"
-                style="
-                    width: 220px;
-                    cursor: pointer;
-                "
-            >
-
-        `;
-
-
-        controls.appendChild(
-            sliderWrap
-        );
-
-    }
-
-
-    // ========================================================
-    // VALID TIME LABEL
-    // ========================================================
-
-    if (
-        !document.getElementById(
-            "hrrr-valid-label"
-        )
-    ) {
-
-        const label =
-            document.createElement(
-                "div"
-            );
-
-
-        label.id =
-            "hrrr-valid-label";
-
-
-        label.style.position =
-            "absolute";
-
-
-        /*
-         * Positioned below the upper-left controls.
-         */
-
-        label.style.top =
-            "130px";
-
-        label.style.left =
-            "15px";
-
-        label.style.zIndex =
-            "20";
-
-        label.style.background =
-            "rgba(0,0,0,0.72)";
-
-        label.style.color =
-            "#ffffff";
-
-        label.style.padding =
-            "8px 12px";
-
-        label.style.borderRadius =
-            "4px";
-
-        label.style.fontFamily =
-            "Arial, sans-serif";
-
-        label.style.fontSize =
-            "19px";
-
-        label.style.fontWeight =
-            "700";
-
-        label.style.whiteSpace =
-            "nowrap";
-
-        label.style.textShadow =
-            "1px 1px 2px #000";
-
-        label.textContent =
-            "Loading HRRR...";
-
-
-        document.body.appendChild(
-            label
         );
 
     }
@@ -304,7 +219,7 @@ function createHrrrUI() {
 
 
 // ============================================================
-// CENTRAL-TIME FORMATTER
+// CENTRAL TIME FORMAT
 // ============================================================
 
 function formatValidTimeCentral(
@@ -319,7 +234,9 @@ function formatValidTimeCentral(
 
     const parts =
         new Intl.DateTimeFormat(
+
             "en-US",
+
             {
 
                 timeZone:
@@ -354,7 +271,7 @@ function formatValidTimeCentral(
 
 
     const get =
-        (type) => {
+        type => {
 
             const part =
                 parts.find(
@@ -387,16 +304,16 @@ function formatValidTimeCentral(
 
 
 // ============================================================
-// UPDATE VALID TIME LABEL
+// VALID TIME LABEL
 // ============================================================
 
-function updateHrrrLabel(
+function updateValidLabel(
     frame
 ) {
 
     const label =
         document.getElementById(
-            "hrrr-valid-label"
+            "model-valid-label"
         );
 
 
@@ -411,12 +328,6 @@ function updateHrrrLabel(
     }
 
 
-    const validText =
-        formatValidTimeCentral(
-            frame.valid
-        );
-
-
     const fhr =
         String(
             frame.fhr
@@ -426,22 +337,28 @@ function updateHrrrLabel(
         );
 
 
+    const valid =
+        formatValidTimeCentral(
+            frame.valid
+        );
+
+
     label.textContent =
-        `${validText} • F${fhr}`;
+        `F${fhr} • ${valid}`;
 
 }
 
 
 // ============================================================
-// GET IMAGE COORDINATES FROM MANIFEST
+// MANIFEST COORDINATES
 // ============================================================
 
-function getHrrrCoordinates() {
+function getImageCoordinates() {
 
     if (
-        !hrrrManifest
+        !currentManifest
         ||
-        !hrrrManifest.bounds
+        !currentManifest.bounds
     ) {
 
         return null;
@@ -450,7 +367,7 @@ function getHrrrCoordinates() {
 
 
     const b =
-        hrrrManifest.bounds;
+        currentManifest.bounds;
 
 
     return [
@@ -481,17 +398,23 @@ function getHrrrCoordinates() {
 
 
 // ============================================================
-// CREATE / UPDATE HRRR IMAGE SOURCE
+// DISPLAY MODEL FRAME
 // ============================================================
 
-function displayHrrrFrame(
+function displayFrame(
     frame
 ) {
 
+    const product =
+        getActiveProductConfig();
+
+
     if (
+        !product
+        ||
         !frame
         ||
-        !hrrrManifest
+        !currentManifest
     ) {
 
         return;
@@ -500,7 +423,7 @@ function displayHrrrFrame(
 
 
     const coordinates =
-        getHrrrCoordinates();
+        getImageCoordinates();
 
 
     if (!coordinates) {
@@ -510,36 +433,29 @@ function displayHrrrFrame(
     }
 
 
-    // --------------------------------------------------------
-    // Cache-busting query
-    //
-    // Prevent browser from showing a frame left over from
-    // the previous HRRR cycle.
-    // --------------------------------------------------------
-
     const imageUrl =
 
-        `${HRRR_BASE_URL}/` +
+        `${product.baseUrl}/` +
 
         `${frame.file}` +
 
         `?run=${encodeURIComponent(
-            hrrrManifest.run
+            currentManifest.run
         )}`;
 
 
     // ========================================================
-    // SOURCE ALREADY EXISTS
+    // UPDATE EXISTING IMAGE
     // ========================================================
 
     if (
         map.getSource(
-            "hrrr-reflectivity-source"
+            "model-image-source"
         )
     ) {
 
         map.getSource(
-            "hrrr-reflectivity-source"
+            "model-image-source"
         ).updateImage({
 
             url:
@@ -554,13 +470,15 @@ function displayHrrrFrame(
 
 
     // ========================================================
-    // CREATE SOURCE
+    // CREATE IMAGE SOURCE
     // ========================================================
 
     else {
 
         map.addSource(
-            "hrrr-reflectivity-source",
+
+            "model-image-source",
+
             {
 
                 type:
@@ -573,12 +491,9 @@ function displayHrrrFrame(
                     coordinates
 
             }
+
         );
 
-
-        // ----------------------------------------------------
-        // Keep HRRR beneath Mapbox roads/labels
-        // ----------------------------------------------------
 
         const styleLayers =
             map.getStyle().layers;
@@ -608,7 +523,7 @@ function displayHrrrFrame(
             );
 
 
-        const firstRoadLayerId =
+        const beforeLayer =
             firstRoadLayer
                 ? firstRoadLayer.id
                 : undefined;
@@ -619,13 +534,13 @@ function displayHrrrFrame(
             {
 
                 id:
-                    "hrrr-reflectivity",
+                    "model-raster-layer",
 
                 type:
                     "raster",
 
                 source:
-                    "hrrr-reflectivity-source",
+                    "model-image-source",
 
                 layout: {
 
@@ -649,42 +564,33 @@ function displayHrrrFrame(
 
             },
 
-            firstRoadLayerId
+            beforeLayer
 
         );
-
-
-        hrrrSourceCreated =
-            true;
 
     }
 
 
-    updateHrrrLabel(
+    updateValidLabel(
         frame
     );
+
+
+    updateHourButtonStyles();
 
 }
 
 
 // ============================================================
-// UPDATE SLIDER
+// SET CURRENT FRAME
 // ============================================================
 
-function updateHrrrSlider(
-    previousFhr = null
+function setFrameIndex(
+    index
 ) {
 
-    const slider =
-        document.getElementById(
-            "hrrr-slider"
-        );
-
-
     if (
-        !slider
-        ||
-        availableHrrrFrames.length === 0
+        availableFrames.length === 0
     ) {
 
         return;
@@ -692,89 +598,345 @@ function updateHrrrSlider(
     }
 
 
-    slider.min =
-        0;
-
-
-    slider.max =
-        availableHrrrFrames.length - 1;
-
-
-    // --------------------------------------------------------
-    // Preserve selected forecast hour if possible.
-    // --------------------------------------------------------
-
-    let targetIndex = -1;
-
-
     if (
-        previousFhr !== null
+        index < 0
     ) {
 
-        targetIndex =
-            availableHrrrFrames.findIndex(
-                frame =>
-                    frame.fhr === previousFhr
-            );
+        index =
+            availableFrames.length - 1;
 
     }
 
 
-    // --------------------------------------------------------
-    // If current selection doesn't exist, use newest hour.
-    // --------------------------------------------------------
-
     if (
-        targetIndex < 0
+        index >=
+        availableFrames.length
     ) {
 
-        targetIndex =
-            availableHrrrFrames.length - 1;
+        index =
+            0;
 
     }
 
 
-    currentHrrrIndex =
-        targetIndex;
+    currentFrameIndex =
+        index;
 
 
-    slider.value =
-        String(
-            currentHrrrIndex
+    displayFrame(
+
+        availableFrames[
+            currentFrameIndex
+        ]
+
+    );
+
+
+    scrollSelectedHourIntoView();
+
+}
+
+
+// ============================================================
+// BUILD FORECAST-HOUR BUTTONS
+// ============================================================
+
+function buildHourButtons() {
+
+    const container =
+        document.getElementById(
+            "model-hour-list"
         );
 
 
-    displayHrrrFrame(
-        availableHrrrFrames[
-            currentHrrrIndex
-        ]
+    if (!container) {
+
+        return;
+
+    }
+
+
+    container.innerHTML =
+        "";
+
+
+    availableFrames.forEach(
+
+        (
+            frame,
+            index
+        ) => {
+
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+
+            button.className =
+                "model-hour-button";
+
+
+            button.textContent =
+                `F${String(
+                    frame.fhr
+                ).padStart(
+                    3,
+                    "0"
+                )}`;
+
+
+            button.dataset.index =
+                String(
+                    index
+                );
+
+
+            button.addEventListener(
+
+                "click",
+
+                () => {
+
+                    stopAnimation();
+
+                    setFrameIndex(
+                        index
+                    );
+
+                }
+
+            );
+
+
+            container.appendChild(
+                button
+            );
+
+        }
+
+    );
+
+
+    updateHourButtonStyles();
+
+}
+
+
+// ============================================================
+// SELECTED FORECAST-HOUR STYLE
+// ============================================================
+
+function updateHourButtonStyles() {
+
+    const buttons =
+        document.querySelectorAll(
+            ".model-hour-button"
+        );
+
+
+    buttons.forEach(
+
+        (
+            button,
+            index
+        ) => {
+
+
+            if (
+                index ===
+                currentFrameIndex
+            ) {
+
+                button.classList.add(
+                    "selected"
+                );
+
+            }
+
+            else {
+
+                button.classList.remove(
+                    "selected"
+                );
+
+            }
+
+        }
+
     );
 
 }
 
 
 // ============================================================
-// LOAD MANIFEST
+// KEEP SELECTED HOUR VISIBLE
 // ============================================================
 
-async function refreshHrrrManifest() {
+function scrollSelectedHourIntoView() {
+
+    const buttons =
+        document.querySelectorAll(
+            ".model-hour-button"
+        );
+
+
+    const selected =
+        buttons[
+            currentFrameIndex
+        ];
+
+
+    if (!selected) {
+
+        return;
+
+    }
+
+
+    selected.scrollIntoView({
+
+        behavior:
+            "smooth",
+
+        block:
+            "nearest",
+
+        inline:
+            "center"
+
+    });
+
+}
+
+
+// ============================================================
+// ANIMATION
+// ============================================================
+
+function startAnimation() {
+
+    if (
+        animationPlaying
+        ||
+        availableFrames.length === 0
+    ) {
+
+        return;
+
+    }
+
+
+    animationPlaying =
+        true;
+
+
+    const button =
+        document.getElementById(
+            "model-play-button"
+        );
+
+
+    if (button) {
+
+        button.textContent =
+            "❚❚";
+
+    }
+
+
+    animationTimer =
+        setInterval(
+
+            () => {
+
+                setFrameIndex(
+                    currentFrameIndex + 1
+                );
+
+            },
+
+            700
+
+        );
+
+}
+
+
+function stopAnimation() {
+
+    animationPlaying =
+        false;
+
+
+    if (animationTimer) {
+
+        clearInterval(
+            animationTimer
+        );
+
+        animationTimer =
+            null;
+
+    }
+
+
+    const button =
+        document.getElementById(
+            "model-play-button"
+        );
+
+
+    if (button) {
+
+        button.textContent =
+            "▶";
+
+    }
+
+}
+
+
+// ============================================================
+// REFRESH MODEL MANIFEST
+// ============================================================
+
+async function refreshManifest() {
+
+    if (
+        activeModel === "none"
+    ) {
+
+        return;
+
+    }
+
+
+    const product =
+        getActiveProductConfig();
+
+
+    if (!product) {
+
+        return;
+
+    }
+
 
     try {
 
-        // ----------------------------------------------------
-        // Preserve currently selected F-hour
-        // ----------------------------------------------------
-
-        let selectedFhr = null;
+        let selectedFhr =
+            null;
 
 
         if (
-            availableHrrrFrames.length > 0
+            availableFrames.length > 0
         ) {
 
             const current =
-                availableHrrrFrames[
-                    currentHrrrIndex
+                availableFrames[
+                    currentFrameIndex
                 ];
 
 
@@ -788,15 +950,19 @@ async function refreshHrrrManifest() {
         }
 
 
-        // ----------------------------------------------------
-        // Cache-busting query
-        // ----------------------------------------------------
+        const manifestUrl =
+
+            `${product.baseUrl}/` +
+
+            `manifest.json` +
+
+            `?t=${Date.now()}`;
+
 
         const response =
             await fetch(
 
-                `${HRRR_MANIFEST_URL}` +
-                `?t=${Date.now()}`,
+                manifestUrl,
 
                 {
                     cache:
@@ -818,109 +984,114 @@ async function refreshHrrrManifest() {
         }
 
 
-        const newManifest =
+        const manifest =
             await response.json();
 
 
-        if (
-            !Array.isArray(
-                newManifest.hours
-            )
-        ) {
-
-            throw new Error(
-                "Manifest does not contain hours array."
-            );
-
-        }
-
-
-        // ====================================================
-        // NEW HRRR RUN?
-        // ====================================================
-
         const runChanged =
 
-            hrrrManifest
+            currentManifest
 
             &&
 
-            hrrrManifest.run
+            currentManifest.run
             !==
-            newManifest.run;
+            manifest.run;
 
 
-        hrrrManifest =
-            newManifest;
+        currentManifest =
+            manifest;
 
 
-        availableHrrrFrames =
-            [...newManifest.hours]
+        availableFrames =
+            [...manifest.hours]
             .sort(
                 (a, b) =>
                     a.fhr - b.fhr
             );
 
 
-        console.log(
-
-            "HRRR manifest:",
-
-            hrrrManifest.run,
-
-            availableHrrrFrames.length,
-
-            "hours",
-
-            hrrrManifest.status
-
-        );
-
-
         // ====================================================
-        // NO FRAMES YET
+        // NEW RUN BUT NO FRAME YET
         // ====================================================
 
         if (
-            availableHrrrFrames.length
-            === 0
+            availableFrames.length === 0
         ) {
 
             const label =
                 document.getElementById(
-                    "hrrr-valid-label"
+                    "model-valid-label"
                 );
 
 
             if (label) {
 
                 label.textContent =
-                    "New HRRR run loading...";
+                    "New model run loading...";
 
             }
 
+
+            buildHourButtons();
 
             return;
 
         }
 
 
-        // ====================================================
-        // IF RUN CHANGED, START WITH NEWEST CURRENTLY
-        // AVAILABLE FRAME
-        // ====================================================
+        let targetIndex =
+            -1;
 
-        if (runChanged) {
 
-            selectedFhr =
-                null;
+        if (
+            !runChanged
+            &&
+            selectedFhr !== null
+        ) {
+
+            targetIndex =
+                availableFrames.findIndex(
+
+                    frame =>
+                        frame.fhr ===
+                        selectedFhr
+
+                );
 
         }
 
 
-        updateHrrrSlider(
-            selectedFhr
+        // New run:
+        // use newest frame currently available.
+
+        if (
+            targetIndex < 0
+        ) {
+
+            targetIndex =
+                availableFrames.length - 1;
+
+        }
+
+
+        currentFrameIndex =
+            targetIndex;
+
+
+        buildHourButtons();
+
+
+        displayFrame(
+
+            availableFrames[
+                currentFrameIndex
+            ]
+
         );
+
+
+        scrollSelectedHourIntoView();
 
 
     }
@@ -928,7 +1099,7 @@ async function refreshHrrrManifest() {
     catch (error) {
 
         console.error(
-            "HRRR manifest error:",
+            "Model manifest error:",
             error
         );
 
@@ -938,27 +1109,145 @@ async function refreshHrrrManifest() {
 
 
 // ============================================================
+// SWITCH MODEL
+// ============================================================
+
+async function switchModel(
+    modelName
+) {
+
+    stopAnimation();
+
+
+    activeModel =
+        modelName;
+
+
+    // ========================================================
+    // OVERLAYS ONLY
+    // ========================================================
+
+    if (
+        modelName === "none"
+    ) {
+
+        setModelUiVisible(
+            false
+        );
+
+
+        currentManifest =
+            null;
+
+        availableFrames =
+            [];
+
+        currentFrameIndex =
+            0;
+
+
+        return;
+
+    }
+
+
+    // ========================================================
+    // MODEL VIEW
+    // ========================================================
+
+    setModelUiVisible(
+        true
+    );
+
+
+    activeProduct =
+        "reflUH";
+
+
+    const productSelect =
+        document.getElementById(
+            "product-select"
+        );
+
+
+    if (productSelect) {
+
+        productSelect.value =
+            activeProduct;
+
+    }
+
+
+    currentManifest =
+        null;
+
+    availableFrames =
+        [];
+
+    currentFrameIndex =
+        0;
+
+
+    await refreshManifest();
+
+}
+
+
+// ============================================================
+// OVERLAY VISIBILITY HELPER
+// ============================================================
+
+function setLayersVisible(
+    layers,
+    visible
+) {
+
+    const visibility =
+        visible
+            ? "visible"
+            : "none";
+
+
+    layers.forEach(
+        layerId => {
+
+            if (
+                map.getLayer(
+                    layerId
+                )
+            ) {
+
+                map.setLayoutProperty(
+
+                    layerId,
+
+                    "visibility",
+
+                    visibility
+
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+// ============================================================
 // MAP LOAD
 // ============================================================
 
 map.on(
+
     "load",
+
     async () => {
 
-        console.log(
-            "Map loaded"
-        );
-
 
         // ====================================================
-        // UI
-        // ====================================================
-
-        createHrrrUI();
-
-
-        // ====================================================
-        // FIND FIRST ROAD LAYER
+        // FIRST ROAD LAYER
         // ====================================================
 
         const styleLayers =
@@ -1000,7 +1289,9 @@ map.on(
         // ====================================================
 
         map.addSource(
+
             "boundary-data",
+
             {
 
                 type:
@@ -1010,6 +1301,7 @@ map.on(
                     "mapbox://mapbox.mapbox-streets-v8"
 
             }
+
         );
 
 
@@ -1018,7 +1310,9 @@ map.on(
         // ====================================================
 
         map.addSource(
+
             "spc-day1-cat",
+
             {
 
                 type:
@@ -1028,6 +1322,7 @@ map.on(
                     "data/spc_day1_cat.geojson"
 
             }
+
         );
 
 
@@ -1047,13 +1342,6 @@ map.on(
 
                 source:
                     "spc-day1-cat",
-
-                layout: {
-
-                    visibility:
-                        "visible"
-
-                },
 
                 paint: {
 
@@ -1099,13 +1387,6 @@ map.on(
                 source:
                     "spc-day1-cat",
 
-                layout: {
-
-                    visibility:
-                        "visible"
-
-                },
-
                 paint: {
 
                     "line-color":
@@ -1127,10 +1408,7 @@ map.on(
 
                         10, 4.5
 
-                    ],
-
-                    "line-opacity":
-                        1
+                    ]
 
                 }
 
@@ -1142,7 +1420,7 @@ map.on(
 
 
         // ====================================================
-        // SPC OFFICIAL OUTLINE
+        // SPC COLOR OUTLINE
         // ====================================================
 
         map.addLayer(
@@ -1157,13 +1435,6 @@ map.on(
 
                 source:
                     "spc-day1-cat",
-
-                layout: {
-
-                    visibility:
-                        "visible"
-
-                },
 
                 paint: {
 
@@ -1196,10 +1467,7 @@ map.on(
 
                         10, 2.8
 
-                    ],
-
-                    "line-opacity":
-                        1
+                    ]
 
                 }
 
@@ -1339,7 +1607,9 @@ map.on(
         // ====================================================
 
         map.addSource(
+
             "lbf-cwa",
+
             {
 
                 type:
@@ -1349,12 +1619,11 @@ map.on(
                     "data/lbf_cwa.geojson"
 
             }
+
         );
 
 
-        // ====================================================
-        // LBF BLACK HALO
-        // ====================================================
+        // BLACK HALO
 
         map.addLayer({
 
@@ -1380,27 +1649,22 @@ map.on(
 
                     ["zoom"],
 
-                    4, 4.0,
+                    4, 4,
 
-                    6, 5.0,
+                    6, 5,
 
-                    8, 6.0,
+                    8, 6,
 
-                    10, 7.0
+                    10, 7
 
-                ],
-
-                "line-opacity":
-                    1
+                ]
 
             }
 
         });
 
 
-        // ====================================================
-        // LBF WHITE CWA
-        // ====================================================
+        // WHITE CWA
 
         map.addLayer({
 
@@ -1426,18 +1690,15 @@ map.on(
 
                     ["zoom"],
 
-                    4, 2.0,
+                    4, 2,
 
-                    6, 3.0,
+                    6, 3,
 
-                    8, 4.0,
+                    8, 4,
 
-                    10, 5.0
+                    10, 5
 
-                ],
-
-                "line-opacity":
-                    1
+                ]
 
             }
 
@@ -1445,199 +1706,346 @@ map.on(
 
 
         // ====================================================
+        // OVERLAY MENU
+        // ====================================================
+
+        const overlayButton =
+            document.getElementById(
+                "overlay-menu-button"
+            );
+
+
+        const overlayContent =
+            document.getElementById(
+                "overlay-menu-content"
+            );
+
+
+        overlayButton.addEventListener(
+
+            "click",
+
+            () => {
+
+                overlayContent
+                    .classList
+                    .toggle(
+                        "open"
+                    );
+
+            }
+
+        );
+
+
+        // ====================================================
         // SPC TOGGLE
         // ====================================================
 
-        const spcToggle =
-            document.getElementById(
+        document
+            .getElementById(
                 "spc-toggle"
-            );
+            )
+            .addEventListener(
 
-
-        const spcLayers = [
-
-            "spc-day1-cat-fill",
-
-            "spc-day1-cat-outline-dark",
-
-            "spc-day1-cat-outline"
-
-        ];
-
-
-        if (spcToggle) {
-
-            spcToggle.addEventListener(
                 "change",
-                () => {
 
-                    const visibility =
+                event => {
 
-                        spcToggle.checked
+                    setLayersVisible(
 
-                            ? "visible"
+                        [
 
-                            : "none";
+                            "spc-day1-cat-fill",
 
+                            "spc-day1-cat-outline-dark",
 
-                    spcLayers.forEach(
-                        layerId => {
+                            "spc-day1-cat-outline"
 
-                            if (
-                                map.getLayer(
-                                    layerId
-                                )
-                            ) {
+                        ],
 
-                                map.setLayoutProperty(
+                        event.target.checked
 
-                                    layerId,
-
-                                    "visibility",
-
-                                    visibility
-
-                                );
-
-                            }
-
-                        }
                     );
 
                 }
-            );
 
-        }
-
-
-        // ====================================================
-        // HRRR TOGGLE
-        // ====================================================
-
-        const hrrrToggle =
-            document.getElementById(
-                "hrrr-toggle"
             );
 
 
-        if (hrrrToggle) {
+        // ====================================================
+        // CWA TOGGLE
+        // ====================================================
 
-            hrrrToggle.addEventListener(
+        document
+            .getElementById(
+                "cwa-toggle"
+            )
+            .addEventListener(
+
                 "change",
+
+                event => {
+
+                    setLayersVisible(
+
+                        [
+
+                            "lbf-cwa-outline",
+
+                            "lbf-cwa-boundary"
+
+                        ],
+
+                        event.target.checked
+
+                    );
+
+                }
+
+            );
+
+
+        // ====================================================
+        // COUNTY TOGGLE
+        // ====================================================
+
+        document
+            .getElementById(
+                "county-toggle"
+            )
+            .addEventListener(
+
+                "change",
+
+                event => {
+
+                    setLayersVisible(
+
+                        [
+                            "custom-county-boundaries"
+                        ],
+
+                        event.target.checked
+
+                    );
+
+                }
+
+            );
+
+
+        // ====================================================
+        // STATE TOGGLE
+        // ====================================================
+
+        document
+            .getElementById(
+                "state-toggle"
+            )
+            .addEventListener(
+
+                "change",
+
+                event => {
+
+                    setLayersVisible(
+
+                        [
+                            "custom-state-boundaries"
+                        ],
+
+                        event.target.checked
+
+                    );
+
+                }
+
+            );
+
+
+        // ====================================================
+        // MODEL SELECT
+        // ====================================================
+
+        document
+            .getElementById(
+                "model-select"
+            )
+            .addEventListener(
+
+                "change",
+
+                async event => {
+
+                    await switchModel(
+                        event.target.value
+                    );
+
+                }
+
+            );
+
+
+        // ====================================================
+        // PRODUCT SELECT
+        // ====================================================
+
+        document
+            .getElementById(
+                "product-select"
+            )
+            .addEventListener(
+
+                "change",
+
+                async event => {
+
+                    activeProduct =
+                        event.target.value;
+
+
+                    currentManifest =
+                        null;
+
+
+                    availableFrames =
+                        [];
+
+
+                    await refreshManifest();
+
+                }
+
+            );
+
+
+        // ====================================================
+        // PLAY
+        // ====================================================
+
+        document
+            .getElementById(
+                "model-play-button"
+            )
+            .addEventListener(
+
+                "click",
+
                 () => {
 
                     if (
-                        !map.getLayer(
-                            "hrrr-reflectivity"
-                        )
+                        animationPlaying
                     ) {
 
-                        return;
+                        stopAnimation();
 
                     }
 
+                    else {
 
-                    map.setLayoutProperty(
+                        startAnimation();
 
-                        "hrrr-reflectivity",
-
-                        "visibility",
-
-                        hrrrToggle.checked
-
-                            ? "visible"
-
-                            : "none"
-
-                    );
+                    }
 
                 }
-            );
 
-        }
-
-
-        // ====================================================
-        // HRRR SLIDER
-        // ====================================================
-
-        const slider =
-            document.getElementById(
-                "hrrr-slider"
             );
 
 
-        if (slider) {
+        // ====================================================
+        // PREVIOUS
+        // ====================================================
 
-            slider.addEventListener(
-                "input",
+        document
+            .getElementById(
+                "model-prev-button"
+            )
+            .addEventListener(
+
+                "click",
+
                 () => {
 
-                    const index =
-                        Number(
-                            slider.value
-                        );
+                    stopAnimation();
 
-
-                    if (
-                        index < 0
-                        ||
-                        index >=
-                        availableHrrrFrames.length
-                    ) {
-
-                        return;
-
-                    }
-
-
-                    currentHrrrIndex =
-                        index;
-
-
-                    displayHrrrFrame(
-                        availableHrrrFrames[
-                            currentHrrrIndex
-                        ]
+                    setFrameIndex(
+                        currentFrameIndex - 1
                     );
 
                 }
+
             );
 
-        }
+
+        // ====================================================
+        // NEXT
+        // ====================================================
+
+        document
+            .getElementById(
+                "model-next-button"
+            )
+            .addEventListener(
+
+                "click",
+
+                () => {
+
+                    stopAnimation();
+
+                    setFrameIndex(
+                        currentFrameIndex + 1
+                    );
+
+                }
+
+            );
 
 
         // ====================================================
-        // INITIAL MANIFEST
+        // FIRST HRRR MANIFEST
         // ====================================================
 
-        await refreshHrrrManifest();
+        await refreshManifest();
 
 
         // ====================================================
-        // POLL MANIFEST
+        // PROGRESSIVE MANIFEST POLLING
         // ====================================================
 
         setInterval(
-            refreshHrrrManifest,
+
+            () => {
+
+                if (
+                    activeModel !==
+                    "none"
+                ) {
+
+                    refreshManifest();
+
+                }
+
+            },
+
             MANIFEST_REFRESH_MS
-        );
 
-
-        console.log(
-            "Map + progressive HRRR loader ready."
         );
 
     }
+
 );
 
 
 // ============================================================
-// MAPBOX ERROR REPORTING
+// MAPBOX ERROR LOGGING
 // ============================================================
 
 map.on(
+
     "error",
+
     event => {
 
         console.error(
@@ -1645,5 +2053,8 @@ map.on(
             event.error
         );
 
+    }
+
+);
     }
 );
