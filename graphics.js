@@ -33,6 +33,28 @@ const MODEL_CONFIGS = {
 
         }
 
+    },
+
+
+    rrfs: {
+
+        name: "RRFS",
+
+        products: {
+
+            reflUH: {
+
+                name:
+                    "Reflectivity + UH ≥ 75",
+
+                baseUrl:
+                    "https://mtl-nwslbf-model-data.s3.us-east-2.amazonaws.com/" +
+                    "weather-graphics/rrfs/reflUH/latest"
+
+            }
+
+        }
+
     }
 
 };
