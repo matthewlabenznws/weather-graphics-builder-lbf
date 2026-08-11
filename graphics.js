@@ -38,6 +38,17 @@ const MODEL_CONFIGS = {
 
 
 // ============================================================
+// EXPORT BRANDING IMAGE
+// ============================================================
+
+const exportLogoImage =
+    new Image();
+
+exportLogoImage.src =
+    "assets/NOAANWSLogos.png";
+
+
+// ============================================================
 // VIEWER STATE
 // ============================================================
 
@@ -66,6 +77,10 @@ let exportBusy =
     false;
 
 
+// ============================================================
+// MANIFEST REFRESH
+// ============================================================
+
 const MANIFEST_REFRESH_MS =
     30000;
 
@@ -74,22 +89,17 @@ const MANIFEST_REFRESH_MS =
 // EXPORT SETTINGS
 // ============================================================
 
-// PNG stays at full Mapbox-canvas resolution.
-
 const PNG_FILENAME_PREFIX =
     "nws_lbf_hrrr_reflUH";
 
 
-// GIFs can become enormous at full browser resolution.
-//
-// Limit GIF width while preserving aspect ratio.
-// Change this higher if you want larger GIFs.
+// Limit GIF width so files do not become enormous.
 
 const GIF_MAX_WIDTH =
     1400;
 
 
-// Animation speed.
+// GIF frame delay
 
 const GIF_FRAME_DELAY_MS =
     700;
@@ -128,7 +138,7 @@ console.log(
 
 
 // ============================================================
-// NAVIGATION
+// MAP NAVIGATION
 // ============================================================
 
 map.addControl(
@@ -141,7 +151,7 @@ map.addControl(
 
 
 // ============================================================
-// MAPBOX ERRORS
+// MAPBOX ERROR HANDLING
 // ============================================================
 
 map.on(
@@ -158,7 +168,7 @@ map.on(
 
 
 // ============================================================
-// ACTIVE PRODUCT CONFIG
+// GET ACTIVE PRODUCT CONFIG
 // ============================================================
 
 function getActiveProductConfig() {
@@ -186,20 +196,17 @@ function getActiveProductConfig() {
 
 
     return (
-
         model.products[
             activeProduct
         ]
-
         || null
-
     );
 
 }
 
 
 // ============================================================
-// MODEL UI VISIBILITY
+// SHOW / HIDE MODEL UI
 // ============================================================
 
 function setModelUiVisible(
@@ -236,6 +243,10 @@ function setModelUiVisible(
         );
 
 
+    // ========================================================
+    // VALID TIME
+    // ========================================================
+
     if (label) {
 
         label.style.display =
@@ -245,6 +256,10 @@ function setModelUiVisible(
 
     }
 
+
+    // ========================================================
+    // TIMELINE
+    // ========================================================
 
     if (timeline) {
 
@@ -256,6 +271,10 @@ function setModelUiVisible(
     }
 
 
+    // ========================================================
+    // PRODUCT SELECTOR
+    // ========================================================
+
     if (productSelect) {
 
         productSelect.style.display =
@@ -265,6 +284,10 @@ function setModelUiVisible(
 
     }
 
+
+    // ========================================================
+    // CREDIT POSITION
+    // ========================================================
 
     if (credit) {
 
@@ -276,6 +299,10 @@ function setModelUiVisible(
     }
 
 
+    // ========================================================
+    // EXPORT CONTROLS
+    // ========================================================
+
     if (exportControls) {
 
         exportControls.style.display =
@@ -286,25 +313,32 @@ function setModelUiVisible(
     }
 
 
+    // ========================================================
+    // CLOSE GIF PANEL
+    // ========================================================
+
+    const gifPanel =
+        document.getElementById(
+            "gif-panel"
+        );
+
+
     if (
         !visible
         &&
-        document.getElementById(
-            "gif-panel"
-        )
+        gifPanel
     ) {
 
-        document
-            .getElementById(
-                "gif-panel"
-            )
-            .classList
-            .remove(
-                "open"
-            );
+        gifPanel.classList.remove(
+            "open"
+        );
 
     }
 
+
+    // ========================================================
+    // MODEL RASTER
+    // ========================================================
 
     if (
         map.getLayer(
@@ -330,7 +364,7 @@ function setModelUiVisible(
 
 
 // ============================================================
-// CENTRAL TIME FORMATTER
+// FORMAT VALID TIME IN CENTRAL TIME
 // ============================================================
 
 function formatValidTimeCentral(
@@ -463,7 +497,7 @@ function updateValidLabel(
 
 
 // ============================================================
-// TEXT USED IN PNG / GIF
+// EXPORT TIMESTAMP TEXT
 // ============================================================
 
 function getExportTimestamp(
@@ -487,17 +521,20 @@ function getExportTimestamp(
 
 
     return (
+
         `F${fhr} • ` +
+
         formatValidTimeCentral(
             frame.valid
         )
+
     );
 
 }
 
 
 // ============================================================
-// MODEL IMAGE COORDINATES
+// GET IMAGE COORDINATES
 // ============================================================
 
 function getImageCoordinates() {
@@ -676,7 +713,7 @@ function displayFrame(
 
 
     // ========================================================
-    // CREATE IMAGE SOURCE
+    // CREATE IMAGE SOURCE + RASTER LAYER
     // ========================================================
 
     else {
@@ -758,7 +795,7 @@ function displayFrame(
 
 
 // ============================================================
-// WAIT UNTIL MAP FINISHES RENDERING CURRENT FRAME
+// WAIT FOR MAP RENDER
 // ============================================================
 
 function waitForMapIdle(
@@ -772,27 +809,28 @@ function waitForMapIdle(
                 false;
 
 
-            const finish = () => {
+            const finish =
+                () => {
 
-                if (finished) {
+                    if (finished) {
 
-                    return;
+                        return;
 
-                }
-
-
-                finished =
-                    true;
+                    }
 
 
-                clearTimeout(
-                    fallback
-                );
+                    finished =
+                        true;
 
 
-                resolve();
+                    clearTimeout(
+                        fallback
+                    );
 
-            };
+
+                    resolve();
+
+                };
 
 
             const fallback =
@@ -817,7 +855,7 @@ function waitForMapIdle(
 
 
 // ============================================================
-// CHANGE FORECAST HOUR
+// SET CURRENT FORECAST HOUR
 // ============================================================
 
 function setFrameIndex(
@@ -956,7 +994,7 @@ function buildHourButtons() {
 
 
 // ============================================================
-// SELECTED F-HOUR STYLE
+// SELECTED HOUR STYLE
 // ============================================================
 
 function updateHourButtonStyles() {
@@ -992,7 +1030,7 @@ function updateHourButtonStyles() {
 
 
 // ============================================================
-// KEEP SELECTED HOUR VISIBLE
+// SCROLL CURRENT HOUR INTO VIEW
 // ============================================================
 
 function scrollSelectedHourIntoView() {
@@ -1033,7 +1071,7 @@ function scrollSelectedHourIntoView() {
 
 
 // ============================================================
-// ANIMATION
+// PLAY ANIMATION
 // ============================================================
 
 function startAnimation() {
@@ -1127,26 +1165,95 @@ function stopAnimation() {
 
 
 // ============================================================
-// EXPORT CANVAS
+// ROUNDED RECT HELPER
+// ============================================================
+
+function roundRect(
+    ctx,
+    x,
+    y,
+    width,
+    height,
+    radius
+) {
+
+    const r =
+        Math.min(
+            radius,
+            width / 2,
+            height / 2
+        );
+
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+        x + r,
+        y
+    );
+
+
+    ctx.arcTo(
+        x + width,
+        y,
+        x + width,
+        y + height,
+        r
+    );
+
+
+    ctx.arcTo(
+        x + width,
+        y + height,
+        x,
+        y + height,
+        r
+    );
+
+
+    ctx.arcTo(
+        x,
+        y + height,
+        x,
+        y,
+        r
+    );
+
+
+    ctx.arcTo(
+        x,
+        y,
+        x + width,
+        y,
+        r
+    );
+
+
+    ctx.closePath();
+
+}
+
+
+// ============================================================
+// CREATE EXPORT CANVAS
 //
-// IMPORTANT:
+// Export includes:
 //
-// The Mapbox canvas contains:
-// satellite
-// roads
-// labels
-// reflectivity/UH
-// SPC
-// counties
-// states
-// CWA
+// MAP
+// timestamp
+// NOAA/NWS logos
+// NWS North Platte, NE
 //
-// HTML controls do NOT exist in this canvas.
+// Export excludes:
 //
-// We manually add ONLY:
-//
-// 1. Timestamp / F-hour
-// 2. NWS North Platte, NE
+// Overlays button
+// model dropdown
+// product dropdown
+// bottom timeline
+// Mapbox controls
+// graphics credit
+// save buttons
 // ============================================================
 
 function createExportCanvas(
@@ -1174,10 +1281,15 @@ function createExportCanvas(
         sourceHeight;
 
 
+    // ========================================================
+    // OPTIONAL GIF DOWNSCALING
+    // ========================================================
+
     if (
         targetWidth
         &&
-        sourceWidth > targetWidth
+        sourceWidth >
+            targetWidth
     ) {
 
         const ratio =
@@ -1226,7 +1338,7 @@ function createExportCanvas(
 
 
     // ========================================================
-    // MAP
+    // DRAW MAP
     // ========================================================
 
     ctx.drawImage(
@@ -1243,16 +1355,24 @@ function createExportCanvas(
 
 
     // ========================================================
-    // SCALE UI TEXT BASED ON OUTPUT SIZE
+    // SCALE BASED ON EXPORT WIDTH
     // ========================================================
 
-    const scale =
-        width /
+    const cssWidth =
         Math.max(
             1,
             sourceCanvas.clientWidth
         );
 
+
+    const scale =
+        width /
+        cssWidth;
+
+
+    // ========================================================
+    // TIMESTAMP — UPPER LEFT
+    // ========================================================
 
     const fontSize =
         Math.max(
@@ -1279,16 +1399,16 @@ function createExportCanvas(
         );
 
 
-    // ========================================================
-    // TIMESTAMP — UPPER LEFT
-    // ========================================================
-
     ctx.font =
         `700 ${fontSize}px Arial, sans-serif`;
 
 
     ctx.textBaseline =
         "middle";
+
+
+    ctx.textAlign =
+        "left";
 
 
     const timestampMetrics =
@@ -1347,15 +1467,92 @@ function createExportCanvas(
 
 
     // ========================================================
-    // NWS NORTH PLATTE — UPPER RIGHT
+    // NOAA/NWS LOGOS — UPPER RIGHT
+    // ========================================================
+
+    const logoWidth =
+        145 * scale;
+
+
+    let logoHeight =
+        0;
+
+
+    if (
+        exportLogoImage.complete
+        &&
+        exportLogoImage.naturalWidth > 0
+    ) {
+
+        logoHeight =
+            logoWidth *
+            (
+                exportLogoImage.naturalHeight
+                /
+                exportLogoImage.naturalWidth
+            );
+
+    }
+
+
+    const rightMargin =
+        12 * scale;
+
+
+    const topMargin =
+        8 * scale;
+
+
+    const logoX =
+        width
+        -
+        rightMargin
+        -
+        logoWidth;
+
+
+    const logoY =
+        topMargin;
+
+
+    if (
+        exportLogoImage.complete
+        &&
+        exportLogoImage.naturalWidth > 0
+    ) {
+
+        ctx.drawImage(
+
+            exportLogoImage,
+
+            logoX,
+            logoY,
+
+            logoWidth,
+            logoHeight
+
+        );
+
+    }
+
+
+    // ========================================================
+    // NWS NORTH PLATTE TEXT BELOW LOGOS
     // ========================================================
 
     const officeText =
         "NWS North Platte, NE";
 
 
+    const officeFontSize =
+        Math.max(
+            17,
+            18 * scale
+        );
+
+
     ctx.font =
-        `700 ${fontSize}px Arial, sans-serif`;
+        `700 ${officeFontSize}px Arial, sans-serif`;
 
 
     ctx.textAlign =
@@ -1368,12 +1565,18 @@ function createExportCanvas(
 
     const officeX =
         width -
-        margin;
+        rightMargin;
 
 
     const officeY =
-        margin;
+        logoY
+        +
+        logoHeight
+        +
+        3 * scale;
 
+
+    // Black outline behind text
 
     ctx.lineJoin =
         "round";
@@ -1400,6 +1603,8 @@ function createExportCanvas(
     );
 
 
+    // White text
+
     ctx.fillStyle =
         "#ffffff";
 
@@ -1421,71 +1626,6 @@ function createExportCanvas(
 
 
     return exportCanvas;
-
-}
-
-
-// ============================================================
-// ROUNDED RECTANGLE
-// ============================================================
-
-function roundRect(
-    ctx,
-    x,
-    y,
-    width,
-    height,
-    radius
-) {
-
-    const r =
-        Math.min(
-            radius,
-            width / 2,
-            height / 2
-        );
-
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-        x + r,
-        y
-    );
-
-    ctx.arcTo(
-        x + width,
-        y,
-        x + width,
-        y + height,
-        r
-    );
-
-    ctx.arcTo(
-        x + width,
-        y + height,
-        x,
-        y + height,
-        r
-    );
-
-    ctx.arcTo(
-        x,
-        y + height,
-        x,
-        y,
-        r
-    );
-
-    ctx.arcTo(
-        x,
-        y,
-        x + width,
-        y,
-        r
-    );
-
-    ctx.closePath();
 
 }
 
@@ -1545,7 +1685,7 @@ function downloadBlob(
 
 
 // ============================================================
-// SAFE FILE TIMESTAMP
+// FILE-SAFE TIMESTAMP
 // ============================================================
 
 function makeFileTime(
@@ -1560,30 +1700,31 @@ function makeFileTime(
 
 
     return (
+
         frame.valid
+
             .replace(
                 /[:-]/g,
                 ""
             )
+
             .replace(
                 ".000",
                 ""
             )
+
             .replace(
                 "T",
                 "_"
             )
-            .replace(
-                "Z",
-                "Z"
-            )
+
     );
 
 }
 
 
 // ============================================================
-// SAVE PNG
+// SAVE CURRENT PNG
 // ============================================================
 
 async function saveCurrentPng() {
@@ -1634,6 +1775,7 @@ async function saveCurrentPng() {
                 ) => {
 
                     canvas.toBlob(
+
                         result => {
 
                             if (result) {
@@ -1697,7 +1839,7 @@ async function saveCurrentPng() {
 
 
         alert(
-            "Unable to create the PNG. Check the browser console for details."
+            "Unable to create PNG."
         );
 
     }
@@ -1717,7 +1859,7 @@ async function saveCurrentPng() {
 
 
 // ============================================================
-// DYNAMICALLY LOAD GIFENC
+// LOAD GIFENC
 // ============================================================
 
 let gifencModulePromise =
@@ -1744,7 +1886,7 @@ function loadGifenc() {
 
 
 // ============================================================
-// CREATE GIF
+// SAVE GIF
 // ============================================================
 
 async function saveGif(
@@ -1841,14 +1983,6 @@ async function saveGif(
             GIFEncoder();
 
 
-        let gifWidth =
-            null;
-
-
-        let gifHeight =
-            null;
-
-
         let frameNumber =
             0;
 
@@ -1861,7 +1995,7 @@ async function saveGif(
 
 
         // ====================================================
-        // CAPTURE SELECTED HOURS
+        // CAPTURE FRAMES
         // ====================================================
 
         for (
@@ -1886,8 +2020,7 @@ async function saveGif(
             if (status) {
 
                 status.textContent =
-                    `Capturing frame ` +
-                    `${frameNumber}/${totalFrames} ` +
+                    `Capturing ${frameNumber}/${totalFrames} ` +
                     `(F${String(
                         frame.fhr
                     ).padStart(
@@ -1913,7 +2046,7 @@ async function saveGif(
             await waitForMapIdle();
 
 
-            // Give WebGL/browser one additional paint cycle.
+            // Additional browser paint
 
             await new Promise(
                 resolve => {
@@ -1956,14 +2089,6 @@ async function saveGif(
                 exportCanvas.height;
 
 
-            gifWidth =
-                width;
-
-
-            gifHeight =
-                height;
-
-
             const image =
                 ctx.getImageData(
                     0,
@@ -1976,15 +2101,10 @@ async function saveGif(
             if (status) {
 
                 status.textContent =
-                    `Encoding frame ` +
-                    `${frameNumber}/${totalFrames}`;
+                    `Encoding ${frameNumber}/${totalFrames}`;
 
             }
 
-
-            // =================================================
-            // REDUCE TO GIF COLOR PALETTE
-            // =================================================
 
             const palette =
                 quantize(
@@ -2025,19 +2145,6 @@ async function saveGif(
         }
 
 
-        if (
-            !gifWidth
-            ||
-            !gifHeight
-        ) {
-
-            throw new Error(
-                "No GIF frames were generated."
-            );
-
-        }
-
-
         if (status) {
 
             status.textContent =
@@ -2055,13 +2162,18 @@ async function saveGif(
 
         const blob =
             new Blob(
+
                 [
                     bytes
                 ],
+
                 {
+
                     type:
                         "image/gif"
+
                 }
+
             );
 
 
@@ -2129,7 +2241,7 @@ async function saveGif(
 
 
         alert(
-            "Unable to create the GIF. Check the browser console for details."
+            "Unable to create GIF."
         );
 
     }
@@ -2138,7 +2250,7 @@ async function saveGif(
     finally {
 
         // ====================================================
-        // RETURN USER TO ORIGINAL FRAME
+        // RETURN TO ORIGINAL FRAME
         // ====================================================
 
         currentFrameIndex =
@@ -2188,7 +2300,7 @@ async function saveGif(
 
 
 // ============================================================
-// CREATE SAVE UI
+// CREATE EXPORT CONTROLS
 // ============================================================
 
 function createExportControls() {
@@ -2205,7 +2317,7 @@ function createExportControls() {
 
 
     // ========================================================
-    // BUTTON ROW
+    // PNG / GIF BUTTONS
     // ========================================================
 
     const controls =
@@ -2315,7 +2427,7 @@ function createExportControls() {
 
 
     // ========================================================
-    // PNG BUTTON
+    // SAVE PNG
     // ========================================================
 
     document
@@ -2329,7 +2441,7 @@ function createExportControls() {
 
 
     // ========================================================
-    // OPEN GIF PANEL
+    // OPEN/CLOSE GIF PANEL
     // ========================================================
 
     document
@@ -2359,7 +2471,7 @@ function createExportControls() {
 
 
     // ========================================================
-    // CANCEL GIF
+    // CANCEL
     // ========================================================
 
     document
@@ -2447,7 +2559,7 @@ function createExportControls() {
 
 
 // ============================================================
-// POPULATE GIF HOUR SELECTORS
+// BUILD GIF RANGE SELECTORS
 // ============================================================
 
 function rebuildGifRangeSelectors() {
@@ -2580,7 +2692,6 @@ function rebuildGifRangeSelectors() {
                 availableFrames.length
 
                 ? oldStart
-
                 : 0
 
         );
@@ -2609,7 +2720,7 @@ function rebuildGifRangeSelectors() {
 
 
 // ============================================================
-// EXPORT BUTTON ENABLE / DISABLE
+// EXPORT BUTTON STATE
 // ============================================================
 
 function updateExportButtonState() {
@@ -2672,7 +2783,7 @@ function updateExportButtonState() {
 
 
 // ============================================================
-// LOAD / REFRESH MODEL MANIFEST
+// REFRESH MANIFEST
 // ============================================================
 
 async function refreshManifest() {
@@ -2806,6 +2917,10 @@ async function refreshManifest() {
                 );
 
 
+        // ====================================================
+        // NO FRAMES YET
+        // ====================================================
+
         if (
             availableFrames.length === 0
         ) {
@@ -2839,6 +2954,10 @@ async function refreshManifest() {
             -1;
 
 
+        // ====================================================
+        // PRESERVE CURRENT F-HOUR
+        // ====================================================
+
         if (
             !runChanged
             &&
@@ -2856,6 +2975,10 @@ async function refreshManifest() {
 
         }
 
+
+        // ====================================================
+        // NEW RUN / INITIAL LOAD
+        // ====================================================
 
         if (
             targetIndex < 0
@@ -2977,6 +3100,10 @@ async function switchModel(
         modelName;
 
 
+    // ========================================================
+    // OVERLAYS ONLY
+    // ========================================================
+
     if (
         modelName === "none"
     ) {
@@ -3005,6 +3132,10 @@ async function switchModel(
 
     }
 
+
+    // ========================================================
+    // MODEL MODE
+    // ========================================================
 
     setModelUiVisible(
         true
@@ -3063,7 +3194,7 @@ map.on(
 
 
         // ====================================================
-        // BOUNDARIES
+        // BOUNDARY SOURCE
         // ====================================================
 
         map.addSource(
@@ -3406,7 +3537,7 @@ map.on(
 
 
         // ====================================================
-        // CWA BLACK HALO
+        // LBF CWA BLACK HALO
         // ====================================================
 
         map.addLayer({
@@ -3449,7 +3580,7 @@ map.on(
 
 
         // ====================================================
-        // CWA WHITE LINE
+        // LBF CWA WHITE LINE
         // ====================================================
 
         map.addLayer({
@@ -3492,7 +3623,7 @@ map.on(
 
 
         // ====================================================
-        // CREATE SAVE CONTROLS
+        // EXPORT CONTROLS
         // ====================================================
 
         createExportControls();
@@ -3872,7 +4003,7 @@ map.on(
 
 
         // ====================================================
-        // CHECK S3 FOR NEW HOURS
+        // CHECK FOR NEW FRAMES
         // ====================================================
 
         setInterval(
@@ -3880,7 +4011,8 @@ map.on(
             () => {
 
                 if (
-                    activeModel !== "none"
+                    activeModel !==
+                    "none"
                     &&
                     !exportBusy
                 ) {
