@@ -8,7 +8,7 @@ console.log("graphics.js started");
 
 
 // ============================================================
-// MODEL CONFIG
+// MODEL CONFIGURATION
 // ============================================================
 
 const MODEL_CONFIGS = {
@@ -21,7 +21,8 @@ const MODEL_CONFIGS = {
 
             reflUH: {
 
-                name: "Reflectivity + UH ≥ 75",
+                name:
+                    "Reflectivity + UH ≥ 75",
 
                 baseUrl:
                     "https://mtl-nwslbf-model-data.s3.us-east-2.amazonaws.com/" +
@@ -37,89 +38,131 @@ const MODEL_CONFIGS = {
 
 
 // ============================================================
-// STATE
+// VIEWER STATE
 // ============================================================
 
-let activeModel = "hrrr";
-let activeProduct = "reflUH";
+let activeModel =
+    "hrrr";
 
-let currentManifest = null;
-let availableFrames = [];
-let currentFrameIndex = 0;
+let activeProduct =
+    "reflUH";
 
-let animationPlaying = false;
-let animationTimer = null;
+let currentManifest =
+    null;
 
-const MANIFEST_REFRESH_MS = 30000;
+let availableFrames =
+    [];
+
+let currentFrameIndex =
+    0;
+
+let animationPlaying =
+    false;
+
+let animationTimer =
+    null;
+
+
+// Check S3 for newly generated frames every 30 seconds.
+
+const MANIFEST_REFRESH_MS =
+    30000;
 
 
 // ============================================================
 // CREATE MAP
 // ============================================================
 
-const map = new mapboxgl.Map({
+const map =
+    new mapboxgl.Map({
 
-    container: "map",
+        container:
+            "map",
 
-    style: "mapbox://styles/mapbox/satellite-streets-v12",
+        style:
+            "mapbox://styles/mapbox/satellite-streets-v12",
 
-    center: [
-        -100.75,
-        41.1
-    ],
+        center: [
+            -100.75,
+            41.1
+        ],
 
-    zoom: 6,
+        zoom:
+            6,
 
-    preserveDrawingBuffer: true
+        preserveDrawingBuffer:
+            true
 
-});
-
-console.log("Mapbox map object created");
+    });
 
 
-// ============================================================
-// NAVIGATION
-// ============================================================
-
-map.addControl(
-    new mapboxgl.NavigationControl(),
-    "top-right"
+console.log(
+    "Mapbox map object created"
 );
 
 
 // ============================================================
-// MAP ERRORS
+// MAP NAVIGATION
 // ============================================================
 
-map.on("error", (event) => {
+map.addControl(
 
-    console.error(
-        "MAPBOX ERROR:",
-        event.error
-    );
+    new mapboxgl.NavigationControl(),
 
-});
+    "top-right"
+
+);
 
 
 // ============================================================
-// ACTIVE PRODUCT
+// MAPBOX ERROR HANDLING
+// ============================================================
+
+map.on(
+    "error",
+    event => {
+
+        console.error(
+            "MAPBOX ERROR:",
+            event.error
+        );
+
+    }
+);
+
+
+// ============================================================
+// GET CURRENT PRODUCT CONFIGURATION
 // ============================================================
 
 function getActiveProductConfig() {
 
-    if (activeModel === "none") {
+    if (
+        activeModel === "none"
+    ) {
+
         return null;
+
     }
+
 
     const model =
-        MODEL_CONFIGS[activeModel];
+        MODEL_CONFIGS[
+            activeModel
+        ];
+
 
     if (!model) {
+
         return null;
+
     }
 
+
     return (
-        model.products[activeProduct]
+        model.products[
+            activeProduct
+        ]
         || null
     );
 
@@ -127,20 +170,24 @@ function getActiveProductConfig() {
 
 
 // ============================================================
-// SHOW / HIDE MODEL UI
+// SHOW / HIDE MODEL-SPECIFIC UI
 // ============================================================
 
-function setModelUiVisible(visible) {
+function setModelUiVisible(
+    visible
+) {
 
     const label =
         document.getElementById(
             "model-valid-label"
         );
 
+
     const timeline =
         document.getElementById(
             "model-timeline"
         );
+
 
     const productSelect =
         document.getElementById(
@@ -148,21 +195,71 @@ function setModelUiVisible(visible) {
         );
 
 
+    const credit =
+        document.getElementById(
+            "graphics-credit"
+        );
+
+
+    // ========================================================
+    // VALID TIME
+    // ========================================================
+
     if (label) {
+
         label.style.display =
-            visible ? "block" : "none";
+            visible
+                ? "block"
+                : "none";
+
     }
+
+
+    // ========================================================
+    // TIMELINE
+    // ========================================================
 
     if (timeline) {
+
         timeline.style.display =
-            visible ? "flex" : "none";
+            visible
+                ? "flex"
+                : "none";
+
     }
+
+
+    // ========================================================
+    // PRODUCT SELECTOR
+    // ========================================================
 
     if (productSelect) {
+
         productSelect.style.display =
-            visible ? "block" : "none";
+            visible
+                ? "block"
+                : "none";
+
     }
 
+
+    // ========================================================
+    // GRAPHICS CREDIT POSITION
+    // ========================================================
+
+    if (credit) {
+
+        credit.classList.toggle(
+            "no-timeline",
+            !visible
+        );
+
+    }
+
+
+    // ========================================================
+    // MODEL IMAGE
+    // ========================================================
 
     if (
         map.getLayer(
@@ -171,11 +268,15 @@ function setModelUiVisible(visible) {
     ) {
 
         map.setLayoutProperty(
+
             "model-raster-layer",
+
             "visibility",
+
             visible
                 ? "visible"
                 : "none"
+
         );
 
     }
@@ -184,19 +285,26 @@ function setModelUiVisible(visible) {
 
 
 // ============================================================
-// CENTRAL TIME
+// FORMAT VALID TIME IN CENTRAL TIME
 // ============================================================
 
-function formatValidTimeCentral(isoTime) {
+function formatValidTimeCentral(
+    isoTime
+) {
 
     const date =
-        new Date(isoTime);
+        new Date(
+            isoTime
+        );
 
 
     const parts =
         new Intl.DateTimeFormat(
+
             "en-US",
+
             {
+
                 timeZone:
                     "America/Chicago",
 
@@ -220,60 +328,81 @@ function formatValidTimeCentral(isoTime) {
 
                 hour12:
                     true
+
             }
-        ).formatToParts(date);
+
+        ).formatToParts(
+            date
+        );
 
 
-    const get = (type) => {
+    const get =
+        type => {
 
-        const part =
-            parts.find(
-                item =>
-                    item.type === type
-            );
+            const part =
+                parts.find(
+                    item =>
+                        item.type === type
+                );
 
-        return part
-            ? part.value
-            : "";
 
-    };
+            return part
+                ? part.value
+                : "";
+
+        };
 
 
     return (
+
         `${get("weekday")} ` +
+
         `${get("month")}/` +
         `${get("day")}/` +
         `${get("year")} ` +
+
         `${get("hour")}:` +
         `${get("minute")} ` +
+
         `${get("dayPeriod")}`
+
     );
 
 }
 
 
 // ============================================================
-// UPDATE VALID TIME LABEL
+// UPDATE VALID-TIME LABEL
 // ============================================================
 
-function updateValidLabel(frame) {
+function updateValidLabel(
+    frame
+) {
 
     const label =
         document.getElementById(
             "model-valid-label"
         );
 
+
     if (
         !label
-        || !frame
+        ||
+        !frame
     ) {
+
         return;
+
     }
 
 
     const fhr =
-        String(frame.fhr)
-            .padStart(3, "0");
+        String(
+            frame.fhr
+        ).padStart(
+            3,
+            "0"
+        );
 
 
     const valid =
@@ -289,14 +418,15 @@ function updateValidLabel(frame) {
 
 
 // ============================================================
-// IMAGE COORDINATES
+// GET MODEL IMAGE COORDINATES
 // ============================================================
 
 function getImageCoordinates() {
 
     if (
         !currentManifest
-        || !currentManifest.bounds
+        ||
+        !currentManifest.bounds
     ) {
 
         return null;
@@ -307,6 +437,13 @@ function getImageCoordinates() {
     const b =
         currentManifest.bounds;
 
+
+    // Mapbox ImageSource order:
+    //
+    // top-left
+    // top-right
+    // bottom-right
+    // bottom-left
 
     return [
 
@@ -336,30 +473,51 @@ function getImageCoordinates() {
 
 
 // ============================================================
-// FIND ROAD LAYER
+// FIND FIRST ROAD LAYER
 // ============================================================
 
 function findFirstRoadLayerId() {
 
-    const layers =
-        map.getStyle().layers;
+    const style =
+        map.getStyle();
+
+
+    if (
+        !style
+        ||
+        !style.layers
+    ) {
+
+        return undefined;
+
+    }
 
 
     const roadLayer =
-        layers.find(
+        style.layers.find(
             layer => {
 
                 const sourceLayer =
-                    layer["source-layer"];
+                    layer[
+                        "source-layer"
+                    ];
+
 
                 const id =
-                    layer.id.toLowerCase();
+                    layer.id
+                        .toLowerCase();
 
 
                 return (
+
                     sourceLayer === "road"
+
                     ||
-                    id.includes("road")
+
+                    id.includes(
+                        "road"
+                    )
+
                 );
 
             }
@@ -377,7 +535,9 @@ function findFirstRoadLayerId() {
 // DISPLAY MODEL FRAME
 // ============================================================
 
-function displayFrame(frame) {
+function displayFrame(
+    frame
+) {
 
     const product =
         getActiveProductConfig();
@@ -385,8 +545,10 @@ function displayFrame(frame) {
 
     if (
         !product
-        || !frame
-        || !currentManifest
+        ||
+        !frame
+        ||
+        !currentManifest
     ) {
 
         return;
@@ -399,16 +561,27 @@ function displayFrame(frame) {
 
 
     if (!coordinates) {
+
         return;
+
     }
 
 
     const imageUrl =
+
         `${product.baseUrl}/` +
+
         `${frame.file}` +
+
         `?run=${encodeURIComponent(
             currentManifest.run
         )}`;
+
+
+    console.log(
+        "Displaying:",
+        imageUrl
+    );
 
 
     const existingSource =
@@ -418,14 +591,15 @@ function displayFrame(frame) {
 
 
     // ========================================================
-    // UPDATE EXISTING SOURCE
+    // UPDATE EXISTING IMAGE
     // ========================================================
 
     if (existingSource) {
 
         existingSource.updateImage({
 
-            url: imageUrl,
+            url:
+                imageUrl,
 
             coordinates:
                 coordinates
@@ -436,16 +610,19 @@ function displayFrame(frame) {
 
 
     // ========================================================
-    // CREATE SOURCE/LAYER
+    // CREATE IMAGE SOURCE
     // ========================================================
 
     else {
 
         map.addSource(
+
             "model-image-source",
+
             {
 
-                type: "image",
+                type:
+                    "image",
 
                 url:
                     imageUrl,
@@ -454,6 +631,7 @@ function displayFrame(frame) {
                     coordinates
 
             }
+
         );
 
 
@@ -461,7 +639,12 @@ function displayFrame(frame) {
             findFirstRoadLayerId();
 
 
+        // ====================================================
+        // MODEL RASTER
+        // ====================================================
+
         map.addLayer(
+
             {
 
                 id:
@@ -483,7 +666,7 @@ function displayFrame(frame) {
                 paint: {
 
                     "raster-opacity":
-                        1,
+                        1.0,
 
                     "raster-fade-duration":
                         0,
@@ -496,12 +679,16 @@ function displayFrame(frame) {
             },
 
             beforeLayer
+
         );
 
     }
 
 
-    updateValidLabel(frame);
+    updateValidLabel(
+        frame
+    );
+
 
     updateHourButtonStyles();
 
@@ -509,10 +696,12 @@ function displayFrame(frame) {
 
 
 // ============================================================
-// FRAME INDEX
+// CHANGE FORECAST HOUR
 // ============================================================
 
-function setFrameIndex(index) {
+function setFrameIndex(
+    index
+) {
 
     if (
         availableFrames.length === 0
@@ -523,6 +712,8 @@ function setFrameIndex(index) {
     }
 
 
+    // Wrap backward.
+
     if (index < 0) {
 
         index =
@@ -531,12 +722,15 @@ function setFrameIndex(index) {
     }
 
 
+    // Wrap forward.
+
     if (
         index >=
         availableFrames.length
     ) {
 
-        index = 0;
+        index =
+            0;
 
     }
 
@@ -546,9 +740,11 @@ function setFrameIndex(index) {
 
 
     displayFrame(
+
         availableFrames[
             currentFrameIndex
         ]
+
     );
 
 
@@ -558,7 +754,7 @@ function setFrameIndex(index) {
 
 
 // ============================================================
-// BUILD FORECAST HOURS
+// BUILD FORECAST-HOUR BUTTONS
 // ============================================================
 
 function buildHourButtons() {
@@ -570,7 +766,9 @@ function buildHourButtons() {
 
 
     if (!container) {
+
         return;
+
     }
 
 
@@ -579,7 +777,12 @@ function buildHourButtons() {
 
 
     availableFrames.forEach(
-        (frame, index) => {
+
+        (
+            frame,
+            index
+        ) => {
+
 
             const button =
                 document.createElement(
@@ -600,17 +803,27 @@ function buildHourButtons() {
                 )}`;
 
 
+            button.dataset.index =
+                String(
+                    index
+                );
+
+
             button.addEventListener(
+
                 "click",
+
                 () => {
 
                     stopAnimation();
+
 
                     setFrameIndex(
                         index
                     );
 
                 }
+
             );
 
 
@@ -619,6 +832,7 @@ function buildHourButtons() {
             );
 
         }
+
     );
 
 
@@ -628,7 +842,7 @@ function buildHourButtons() {
 
 
 // ============================================================
-// SELECTED HOUR STYLE
+// UPDATE SELECTED F-HOUR STYLE
 // ============================================================
 
 function updateHourButtonStyles() {
@@ -640,21 +854,31 @@ function updateHourButtonStyles() {
 
 
     buttons.forEach(
-        (button, index) => {
+
+        (
+            button,
+            index
+        ) => {
+
 
             button.classList.toggle(
+
                 "selected",
-                index === currentFrameIndex
+
+                index ===
+                    currentFrameIndex
+
             );
 
         }
+
     );
 
 }
 
 
 // ============================================================
-// SCROLL CURRENT FHR INTO VIEW
+// KEEP SELECTED HOUR VISIBLE
 // ============================================================
 
 function scrollSelectedHourIntoView() {
@@ -672,17 +896,22 @@ function scrollSelectedHourIntoView() {
 
 
     if (!selected) {
+
         return;
+
     }
 
 
     selected.scrollIntoView({
 
-        behavior: "smooth",
+        behavior:
+            "smooth",
 
-        block: "nearest",
+        block:
+            "nearest",
 
-        inline: "center"
+        inline:
+            "center"
 
     });
 
@@ -690,7 +919,7 @@ function scrollSelectedHourIntoView() {
 
 
 // ============================================================
-// PLAY
+// START ANIMATION
 // ============================================================
 
 function startAnimation() {
@@ -726,6 +955,7 @@ function startAnimation() {
 
     animationTimer =
         setInterval(
+
             () => {
 
                 setFrameIndex(
@@ -735,13 +965,14 @@ function startAnimation() {
             },
 
             700
+
         );
 
 }
 
 
 // ============================================================
-// STOP
+// STOP ANIMATION
 // ============================================================
 
 function stopAnimation() {
@@ -755,6 +986,7 @@ function stopAnimation() {
         clearInterval(
             animationTimer
         );
+
 
         animationTimer =
             null;
@@ -779,7 +1011,7 @@ function stopAnimation() {
 
 
 // ============================================================
-// REFRESH MANIFEST
+// LOAD / REFRESH MODEL MANIFEST
 // ============================================================
 
 async function refreshManifest() {
@@ -810,6 +1042,10 @@ async function refreshManifest() {
             null;
 
 
+        // ====================================================
+        // REMEMBER CURRENT FORECAST HOUR
+        // ====================================================
+
         if (
             availableFrames.length > 0
         ) {
@@ -830,32 +1066,51 @@ async function refreshManifest() {
         }
 
 
-        const url =
+        // ====================================================
+        // MANIFEST URL
+        // ====================================================
+
+        const manifestUrl =
+
             `${product.baseUrl}/` +
+
             `manifest.json` +
+
             `?t=${Date.now()}`;
 
 
         console.log(
             "Fetching manifest:",
-            url
+            manifestUrl
         );
 
 
+        // ====================================================
+        // FETCH MANIFEST
+        // ====================================================
+
         const response =
             await fetch(
-                url,
+
+                manifestUrl,
+
                 {
+
                     cache:
                         "no-store"
+
                 }
+
             );
 
 
         if (!response.ok) {
 
             throw new Error(
-                `HTTP ${response.status}`
+
+                `Manifest HTTP ` +
+                `${response.status}`
+
             );
 
         }
@@ -864,6 +1119,10 @@ async function refreshManifest() {
         const manifest =
             await response.json();
 
+
+        // ====================================================
+        // VALIDATE HOURS
+        // ====================================================
 
         if (
             !Array.isArray(
@@ -878,9 +1137,16 @@ async function refreshManifest() {
         }
 
 
+        // ====================================================
+        // DETECT NEW RUN
+        // ====================================================
+
         const runChanged =
+
             currentManifest
+
             &&
+
             currentManifest.run
             !==
             manifest.run;
@@ -890,24 +1156,40 @@ async function refreshManifest() {
             manifest;
 
 
+        // ====================================================
+        // SORT AVAILABLE FORECAST HOURS
+        // ====================================================
+
         availableFrames =
             [...manifest.hours]
                 .sort(
-                    (a, b) =>
-                        a.fhr - b.fhr
+
+                    (
+                        a,
+                        b
+                    ) =>
+
+                        a.fhr -
+                        b.fhr
+
                 );
 
 
         console.log(
+
             "Manifest loaded:",
+
             currentManifest.run,
+
             availableFrames.length,
+
             "frames"
+
         );
 
 
         // ====================================================
-        // NEW RUN HAS NO FRAME YET
+        // NO HOURS YET
         // ====================================================
 
         if (
@@ -930,6 +1212,7 @@ async function refreshManifest() {
 
             buildHourButtons();
 
+
             return;
 
         }
@@ -939,6 +1222,10 @@ async function refreshManifest() {
             -1;
 
 
+        // ====================================================
+        // KEEP SAME F-HOUR WHEN MANIFEST GAINS MORE FRAMES
+        // ====================================================
+
         if (
             !runChanged
             &&
@@ -947,15 +1234,25 @@ async function refreshManifest() {
 
             targetIndex =
                 availableFrames.findIndex(
+
                     frame =>
                         frame.fhr ===
                         selectedFhr
+
                 );
 
         }
 
 
-        if (targetIndex < 0) {
+        // ====================================================
+        // NEW RUN / FIRST LOAD
+        //
+        // Display newest currently available frame.
+        // ====================================================
+
+        if (
+            targetIndex < 0
+        ) {
 
             targetIndex =
                 availableFrames.length - 1;
@@ -967,19 +1264,30 @@ async function refreshManifest() {
             targetIndex;
 
 
+        // ====================================================
+        // UPDATE TIMELINE
+        // ====================================================
+
         buildHourButtons();
 
 
+        // ====================================================
+        // DISPLAY FRAME
+        // ====================================================
+
         displayFrame(
+
             availableFrames[
                 currentFrameIndex
             ]
+
         );
 
 
         scrollSelectedHourIntoView();
 
     }
+
 
     catch (error) {
 
@@ -1008,7 +1316,7 @@ async function refreshManifest() {
 
 
 // ============================================================
-// SET OVERLAY VISIBILITY
+// OVERLAY VISIBILITY HELPER
 // ============================================================
 
 function setLayersVisible(
@@ -1023,16 +1331,22 @@ function setLayersVisible(
 
 
     layerIds.forEach(
-        id => {
+        layerId => {
 
             if (
-                map.getLayer(id)
+                map.getLayer(
+                    layerId
+                )
             ) {
 
                 map.setLayoutProperty(
-                    id,
+
+                    layerId,
+
                     "visibility",
+
                     visibility
+
                 );
 
             }
@@ -1044,7 +1358,7 @@ function setLayersVisible(
 
 
 // ============================================================
-// MODEL SWITCH
+// SWITCH MODEL
 // ============================================================
 
 async function switchModel(
@@ -1129,12 +1443,15 @@ async function switchModel(
 
 
 // ============================================================
-// MAP LOADED
+// MAP LOAD
 // ============================================================
 
 map.on(
+
     "load",
+
     async () => {
+
 
         console.log(
             "Mapbox map loaded"
@@ -1142,11 +1459,13 @@ map.on(
 
 
         // ====================================================
-        // BOUNDARY SOURCE
+        // MAPBOX BOUNDARY SOURCE
         // ====================================================
 
         map.addSource(
+
             "boundary-data",
+
             {
 
                 type:
@@ -1156,15 +1475,26 @@ map.on(
                     "mapbox://mapbox.mapbox-streets-v8"
 
             }
+
         );
 
 
         // ====================================================
-        // SPC SOURCE
+        // FIND ROAD LAYER
+        // ====================================================
+
+        const roadLayer =
+            findFirstRoadLayerId();
+
+
+        // ====================================================
+        // SPC DAY 1 SOURCE
         // ====================================================
 
         map.addSource(
+
             "spc-day1-cat",
+
             {
 
                 type:
@@ -1174,18 +1504,16 @@ map.on(
                     "data/spc_day1_cat.geojson"
 
             }
+
         );
 
 
-        const roadLayer =
-            findFirstRoadLayerId();
-
-
         // ====================================================
-        // SPC FILL
+        // SPC DAY 1 FILL
         // ====================================================
 
         map.addLayer(
+
             {
 
                 id:
@@ -1220,6 +1548,7 @@ map.on(
             },
 
             roadLayer
+
         );
 
 
@@ -1228,6 +1557,7 @@ map.on(
         // ====================================================
 
         map.addLayer(
+
             {
 
                 id:
@@ -1254,7 +1584,7 @@ map.on(
 
                         4, 2.2,
 
-                        6, 3,
+                        6, 3.0,
 
                         8, 3.8,
 
@@ -1267,6 +1597,7 @@ map.on(
             },
 
             roadLayer
+
         );
 
 
@@ -1275,6 +1606,7 @@ map.on(
         // ====================================================
 
         map.addLayer(
+
             {
 
                 id:
@@ -1324,6 +1656,7 @@ map.on(
             },
 
             roadLayer
+
         );
 
 
@@ -1433,15 +1766,18 @@ map.on(
 
                     ["zoom"],
 
-                    4, 2,
+                    4, 2.0,
 
                     6, 2.7,
 
                     8, 3.3,
 
-                    10, 4
+                    10, 4.0
 
-                ]
+                ],
+
+                "line-opacity":
+                    1
 
             }
 
@@ -1449,11 +1785,13 @@ map.on(
 
 
         // ====================================================
-        // LBF CWA
+        // LBF CWA SOURCE
         // ====================================================
 
         map.addSource(
+
             "lbf-cwa",
+
             {
 
                 type:
@@ -1463,8 +1801,13 @@ map.on(
                     "data/lbf_cwa.geojson"
 
             }
+
         );
 
+
+        // ====================================================
+        // LBF CWA BLACK HALO
+        // ====================================================
 
         map.addLayer({
 
@@ -1504,6 +1847,10 @@ map.on(
 
         });
 
+
+        // ====================================================
+        // LBF CWA WHITE LINE
+        // ====================================================
 
         map.addLayer({
 
@@ -1545,7 +1892,7 @@ map.on(
 
 
         // ====================================================
-        // OVERLAY MENU
+        // OVERLAYS MENU
         // ====================================================
 
         const overlayButton =
@@ -1567,14 +1914,19 @@ map.on(
         ) {
 
             overlayButton.addEventListener(
+
                 "click",
+
                 () => {
 
                     overlayContent
                         .classList
-                        .toggle("open");
+                        .toggle(
+                            "open"
+                        );
 
                 }
+
             );
 
         }
@@ -1593,19 +1945,29 @@ map.on(
         if (spcToggle) {
 
             spcToggle.addEventListener(
+
                 "change",
+
                 event => {
 
                     setLayersVisible(
+
                         [
+
                             "spc-day1-cat-fill",
+
                             "spc-day1-cat-outline-dark",
+
                             "spc-day1-cat-outline"
+
                         ],
+
                         event.target.checked
+
                     );
 
                 }
+
             );
 
         }
@@ -1624,18 +1986,27 @@ map.on(
         if (cwaToggle) {
 
             cwaToggle.addEventListener(
+
                 "change",
+
                 event => {
 
                     setLayersVisible(
+
                         [
+
                             "lbf-cwa-outline",
+
                             "lbf-cwa-boundary"
+
                         ],
+
                         event.target.checked
+
                     );
 
                 }
+
             );
 
         }
@@ -1654,17 +2025,23 @@ map.on(
         if (countyToggle) {
 
             countyToggle.addEventListener(
+
                 "change",
+
                 event => {
 
                     setLayersVisible(
+
                         [
                             "custom-county-boundaries"
                         ],
+
                         event.target.checked
+
                     );
 
                 }
+
             );
 
         }
@@ -1683,17 +2060,23 @@ map.on(
         if (stateToggle) {
 
             stateToggle.addEventListener(
+
                 "change",
+
                 event => {
 
                     setLayersVisible(
+
                         [
                             "custom-state-boundaries"
                         ],
+
                         event.target.checked
+
                     );
 
                 }
+
             );
 
         }
@@ -1712,7 +2095,9 @@ map.on(
         if (modelSelect) {
 
             modelSelect.addEventListener(
+
                 "change",
+
                 async event => {
 
                     await switchModel(
@@ -1720,6 +2105,7 @@ map.on(
                     );
 
                 }
+
             );
 
         }
@@ -1738,7 +2124,9 @@ map.on(
         if (productSelect) {
 
             productSelect.addEventListener(
+
                 "change",
+
                 async event => {
 
                     activeProduct =
@@ -1748,8 +2136,10 @@ map.on(
                     currentManifest =
                         null;
 
+
                     availableFrames =
                         [];
+
 
                     currentFrameIndex =
                         0;
@@ -1758,6 +2148,7 @@ map.on(
                     await refreshManifest();
 
                 }
+
             );
 
         }
@@ -1776,7 +2167,9 @@ map.on(
         if (playButton) {
 
             playButton.addEventListener(
+
                 "click",
+
                 () => {
 
                     if (
@@ -1794,6 +2187,7 @@ map.on(
                     }
 
                 }
+
             );
 
         }
@@ -1812,16 +2206,20 @@ map.on(
         if (prevButton) {
 
             prevButton.addEventListener(
+
                 "click",
+
                 () => {
 
                     stopAnimation();
+
 
                     setFrameIndex(
                         currentFrameIndex - 1
                     );
 
                 }
+
             );
 
         }
@@ -1840,33 +2238,38 @@ map.on(
         if (nextButton) {
 
             nextButton.addEventListener(
+
                 "click",
+
                 () => {
 
                     stopAnimation();
+
 
                     setFrameIndex(
                         currentFrameIndex + 1
                     );
 
                 }
+
             );
 
         }
 
 
         // ====================================================
-        // INITIAL HRRR
+        // LOAD CURRENT HRRR
         // ====================================================
 
         await refreshManifest();
 
 
         // ====================================================
-        // KEEP POLLING FOR NEW HOURS
+        // CHECK FOR NEW MODEL FRAMES
         // ====================================================
 
         setInterval(
+
             () => {
 
                 if (
@@ -1881,6 +2284,7 @@ map.on(
             },
 
             MANIFEST_REFRESH_MS
+
         );
 
 
@@ -1889,4 +2293,5 @@ map.on(
         );
 
     }
+
 );
