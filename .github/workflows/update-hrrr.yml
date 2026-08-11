@@ -46,20 +46,12 @@ jobs:
             cartopy \
             scipy \
             matplotlib \
-            numpy
+            numpy \
+            boto3
 
 
       # ======================================================
-      # RUN HRRR SCRIPT
-      # ======================================================
-
-      - name: Generate HRRR ReflUH frames
-        run: |
-          python update_hrrr_refluh.py
-
-
-      # ======================================================
-      # CONFIGURE AWS CREDENTIALS
+      # CONFIGURE AWS
       # ======================================================
 
       - name: Configure AWS credentials
@@ -71,35 +63,25 @@ jobs:
 
 
       # ======================================================
-      # SHOW GENERATED FILES
-      # ======================================================
-
-      - name: Show generated HRRR files
-        run: |
-          echo "Generated files:"
-          find output/hrrr/reflUH/latest -maxdepth 1 -type f -print
-
-
-      # ======================================================
-      # UPLOAD TO S3
+      # RUN PROGRESSIVE HRRR UPDATE
       #
-      # --delete removes old forecast hours that should no
-      # longer exist, such as F019-F048 when the latest run
-      # is an hourly cycle that only extends through F018.
+      # Python itself now handles:
+      #
+      # - PNG creation
+      # - per-hour S3 upload
+      # - manifest updates
+      # - old frame cleanup
       # ======================================================
 
-      - name: Upload HRRR ReflUH to S3
+      - name: Generate and publish HRRR ReflUH
         run: |
-          aws s3 sync \
-            output/hrrr/reflUH/latest/ \
-            s3://mtl-nwslbf-model-data/weather-graphics/hrrr/reflUH/latest/ \
-            --delete
+          python update_hrrr_refluh.py
 
 
       # ======================================================
-      # FINISHED
+      # COMPLETE
       # ======================================================
 
       - name: Complete
         run: |
-          echo "HRRR ReflUH update completed successfully."
+          echo "HRRR ReflUH progressive update finished."
