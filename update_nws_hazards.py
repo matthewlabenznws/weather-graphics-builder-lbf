@@ -1,24 +1,38 @@
 # ============================================================
 # NWS WATCHES / WARNINGS / ADVISORIES UPDATER
 #
-# Official NWS source:
+# OFFICIAL NWS SERVICE:
 #
-# Layer 0 = CurrentWarnings
-#           Polygon warnings rendered as colored outlines
+#   Layer 0 = CurrentWarnings
+#       - Actual warning polygons
+#       - Transparent fill
+#       - Colored outline
 #
-# Layer 1 = WatchesWarnings
-#           County/zone hazards rendered with official fills
+#   Layer 1 = WatchesWarnings
+#       - County / zone-based watches, warnings, advisories
+#       - Official NWS hazard fill colors
 #
-# Output:
+#
+# OUTPUT:
 #
 #   data/nws_hazards.geojson
 #
-# The script reads the official renderer from the NWS
-# MapServer so graphics.js can reproduce NWS colors.
+#
+# IMPORTANT:
+#
+# Do NOT deduplicate only by CAP ID.
+#
+# One NWS product can contain MANY county/zone polygons that
+# share the same CAP ID. Deduplicating only by CAP ID removes
+# most of the polygons.
+#
+# This version only removes EXACT duplicate geometries.
 # ============================================================
+
 
 import json
 import time
+
 from pathlib import Path
 
 import requests
@@ -36,17 +50,36 @@ BASE_SERVICE = (
 
 
 # ============================================================
+# LAYERS
+# ============================================================
+
+CURRENT_WARNINGS_LAYER = 0
+
+WATCHES_WARNINGS_LAYER = 1
+
+
+# ============================================================
 # OUTPUT
 # ============================================================
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = (
+    Path(__file__)
+    .resolve()
+    .parent
+)
 
-OUTPUT_DIR = BASE_DIR / "data"
+
+OUTPUT_DIR = (
+    BASE_DIR
+    / "data"
+)
+
 
 OUTPUT_DIR.mkdir(
     parents=True,
     exist_ok=True
 )
+
 
 OUTPUT_FILE = (
     OUTPUT_DIR
@@ -60,125 +93,223 @@ OUTPUT_FILE = (
 
 REQUEST_TIMEOUT_SECONDS = 60
 
-DOWNLOAD_ATTEMPTS = 3
+DOWNLOAD_ATTEMPTS = 4
 
 RETRY_SLEEP_SECONDS = 5
 
 
 # ============================================================
-# LAYERS
+# PAGINATION
+#
+# NWS service has a maximum record count.
+# Fetch in smaller chunks so nothing is silently omitted.
 # ============================================================
 
-LAYERS = {
-
-    0: {
-        "name": "current_warnings",
-        "renderer_field": "warning_code"
-    },
-
-    1: {
-        "name": "watches_warnings",
-        "renderer_field": "prod_type"
-    }
-
-}
+PAGE_SIZE = 2000
 
 
 # ============================================================
-# HAZARD GROUPS
+# SEVERE WARNING PRODUCTS
 # ============================================================
 
 SEVERE_PRODUCTS = {
+
     "Tornado Warning",
+
     "Severe Thunderstorm Warning",
+
 }
 
+
+# ============================================================
+# SEVERE WATCHES
+# ============================================================
 
 WATCH_PRODUCTS = {
+
     "Tornado Watch",
+
     "Severe Thunderstorm Watch",
+
 }
 
+
+# ============================================================
+# FLOOD PRODUCTS
+# ============================================================
 
 FLOOD_PRODUCTS = {
+
     "Flash Flood Warning",
+
     "Flash Flood Watch",
+
     "Flash Flood Statement",
+
     "Flood Warning",
+
     "Flood Watch",
+
     "Flood Advisory",
+
     "Flood Statement",
+
+    "Areal Flood Warning",
+
+    "Areal Flood Watch",
+
+    "Areal Flood Advisory",
+
     "Coastal Flood Warning",
+
     "Coastal Flood Watch",
+
     "Coastal Flood Advisory",
+
     "Coastal Flood Statement",
+
     "Lakeshore Flood Warning",
+
     "Lakeshore Flood Watch",
+
     "Lakeshore Flood Advisory",
+
     "Lakeshore Flood Statement",
+
 }
 
+
+# ============================================================
+# FIRE WEATHER PRODUCTS
+# ============================================================
 
 FIRE_PRODUCTS = {
+
     "Red Flag Warning",
+
     "Fire Weather Watch",
+
     "Extreme Fire Danger",
+
     "Fire Warning",
+
 }
 
+
+# ============================================================
+# HEAT PRODUCTS
+# ============================================================
 
 HEAT_PRODUCTS = {
+
     "Heat Advisory",
+
     "Extreme Heat Warning",
+
     "Extreme Heat Watch",
+
     "Excessive Heat Warning",
+
     "Excessive Heat Watch",
+
 }
 
+
+# ============================================================
+# WINTER PRODUCTS
+# ============================================================
 
 WINTER_PRODUCTS = {
+
     "Blizzard Warning",
+
     "Blizzard Watch",
+
     "Winter Storm Warning",
+
     "Winter Storm Watch",
+
     "Winter Weather Advisory",
+
     "Ice Storm Warning",
-    "Snow Squall Warning",
+
     "Heavy Snow Warning",
+
+    "Heavy Snow Watch",
+
+    "Snow Squall Warning",
+
+    "Snow Squall Watch",
+
     "Snow Advisory",
+
     "Freezing Rain Advisory",
+
     "Freezing Fog Advisory",
+
     "Lake Effect Snow Warning",
+
     "Lake Effect Snow Watch",
+
     "Lake Effect Snow Advisory",
+
     "Wind Chill Warning",
+
     "Wind Chill Watch",
+
     "Wind Chill Advisory",
+
     "Extreme Cold Warning",
+
     "Extreme Cold Watch",
+
     "Cold Weather Advisory",
+
 }
 
 
 # ============================================================
-# RGB(A) -> CSS COLOR
+# ARC GIS COLOR -> CSS
 # ============================================================
 
-def arcgis_color_to_css(color):
+def arcgis_color_to_css(
+    color
+):
 
-    if not color:
+    if (
+        not color
+        or
+        len(color) < 3
+    ):
+
         return None
 
-    if len(color) < 3:
-        return None
 
-    r = color[0]
-    g = color[1]
-    b = color[2]
+    r = int(
+        color[0]
+    )
 
-    if len(color) >= 4:
+    g = int(
+        color[1]
+    )
 
-        alpha = color[3] / 255.0
+    b = int(
+        color[2]
+    )
+
+
+    if (
+        len(color) >= 4
+    ):
+
+        alpha = (
+            float(
+                color[3]
+            )
+            /
+            255.0
+        )
+
 
         return (
             f"rgba("
@@ -189,11 +320,18 @@ def arcgis_color_to_css(color):
             f")"
         )
 
-    return f"rgb({r},{g},{b})"
+
+    return (
+        f"rgb("
+        f"{r},"
+        f"{g},"
+        f"{b}"
+        f")"
+    )
 
 
 # ============================================================
-# REQUEST WITH RETRIES
+# HTTP REQUEST WITH RETRIES
 # ============================================================
 
 def request_json(
@@ -203,6 +341,7 @@ def request_json(
 
     last_error = None
 
+
     for attempt in range(
         1,
         DOWNLOAD_ATTEMPTS + 1
@@ -211,44 +350,104 @@ def request_json(
         try:
 
             print(
-                f"GET {url} "
-                f"(attempt {attempt}/"
-                f"{DOWNLOAD_ATTEMPTS})"
+                f"GET {url}"
             )
 
-            response = requests.get(
-                url,
-                params=params,
-                timeout=REQUEST_TIMEOUT_SECONDS
+
+            print(
+                f"Attempt "
+                f"{attempt}/"
+                f"{DOWNLOAD_ATTEMPTS}"
             )
+
+
+            response = requests.get(
+
+                url,
+
+                params=params,
+
+                timeout=
+                    REQUEST_TIMEOUT_SECONDS
+
+            )
+
 
             response.raise_for_status()
 
-            return response.json()
+
+            data = (
+                response.json()
+            )
+
+
+            # =================================================
+            # ARC GIS ERROR RESPONSE
+            # =================================================
+
+            if (
+                isinstance(
+                    data,
+                    dict
+                )
+                and
+                "error" in data
+            ):
+
+                raise RuntimeError(
+
+                    json.dumps(
+                        data[
+                            "error"
+                        ]
+                    )
+
+                )
+
+
+            return data
+
 
         except Exception as error:
 
             last_error = error
 
+
             print(
-                f"Request failed: {error}"
+                f"Request failed: "
+                f"{error}"
             )
 
-            if attempt < DOWNLOAD_ATTEMPTS:
+
+            if (
+                attempt
+                <
+                DOWNLOAD_ATTEMPTS
+            ):
+
+                print(
+                    f"Waiting "
+                    f"{RETRY_SLEEP_SECONDS} "
+                    f"seconds..."
+                )
+
 
                 time.sleep(
                     RETRY_SLEEP_SECONDS
                 )
 
+
     raise RuntimeError(
+
         f"Request failed after "
         f"{DOWNLOAD_ATTEMPTS} attempts: "
         f"{last_error}"
+
     )
 
 
 # ============================================================
-# DOWNLOAD OFFICIAL RENDERER
+# GET OFFICIAL NWS RENDERER
 # ============================================================
 
 def get_renderer(
@@ -256,91 +455,129 @@ def get_renderer(
 ):
 
     print()
+    print("=" * 70)
+
     print(
-        f"Reading official renderer "
-        f"for layer {layer_id}..."
+        f"READING NWS RENDERER "
+        f"FOR LAYER {layer_id}"
     )
 
-    metadata = request_json(
-        f"{BASE_SERVICE}/{layer_id}",
-        {
-            "f": "json"
-        }
+    print("=" * 70)
+
+
+    metadata = (
+        request_json(
+
+            f"{BASE_SERVICE}/"
+            f"{layer_id}",
+
+            {
+                "f":
+                    "json"
+            }
+
+        )
     )
+
 
     renderer = (
+
         metadata
-        .get("drawingInfo", {})
-        .get("renderer", {})
+        .get(
+            "drawingInfo",
+            {}
+        )
+        .get(
+            "renderer",
+            {}
+        )
+
     )
 
-    renderer_type = (
-        renderer.get("type")
+
+    renderer_output = {}
+
+
+    unique_values = (
+        renderer.get(
+            "uniqueValueInfos",
+            []
+        )
     )
 
-    print(
-        f"Renderer type: "
-        f"{renderer_type}"
-    )
 
-    output = {}
+    for item in unique_values:
 
-    for info in renderer.get(
-        "uniqueValueInfos",
-        []
-    ):
-
-        value = str(
-            info.get(
-                "value",
-                ""
+        value = (
+            str(
+                item.get(
+                    "value",
+                    ""
+                )
             )
-        ).strip()
+            .strip()
+        )
+
 
         if not value:
+
             continue
 
+
         symbol = (
-            info.get(
+            item.get(
                 "symbol",
                 {}
             )
+            or {}
         )
 
-        fill_color = (
-            arcgis_color_to_css(
-                symbol.get(
-                    "color"
-                )
-            )
-        )
 
         outline = (
             symbol.get(
                 "outline",
                 {}
             )
+            or {}
         )
 
-        outline_color = (
+
+        fill_color = (
             arcgis_color_to_css(
-                outline.get(
+
+                symbol.get(
                     "color"
                 )
+
             )
         )
 
-        outline_width = (
+
+        stroke_color = (
+            arcgis_color_to_css(
+
+                outline.get(
+                    "color"
+                )
+
+            )
+        )
+
+
+        stroke_width = (
             outline.get(
                 "width",
                 0
             )
         )
 
-        output[value] = {
+
+        renderer_output[
+            value
+        ] = {
 
             "label":
-                info.get(
+                item.get(
                     "label",
                     value
                 ),
@@ -349,26 +586,28 @@ def get_renderer(
                 fill_color,
 
             "stroke":
-                outline_color,
+                stroke_color,
 
             "stroke_width":
-                outline_width
+                stroke_width
 
         }
 
+
     print(
-        f"Renderer categories found: "
-        f"{len(output)}"
+        f"Renderer categories: "
+        f"{len(renderer_output)}"
     )
 
-    return output
+
+    return renderer_output
 
 
 # ============================================================
-# DOWNLOAD FEATURES
+# DOWNLOAD ALL FEATURES WITH PAGINATION
 # ============================================================
 
-def get_features(
+def get_all_features(
     layer_id
 ):
 
@@ -376,52 +615,137 @@ def get_features(
     print("=" * 70)
 
     print(
-        f"Downloading NWS layer "
+        f"DOWNLOADING NWS LAYER "
         f"{layer_id}"
     )
 
     print("=" * 70)
 
-    data = request_json(
+
+    query_url = (
 
         f"{BASE_SERVICE}/"
-        f"{layer_id}/query",
-
-        {
-            "where":
-                "1=1",
-
-            "outFields":
-                "*",
-
-            "returnGeometry":
-                "true",
-
-            "outSR":
-                "4326",
-
-            "returnZ":
-                "false",
-
-            "f":
-                "geojson"
-        }
+        f"{layer_id}/query"
 
     )
 
-    features = (
-        data.get(
-            "features",
-            []
+
+    all_features = []
+
+
+    offset = 0
+
+
+    page_number = 1
+
+
+    while True:
+
+        print()
+        print(
+            f"Downloading page "
+            f"{page_number}"
         )
-    )
 
+
+        print(
+            f"Result offset: "
+            f"{offset}"
+        )
+
+
+        data = (
+            request_json(
+
+                query_url,
+
+                {
+
+                    "where":
+                        "1=1",
+
+                    "outFields":
+                        "*",
+
+                    "returnGeometry":
+                        "true",
+
+                    "outSR":
+                        "4326",
+
+                    "returnZ":
+                        "false",
+
+                    "returnM":
+                        "false",
+
+                    "orderByFields":
+                        "objectid ASC",
+
+                    "resultOffset":
+                        offset,
+
+                    "resultRecordCount":
+                        PAGE_SIZE,
+
+                    "f":
+                        "geojson"
+
+                }
+
+            )
+        )
+
+
+        features = (
+            data.get(
+                "features",
+                []
+            )
+        )
+
+
+        print(
+            f"Features on page: "
+            f"{len(features)}"
+        )
+
+
+        all_features.extend(
+            features
+        )
+
+
+        # ====================================================
+        # FINISHED
+        # ====================================================
+
+        if (
+            len(features)
+            <
+            PAGE_SIZE
+        ):
+
+            break
+
+
+        offset += (
+            len(features)
+        )
+
+
+        page_number += 1
+
+
+    print()
     print(
-        f"Downloaded "
-        f"{len(features)} features."
+        f"Total features downloaded "
+        f"from layer {layer_id}: "
+        f"{len(all_features)}"
     )
 
-    return features
+
+    return all_features
 
 
 # ============================================================
@@ -433,28 +757,63 @@ def classify_hazard(
 ):
 
     if not product:
+
         return "other"
 
-    product = str(
-        product
-    ).strip()
 
-    if product in SEVERE_PRODUCTS:
+    product = (
+        str(
+            product
+        )
+        .strip()
+    )
+
+
+    if (
+        product
+        in SEVERE_PRODUCTS
+    ):
+
         return "severe"
 
-    if product in WATCH_PRODUCTS:
+
+    if (
+        product
+        in WATCH_PRODUCTS
+    ):
+
         return "watches"
 
-    if product in FLOOD_PRODUCTS:
+
+    if (
+        product
+        in FLOOD_PRODUCTS
+    ):
+
         return "flood"
 
-    if product in FIRE_PRODUCTS:
+
+    if (
+        product
+        in FIRE_PRODUCTS
+    ):
+
         return "fire"
 
-    if product in HEAT_PRODUCTS:
+
+    if (
+        product
+        in HEAT_PRODUCTS
+    ):
+
         return "heat"
 
-    if product in WINTER_PRODUCTS:
+
+    if (
+        product
+        in WINTER_PRODUCTS
+    ):
+
         return "winter"
 
 
@@ -462,7 +821,10 @@ def classify_hazard(
     # FALLBACK CLASSIFICATION
     # ========================================================
 
-    lower = product.lower()
+    lower = (
+        product.lower()
+    )
+
 
     if (
         "tornado" in lower
@@ -470,46 +832,80 @@ def classify_hazard(
         "severe thunderstorm" in lower
     ):
 
-        if "watch" in lower:
+        if (
+            "watch"
+            in lower
+        ):
+
             return "watches"
+
 
         return "severe"
 
 
-    if "flood" in lower:
+    if (
+        "flood"
+        in lower
+    ):
+
         return "flood"
 
 
     if (
-        "red flag" in lower
+        "red flag"
+        in lower
         or
-        "fire" in lower
+        "fire weather"
+        in lower
+        or
+        product == "Fire Warning"
     ):
+
         return "fire"
 
 
-    if "heat" in lower:
+    if (
+        "heat"
+        in lower
+    ):
+
         return "heat"
 
 
-    winter_words = [
+    winter_keywords = [
 
         "winter",
+
         "snow",
+
         "blizzard",
-        "ice",
-        "freezing",
+
+        "ice storm",
+
+        "freezing rain",
+
+        "freezing fog",
+
         "wind chill",
+
         "extreme cold",
+
         "cold weather",
+
         "lake effect"
 
     ]
 
+
     if any(
-        word in lower
-        for word in winter_words
+
+        keyword in lower
+
+        for keyword
+        in winter_keywords
+
     ):
+
         return "winter"
 
 
@@ -517,22 +913,22 @@ def classify_hazard(
 
 
 # ============================================================
-# CURRENT WARNING CODE
+# CURRENT WARNING RENDERER KEY
 #
-# Layer 0 renderer is based on:
+# Layer 0 uses:
 #
-#   phenom + "," + sig
+# phenom + "," + sig
 #
 # Examples:
 #
-#   TO,W
-#   SV,W
-#   FF,W
-#   SQ,W
-#   MA,W
+# TO,W = Tornado Warning
+# SV,W = Severe Thunderstorm Warning
+# FF,W = Flash Flood Warning
+# SQ,W = Snow Squall Warning
+# MA,W = Special Marine Warning
 # ============================================================
 
-def make_warning_code(
+def make_current_warning_key(
     properties
 ):
 
@@ -544,6 +940,7 @@ def make_warning_code(
         ""
     )
 
+
     sig = (
         properties.get(
             "sig"
@@ -552,8 +949,64 @@ def make_warning_code(
         ""
     )
 
+
+    phenom = (
+        str(
+            phenom
+        )
+        .strip()
+    )
+
+
+    sig = (
+        str(
+            sig
+        )
+        .strip()
+    )
+
+
     return (
-        f"{phenom},{sig}"
+        f"{phenom},"
+        f"{sig}"
+    )
+
+
+# ============================================================
+# VALID POLYGON
+# ============================================================
+
+def is_valid_polygon(
+    feature
+):
+
+    geometry = (
+        feature.get(
+            "geometry"
+        )
+    )
+
+
+    if (
+        not geometry
+    ):
+
+        return False
+
+
+    return (
+
+        geometry.get(
+            "type"
+        )
+
+        in
+
+        (
+            "Polygon",
+            "MultiPolygon"
+        )
+
     )
 
 
@@ -574,30 +1027,45 @@ def normalize_current_warning(
         or {}
     )
 
+
     product = (
         properties.get(
             "prod_type"
         )
         or
+        properties.get(
+            "event"
+        )
+        or
         "Unknown"
     )
 
-    warning_code = (
-        make_warning_code(
+
+    product = (
+        str(
+            product
+        )
+        .strip()
+    )
+
+
+    renderer_key = (
+        make_current_warning_key(
             properties
         )
     )
 
+
     style = (
         renderer.get(
-            warning_code,
+            renderer_key,
             {}
         )
     )
 
 
     # ========================================================
-    # FALLBACK WARNING COLORS
+    # OFFICIAL CURRENT WARNING FALLBACK COLORS
     # ========================================================
 
     fallback_strokes = {
@@ -622,7 +1090,9 @@ def normalize_current_warning(
 
     properties[
         "source_layer"
-    ] = "current_warnings"
+    ] = (
+        "current_warnings"
+    )
 
 
     properties[
@@ -632,50 +1102,72 @@ def normalize_current_warning(
 
     properties[
         "hazard_group"
-    ] = classify_hazard(
-        product
+    ] = (
+        classify_hazard(
+            product
+        )
     )
 
 
     properties[
-        "warning_code"
-    ] = warning_code
+        "renderer_key"
+    ] = (
+        renderer_key
+    )
 
 
-    # CurrentWarnings are intentionally transparent.
+    # ========================================================
+    # CURRENT WARNINGS:
+    # TRANSPARENT INTERIOR
+    # ========================================================
 
     properties[
         "fill"
-    ] = "rgba(0,0,0,0)"
+    ] = (
+        "rgba(0,0,0,0)"
+    )
 
 
     properties[
         "stroke"
     ] = (
+
         style.get(
             "stroke"
         )
+
         or
+
         fallback_strokes.get(
-            warning_code,
-            "rgb(255,255,255)"
+            renderer_key
         )
+
+        or
+
+        "rgb(255,255,255)"
+
     )
 
 
     properties[
         "stroke_width"
     ] = (
+
         style.get(
-            "stroke_width",
-            2
+            "stroke_width"
         )
+
+        or
+
+        2
+
     )
 
 
     feature[
         "properties"
     ] = properties
+
 
     return feature
 
@@ -684,7 +1176,7 @@ def normalize_current_warning(
 # NORMALIZE WATCH / WARNING / ADVISORY
 # ============================================================
 
-def normalize_wwa(
+def normalize_watch_warning(
     feature,
     renderer
 ):
@@ -697,6 +1189,7 @@ def normalize_wwa(
         or {}
     )
 
+
     product = (
         properties.get(
             "prod_type"
@@ -705,9 +1198,13 @@ def normalize_wwa(
         "Unknown"
     )
 
-    product = str(
-        product
-    ).strip()
+
+    product = (
+        str(
+            product
+        )
+        .strip()
+    )
 
 
     style = (
@@ -720,50 +1217,84 @@ def normalize_wwa(
 
     properties[
         "source_layer"
-    ] = "watches_warnings"
+    ] = (
+        "watches_warnings"
+    )
 
 
     properties[
         "hazard"
-    ] = product
-
-
-    properties[
-        "hazard_group"
-    ] = classify_hazard(
+    ] = (
         product
     )
 
 
     properties[
+        "hazard_group"
+    ] = (
+        classify_hazard(
+            product
+        )
+    )
+
+
+    # ========================================================
+    # OFFICIAL NWS FILL
+    # ========================================================
+
+    properties[
         "fill"
     ] = (
+
         style.get(
             "fill"
         )
+
         or
+
         "rgb(128,128,128)"
+
     )
 
+
+    # ========================================================
+    # OFFICIAL NWS OUTLINE
+    # ========================================================
 
     properties[
         "stroke"
     ] = (
+
         style.get(
             "stroke"
         )
+
         or
+
         "rgb(110,110,110)"
+
     )
 
 
     properties[
         "stroke_width"
     ] = (
+
         style.get(
-            "stroke_width",
-            0
+            "stroke_width"
         )
+
+        if (
+            style.get(
+                "stroke_width"
+            )
+            is not None
+        )
+
+        else
+
+        0
+
     )
 
 
@@ -771,49 +1302,36 @@ def normalize_wwa(
         "properties"
     ] = properties
 
+
     return feature
 
 
 # ============================================================
-# VALID POLYGON?
+# EXACT DUPLICATE REMOVAL
+#
+# CRITICAL:
+#
+# CAP ID is NOT enough.
+#
+# Many county/zone polygons belonging to one alert have the
+# same CAP ID.
+#
+# Geometry is included in the key so each distinct county/
+# zone remains in the output.
 # ============================================================
 
-def valid_polygon(
-    feature
-):
-
-    geometry = (
-        feature.get(
-            "geometry"
-        )
-    )
-
-    if not geometry:
-        return False
-
-    return (
-        geometry.get(
-            "type"
-        )
-        in
-        (
-            "Polygon",
-            "MultiPolygon"
-        )
-    )
-
-
-# ============================================================
-# REMOVE DUPLICATES WITHIN EACH SOURCE
-# ============================================================
-
-def deduplicate(
+def remove_exact_duplicates(
     features
 ):
 
     seen = set()
 
+
     output = []
+
+
+    duplicate_count = 0
+
 
     for feature in features:
 
@@ -822,19 +1340,9 @@ def deduplicate(
                 "properties",
                 {}
             )
+            or {}
         )
 
-        source_layer = (
-            properties.get(
-                "source_layer"
-            )
-        )
-
-        cap_id = (
-            properties.get(
-                "cap_id"
-            )
-        )
 
         geometry = (
             feature.get(
@@ -842,43 +1350,259 @@ def deduplicate(
             )
         )
 
-        if cap_id:
 
-            key = (
-                source_layer,
-                cap_id
+        source_layer = (
+            properties.get(
+                "source_layer",
+                ""
             )
+        )
 
-        else:
 
-            key = (
+        cap_id = (
+            properties.get(
+                "cap_id"
+            )
+            or
+            ""
+        )
 
-                source_layer,
 
-                properties.get(
-                    "hazard"
-                ),
+        hazard = (
+            properties.get(
+                "hazard"
+            )
+            or
+            ""
+        )
 
-                json.dumps(
-                    geometry,
-                    sort_keys=True,
-                    separators=(",", ":")
+
+        geometry_string = (
+            json.dumps(
+
+                geometry,
+
+                sort_keys=True,
+
+                separators=(
+                    ",",
+                    ":"
                 )
 
             )
+        )
 
-        if key in seen:
+
+        key = (
+
+            str(
+                source_layer
+            ),
+
+            str(
+                cap_id
+            ),
+
+            str(
+                hazard
+            ),
+
+            geometry_string
+
+        )
+
+
+        if (
+            key in seen
+        ):
+
+            duplicate_count += 1
+
             continue
+
 
         seen.add(
             key
         )
 
+
         output.append(
             feature
         )
 
+
+    print()
+    print(
+        f"Exact duplicate polygons removed: "
+        f"{duplicate_count}"
+    )
+
+
     return output
+
+
+# ============================================================
+# PRINT PRODUCT SUMMARY
+# ============================================================
+
+def print_product_summary(
+    features
+):
+
+    product_counts = {}
+
+
+    group_counts = {}
+
+
+    source_counts = {}
+
+
+    for feature in features:
+
+        properties = (
+            feature.get(
+                "properties",
+                {}
+            )
+            or {}
+        )
+
+
+        product = (
+            properties.get(
+                "hazard",
+                "Unknown"
+            )
+        )
+
+
+        group = (
+            properties.get(
+                "hazard_group",
+                "other"
+            )
+        )
+
+
+        source = (
+            properties.get(
+                "source_layer",
+                "unknown"
+            )
+        )
+
+
+        product_counts[
+            product
+        ] = (
+
+            product_counts.get(
+                product,
+                0
+            )
+
+            +
+
+            1
+
+        )
+
+
+        group_counts[
+            group
+        ] = (
+
+            group_counts.get(
+                group,
+                0
+            )
+
+            +
+
+            1
+
+        )
+
+
+        source_counts[
+            source
+        ] = (
+
+            source_counts.get(
+                source,
+                0
+            )
+
+            +
+
+            1
+
+        )
+
+
+    print()
+    print("=" * 70)
+
+    print(
+        "NWS HAZARD OUTPUT SUMMARY"
+    )
+
+    print("=" * 70)
+
+
+    print()
+    print(
+        "BY SOURCE:"
+    )
+
+
+    for source in sorted(
+        source_counts
+    ):
+
+        print(
+
+            f"  {source}: "
+            f"{source_counts[source]}"
+
+        )
+
+
+    print()
+    print(
+        "BY GROUP:"
+    )
+
+
+    for group in sorted(
+        group_counts
+    ):
+
+        print(
+
+            f"  {group}: "
+            f"{group_counts[group]}"
+
+        )
+
+
+    print()
+    print(
+        "ACTIVE PRODUCTS:"
+    )
+
+
+    for product in sorted(
+        product_counts
+    ):
+
+        print(
+
+            f"  {product}: "
+            f"{product_counts[product]}"
+
+        )
 
 
 # ============================================================
@@ -891,151 +1615,171 @@ def main():
     print("=" * 70)
 
     print(
-        "NWS WATCH / WARNING / "
-        "ADVISORY UPDATE"
+        "NWS WATCHES / WARNINGS / "
+        "ADVISORIES UPDATE"
     )
 
     print("=" * 70)
 
 
+    print()
+    print(
+        f"Output file:"
+    )
+
+    print(
+        OUTPUT_FILE
+    )
+
+
     # ========================================================
-    # READ OFFICIAL NWS RENDERERS
+    # READ OFFICIAL NWS COLORS
     # ========================================================
 
-    warning_renderer = (
+    current_warning_renderer = (
         get_renderer(
-            0
+            CURRENT_WARNINGS_LAYER
         )
     )
 
-    wwa_renderer = (
+
+    watches_warnings_renderer = (
         get_renderer(
-            1
+            WATCHES_WARNINGS_LAYER
         )
     )
 
 
     # ========================================================
-    # DOWNLOAD DATA
+    # DOWNLOAD CURRENT WARNING POLYGONS
     # ========================================================
 
-    current_warnings = (
-        get_features(
-            0
-        )
-    )
-
-    watches_warnings = (
-        get_features(
-            1
+    current_warning_features = (
+        get_all_features(
+            CURRENT_WARNINGS_LAYER
         )
     )
 
 
-    output_features = []
+    # ========================================================
+    # DOWNLOAD COUNTY / ZONE WWA POLYGONS
+    # ========================================================
+
+    watches_warnings_features = (
+        get_all_features(
+            WATCHES_WARNINGS_LAYER
+        )
+    )
+
+
+    normalized_features = []
 
 
     # ========================================================
-    # CURRENT WARNINGS
+    # NORMALIZE CURRENT WARNINGS
     # ========================================================
 
-    for feature in current_warnings:
+    current_valid_count = 0
 
-        if not valid_polygon(
-            feature
+
+    for feature in (
+        current_warning_features
+    ):
+
+        if (
+            not is_valid_polygon(
+                feature
+            )
         ):
+
             continue
 
-        output_features.append(
 
+        normalized = (
             normalize_current_warning(
-                feature,
-                warning_renderer
-            )
 
+                feature,
+
+                current_warning_renderer
+
+            )
         )
 
 
+        normalized_features.append(
+            normalized
+        )
+
+
+        current_valid_count += 1
+
+
+    print()
+    print(
+        f"Valid CurrentWarnings polygons: "
+        f"{current_valid_count}"
+    )
+
+
     # ========================================================
-    # WATCHES / WARNINGS / ADVISORIES
+    # NORMALIZE WATCHES / WARNINGS / ADVISORIES
     # ========================================================
 
-    for feature in watches_warnings:
+    wwa_valid_count = 0
 
-        if not valid_polygon(
-            feature
+
+    for feature in (
+        watches_warnings_features
+    ):
+
+        if (
+            not is_valid_polygon(
+                feature
+            )
         ):
+
             continue
 
-        output_features.append(
 
-            normalize_wwa(
+        normalized = (
+            normalize_watch_warning(
+
                 feature,
-                wwa_renderer
-            )
 
+                watches_warnings_renderer
+
+            )
         )
 
 
-    output_features = (
-        deduplicate(
-            output_features
+        normalized_features.append(
+            normalized
+        )
+
+
+        wwa_valid_count += 1
+
+
+    print()
+    print(
+        f"Valid WatchesWarnings polygons: "
+        f"{wwa_valid_count}"
+    )
+
+
+    # ========================================================
+    # REMOVE ONLY EXACT DUPLICATES
+    # ========================================================
+
+    normalized_features = (
+        remove_exact_duplicates(
+            normalized_features
         )
     )
 
 
     # ========================================================
-    # COUNTS
-    # ========================================================
-
-    group_counts = {}
-
-    source_counts = {}
-
-
-    for feature in output_features:
-
-        properties = (
-            feature[
-                "properties"
-            ]
-        )
-
-        group = (
-            properties.get(
-                "hazard_group",
-                "other"
-            )
-        )
-
-        source = (
-            properties.get(
-                "source_layer",
-                "unknown"
-            )
-        )
-
-        group_counts[group] = (
-            group_counts.get(
-                group,
-                0
-            )
-            +
-            1
-        )
-
-        source_counts[source] = (
-            source_counts.get(
-                source,
-                0
-            )
-            +
-            1
-        )
-
-
-    # ========================================================
-    # WRITE GEOJSON
+    # GEOJSON
     # ========================================================
 
     output_data = {
@@ -1044,67 +1788,66 @@ def main():
             "FeatureCollection",
 
         "features":
-            output_features
+            normalized_features
 
     }
 
 
+    # ========================================================
+    # WRITE FILE
+    # ========================================================
+
     with OUTPUT_FILE.open(
+
         "w",
-        encoding="utf-8"
+
+        encoding=
+            "utf-8"
+
     ) as file:
 
         json.dump(
+
             output_data,
+
             file,
-            separators=(",", ":")
+
+            separators=(
+                ",",
+                ":"
+            )
+
         )
+
+
+    # ========================================================
+    # SUMMARY
+    # ========================================================
+
+    print_product_summary(
+        normalized_features
+    )
 
 
     print()
     print("=" * 70)
 
     print(
-        "OUTPUT SUMMARY"
+        "UPDATE COMPLETE"
     )
 
     print("=" * 70)
 
 
     print(
-        f"Current warning polygons: "
-        f"{source_counts.get('current_warnings', 0)}"
+        f"Total output polygons: "
+        f"{len(normalized_features)}"
     )
 
 
     print(
-        f"WWA polygons: "
-        f"{source_counts.get('watches_warnings', 0)}"
-    )
-
-
-    print(
-        f"Total polygons: "
-        f"{len(output_features)}"
-    )
-
-
-    print()
-
-
-    for group in sorted(
-        group_counts
-    ):
-
-        print(
-            f"{group}: "
-            f"{group_counts[group]}"
-        )
-
-
-    print()
-    print(
-        f"Wrote: {OUTPUT_FILE}"
+        f"Wrote: "
+        f"{OUTPUT_FILE}"
     )
 
 
@@ -1113,4 +1856,5 @@ def main():
 # ============================================================
 
 if __name__ == "__main__":
+
     main()
