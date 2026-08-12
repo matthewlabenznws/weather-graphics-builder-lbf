@@ -1,96 +1,52 @@
 # ============================================================
 # NWS WATCHES / WARNINGS / ADVISORIES UPDATER
 #
-# Downloads current NWS hazard polygons from the official
-# NOAA/NWS Watches, Warnings and Advisories ArcGIS service.
+# Official NWS source:
+#
+# Layer 0 = CurrentWarnings
+#           Polygon warnings rendered as colored outlines
+#
+# Layer 1 = WatchesWarnings
+#           County/zone hazards rendered with official fills
 #
 # Output:
 #
 #   data/nws_hazards.geojson
 #
-# Each feature is given a standardized hazard_group:
-#
-#   severe
-#   watches
-#   flood
-#   fire
-#   heat
-#   winter
-#   other
-#
-# graphics.js can then use ONE GeoJSON source and filter
-# different NWS hazard layers from it.
+# The script reads the official renderer from the NWS
+# MapServer so graphics.js can reproduce NWS colors.
 # ============================================================
 
 import json
 import time
-
 from pathlib import Path
 
 import requests
 
 
 # ============================================================
-# NOAA / NWS WWA SERVICE
+# NWS SERVICE
 # ============================================================
 
-NWS_WWA_MAPSERVER = (
-    "https://mapservices.weather.noaa.gov/eventdriven/rest/services/"
+BASE_SERVICE = (
+    "https://mapservices.weather.noaa.gov/"
+    "eventdriven/rest/services/"
     "WWA/watch_warn_adv/MapServer"
 )
 
 
 # ============================================================
-# LAYERS
-#
-# 0 = CurrentWarnings
-#     Tornado Warning
-#     Severe Thunderstorm Warning
-#     Flash Flood Warning
-#     Snow Squall Warning
-#     Special Marine Warning
-#
-# 1 = WatchesWarnings
-#     Watches, warnings, advisories, statements, etc.
+# OUTPUT
 # ============================================================
 
-NWS_WWA_LAYERS = [
+BASE_DIR = Path(__file__).resolve().parent
 
-    {
-        "layer_id": 0,
-        "source_layer": "current_warnings",
-    },
-
-    {
-        "layer_id": 1,
-        "source_layer": "watches_warnings",
-    },
-
-]
-
-
-# ============================================================
-# OUTPUT DIRECTORY
-# ============================================================
-
-BASE_DIR = (
-    Path(__file__)
-    .resolve()
-    .parent
-)
-
-
-OUTPUT_DIR = (
-    BASE_DIR
-    / "data"
-)
-
+OUTPUT_DIR = BASE_DIR / "data"
 
 OUTPUT_DIR.mkdir(
     parents=True,
     exist_ok=True
 )
-
 
 OUTPUT_FILE = (
     OUTPUT_DIR
@@ -110,614 +66,142 @@ RETRY_SLEEP_SECONDS = 5
 
 
 # ============================================================
-# SEVERE WEATHER PRODUCTS
+# LAYERS
+# ============================================================
+
+LAYERS = {
+
+    0: {
+        "name": "current_warnings",
+        "renderer_field": "warning_code"
+    },
+
+    1: {
+        "name": "watches_warnings",
+        "renderer_field": "prod_type"
+    }
+
+}
+
+
+# ============================================================
+# HAZARD GROUPS
 # ============================================================
 
 SEVERE_PRODUCTS = {
-
     "Tornado Warning",
-
     "Severe Thunderstorm Warning",
-
 }
 
-
-# ============================================================
-# WATCH PRODUCTS
-# ============================================================
 
 WATCH_PRODUCTS = {
-
     "Tornado Watch",
-
     "Severe Thunderstorm Watch",
-
 }
 
-
-# ============================================================
-# FLOOD PRODUCTS
-# ============================================================
 
 FLOOD_PRODUCTS = {
-
     "Flash Flood Warning",
-
     "Flash Flood Watch",
-
     "Flash Flood Statement",
-
     "Flood Warning",
-
     "Flood Watch",
-
     "Flood Advisory",
-
     "Flood Statement",
-
-    "Areal Flood Warning",
-
-    "Areal Flood Advisory",
-
+    "Coastal Flood Warning",
+    "Coastal Flood Watch",
+    "Coastal Flood Advisory",
+    "Coastal Flood Statement",
+    "Lakeshore Flood Warning",
+    "Lakeshore Flood Watch",
+    "Lakeshore Flood Advisory",
+    "Lakeshore Flood Statement",
 }
 
-
-# ============================================================
-# FIRE WEATHER PRODUCTS
-# ============================================================
 
 FIRE_PRODUCTS = {
-
     "Red Flag Warning",
-
     "Fire Weather Watch",
-
     "Extreme Fire Danger",
-
     "Fire Warning",
-
 }
 
-
-# ============================================================
-# HEAT PRODUCTS
-# ============================================================
 
 HEAT_PRODUCTS = {
-
     "Heat Advisory",
-
     "Extreme Heat Warning",
-
     "Extreme Heat Watch",
-
     "Excessive Heat Warning",
-
     "Excessive Heat Watch",
-
 }
 
-
-# ============================================================
-# WINTER PRODUCTS
-#
-# Keep the common Plains winter headlines together.
-# ============================================================
 
 WINTER_PRODUCTS = {
-
     "Blizzard Warning",
-
     "Blizzard Watch",
-
     "Winter Storm Warning",
-
     "Winter Storm Watch",
-
     "Winter Weather Advisory",
-
     "Ice Storm Warning",
-
-    "Heavy Snow Warning",
-
     "Snow Squall Warning",
-
-    "Snow Squall Watch",
-
+    "Heavy Snow Warning",
     "Snow Advisory",
-
     "Freezing Rain Advisory",
-
     "Freezing Fog Advisory",
-
     "Lake Effect Snow Warning",
-
     "Lake Effect Snow Watch",
-
     "Lake Effect Snow Advisory",
-
     "Wind Chill Warning",
-
     "Wind Chill Watch",
-
     "Wind Chill Advisory",
-
     "Extreme Cold Warning",
-
     "Extreme Cold Watch",
-
     "Cold Weather Advisory",
-
 }
 
 
 # ============================================================
-# NWS-STYLE FALLBACK COLORS
-#
-# These are used by graphics.js unless we later choose to
-# style individual hazards directly in JavaScript.
+# RGB(A) -> CSS COLOR
 # ============================================================
 
-HAZARD_COLORS = {
+def arcgis_color_to_css(color):
 
-    # --------------------------------------------------------
-    # SEVERE
-    # --------------------------------------------------------
+    if not color:
+        return None
 
-    "Tornado Warning": {
-        "fill": "#FF0000",
-        "stroke": "#FF0000",
-    },
+    if len(color) < 3:
+        return None
 
-    "Severe Thunderstorm Warning": {
-        "fill": "#FFA500",
-        "stroke": "#FFA500",
-    },
+    r = color[0]
+    g = color[1]
+    b = color[2]
 
+    if len(color) >= 4:
 
-    # --------------------------------------------------------
-    # FLASH FLOOD / FLOOD
-    # --------------------------------------------------------
+        alpha = color[3] / 255.0
 
-    "Flash Flood Warning": {
-        "fill": "#8B0000",
-        "stroke": "#8B0000",
-    },
-
-    "Flash Flood Watch": {
-        "fill": "#2E8B57",
-        "stroke": "#2E8B57",
-    },
-
-    "Flood Warning": {
-        "fill": "#00FF00",
-        "stroke": "#00AA00",
-    },
-
-    "Flood Watch": {
-        "fill": "#2E8B57",
-        "stroke": "#2E8B57",
-    },
-
-    "Flood Advisory": {
-        "fill": "#00FF7F",
-        "stroke": "#00AA55",
-    },
-
-
-    # --------------------------------------------------------
-    # WATCHES
-    # --------------------------------------------------------
-
-    "Tornado Watch": {
-        "fill": "#FFFF00",
-        "stroke": "#FFFF00",
-    },
-
-    "Severe Thunderstorm Watch": {
-        "fill": "#DB7093",
-        "stroke": "#DB7093",
-    },
-
-
-    # --------------------------------------------------------
-    # FIRE
-    # --------------------------------------------------------
-
-    "Red Flag Warning": {
-        "fill": "#FF1493",
-        "stroke": "#FF1493",
-    },
-
-    "Fire Weather Watch": {
-        "fill": "#FFDEAD",
-        "stroke": "#FF8C00",
-    },
-
-    "Extreme Fire Danger": {
-        "fill": "#FF00FF",
-        "stroke": "#FF00FF",
-    },
-
-
-    # --------------------------------------------------------
-    # HEAT
-    # --------------------------------------------------------
-
-    "Heat Advisory": {
-        "fill": "#FF7F50",
-        "stroke": "#FF7F50",
-    },
-
-    "Extreme Heat Warning": {
-        "fill": "#C71585",
-        "stroke": "#C71585",
-    },
-
-    "Extreme Heat Watch": {
-        "fill": "#800000",
-        "stroke": "#800000",
-    },
-
-    "Excessive Heat Warning": {
-        "fill": "#C71585",
-        "stroke": "#C71585",
-    },
-
-    "Excessive Heat Watch": {
-        "fill": "#800000",
-        "stroke": "#800000",
-    },
-
-
-    # --------------------------------------------------------
-    # WINTER
-    # --------------------------------------------------------
-
-    "Blizzard Warning": {
-        "fill": "#FF4500",
-        "stroke": "#FF4500",
-    },
-
-    "Blizzard Watch": {
-        "fill": "#ADFF2F",
-        "stroke": "#ADFF2F",
-    },
-
-    "Winter Storm Warning": {
-        "fill": "#FF69B4",
-        "stroke": "#FF69B4",
-    },
-
-    "Winter Storm Watch": {
-        "fill": "#4682B4",
-        "stroke": "#4682B4",
-    },
-
-    "Winter Weather Advisory": {
-        "fill": "#7B68EE",
-        "stroke": "#7B68EE",
-    },
-
-    "Ice Storm Warning": {
-        "fill": "#8B008B",
-        "stroke": "#8B008B",
-    },
-
-    "Snow Squall Warning": {
-        "fill": "#C71585",
-        "stroke": "#C71585",
-    },
-
-    "Extreme Cold Warning": {
-        "fill": "#0000FF",
-        "stroke": "#0000FF",
-    },
-
-    "Extreme Cold Watch": {
-        "fill": "#5F9EA0",
-        "stroke": "#5F9EA0",
-    },
-
-    "Cold Weather Advisory": {
-        "fill": "#AFEEEE",
-        "stroke": "#5F9EA0",
-    },
-
-}
-
-
-# ============================================================
-# GENERIC COLORS BY GROUP
-# ============================================================
-
-GROUP_COLORS = {
-
-    "severe": {
-        "fill": "#FF0000",
-        "stroke": "#FFFFFF",
-    },
-
-    "watches": {
-        "fill": "#FFFF00",
-        "stroke": "#FFFFFF",
-    },
-
-    "flood": {
-        "fill": "#00FF00",
-        "stroke": "#FFFFFF",
-    },
-
-    "fire": {
-        "fill": "#FF1493",
-        "stroke": "#FFFFFF",
-    },
-
-    "heat": {
-        "fill": "#FF7F50",
-        "stroke": "#FFFFFF",
-    },
-
-    "winter": {
-        "fill": "#7B68EE",
-        "stroke": "#FFFFFF",
-    },
-
-    "other": {
-        "fill": "#BEBEBE",
-        "stroke": "#FFFFFF",
-    },
-
-}
-
-
-# ============================================================
-# GET PROPERTY SAFELY
-# ============================================================
-
-def get_property(
-    properties,
-    *names,
-):
-
-    for name in names:
-
-        value = properties.get(
-            name
+        return (
+            f"rgba("
+            f"{r},"
+            f"{g},"
+            f"{b},"
+            f"{alpha:.3f}"
+            f")"
         )
 
-        if (
-            value is not None
-            and
-            value != ""
-        ):
-
-            return value
-
-
-    return None
+    return f"rgb({r},{g},{b})"
 
 
 # ============================================================
-# DETERMINE HAZARD GROUP
+# REQUEST WITH RETRIES
 # ============================================================
 
-def classify_hazard(
-    product
+def request_json(
+    url,
+    params=None
 ):
-
-    if not product:
-
-        return "other"
-
-
-    product = str(
-        product
-    ).strip()
-
-
-    # ========================================================
-    # SEVERE WARNINGS
-    # ========================================================
-
-    if product in SEVERE_PRODUCTS:
-
-        return "severe"
-
-
-    # ========================================================
-    # SEVERE WATCHES
-    # ========================================================
-
-    if product in WATCH_PRODUCTS:
-
-        return "watches"
-
-
-    # ========================================================
-    # FLOOD
-    # ========================================================
-
-    if product in FLOOD_PRODUCTS:
-
-        return "flood"
-
-
-    # ========================================================
-    # FIRE
-    # ========================================================
-
-    if product in FIRE_PRODUCTS:
-
-        return "fire"
-
-
-    # ========================================================
-    # HEAT
-    # ========================================================
-
-    if product in HEAT_PRODUCTS:
-
-        return "heat"
-
-
-    # ========================================================
-    # WINTER
-    # ========================================================
-
-    if product in WINTER_PRODUCTS:
-
-        return "winter"
-
-
-    # ========================================================
-    # FALLBACK KEYWORD CLASSIFICATION
-    #
-    # Useful if NWS adds/renames a closely related product.
-    # ========================================================
-
-    lower = product.lower()
-
-
-    if (
-        "tornado" in lower
-        or
-        "severe thunderstorm" in lower
-    ):
-
-        if "watch" in lower:
-
-            return "watches"
-
-        return "severe"
-
-
-    if (
-        "flood" in lower
-    ):
-
-        return "flood"
-
-
-    if (
-        "fire" in lower
-        or
-        "red flag" in lower
-    ):
-
-        return "fire"
-
-
-    if (
-        "heat" in lower
-    ):
-
-        return "heat"
-
-
-    winter_keywords = [
-
-        "winter",
-
-        "snow",
-
-        "blizzard",
-
-        "ice storm",
-
-        "freezing rain",
-
-        "freezing fog",
-
-        "wind chill",
-
-        "extreme cold",
-
-        "cold weather",
-
-        "lake effect",
-
-    ]
-
-
-    if any(
-        keyword in lower
-        for keyword in winter_keywords
-    ):
-
-        return "winter"
-
-
-    return "other"
-
-
-# ============================================================
-# GET HAZARD COLOR
-# ============================================================
-
-def get_hazard_colors(
-    product,
-    hazard_group,
-):
-
-    if (
-        product
-        in HAZARD_COLORS
-    ):
-
-        return HAZARD_COLORS[
-            product
-        ]
-
-
-    return GROUP_COLORS.get(
-
-        hazard_group,
-
-        GROUP_COLORS[
-            "other"
-        ]
-
-    )
-
-
-# ============================================================
-# DOWNLOAD ONE WWA LAYER
-# ============================================================
-
-def fetch_layer(
-    layer_id,
-    source_layer,
-):
-
-    url = (
-        f"{NWS_WWA_MAPSERVER}/"
-        f"{layer_id}/query"
-    )
-
-
-    params = {
-
-        "where":
-            "1=1",
-
-        "outFields":
-            "*",
-
-        "returnGeometry":
-            "true",
-
-        "outSR":
-            "4326",
-
-        "f":
-            "geojson",
-
-    }
-
 
     last_error = None
-
 
     for attempt in range(
         1,
@@ -726,115 +210,360 @@ def fetch_layer(
 
         try:
 
-            print()
-            print("=" * 70)
-
             print(
-                "Downloading NWS hazards"
+                f"GET {url} "
+                f"(attempt {attempt}/"
+                f"{DOWNLOAD_ATTEMPTS})"
             )
-
-            print(
-                f"Layer ID: {layer_id}"
-            )
-
-            print(
-                f"Source type: {source_layer}"
-            )
-
-            print(
-                f"Attempt "
-                f"{attempt}/"
-                f"{DOWNLOAD_ATTEMPTS}"
-            )
-
-            print("=" * 70)
-
 
             response = requests.get(
-
                 url,
-
                 params=params,
-
-                timeout=
-                    REQUEST_TIMEOUT_SECONDS,
-
+                timeout=REQUEST_TIMEOUT_SECONDS
             )
-
 
             response.raise_for_status()
 
-
-            data = response.json()
-
-
-            if (
-                "features"
-                not in data
-            ):
-
-                raise RuntimeError(
-
-                    "NWS hazard response "
-                    "did not contain a features array."
-
-                )
-
-
-            print(
-                f"Downloaded "
-                f"{len(data['features'])} "
-                f"features."
-            )
-
-
-            return data
-
+            return response.json()
 
         except Exception as error:
 
             last_error = error
 
-
             print(
-                f"Attempt failed: "
-                f"{error}"
+                f"Request failed: {error}"
             )
 
-
-            if (
-                attempt
-                <
-                DOWNLOAD_ATTEMPTS
-            ):
-
-                print(
-                    f"Waiting "
-                    f"{RETRY_SLEEP_SECONDS} seconds..."
-                )
-
+            if attempt < DOWNLOAD_ATTEMPTS:
 
                 time.sleep(
                     RETRY_SLEEP_SECONDS
                 )
 
-
     raise RuntimeError(
-
-        f"Could not download NWS WWA "
-        f"layer {layer_id}: "
+        f"Request failed after "
+        f"{DOWNLOAD_ATTEMPTS} attempts: "
         f"{last_error}"
-
     )
 
 
 # ============================================================
-# NORMALIZE ONE FEATURE
+# DOWNLOAD OFFICIAL RENDERER
 # ============================================================
 
-def normalize_feature(
+def get_renderer(
+    layer_id
+):
+
+    print()
+    print(
+        f"Reading official renderer "
+        f"for layer {layer_id}..."
+    )
+
+    metadata = request_json(
+        f"{BASE_SERVICE}/{layer_id}",
+        {
+            "f": "json"
+        }
+    )
+
+    renderer = (
+        metadata
+        .get("drawingInfo", {})
+        .get("renderer", {})
+    )
+
+    renderer_type = (
+        renderer.get("type")
+    )
+
+    print(
+        f"Renderer type: "
+        f"{renderer_type}"
+    )
+
+    output = {}
+
+    for info in renderer.get(
+        "uniqueValueInfos",
+        []
+    ):
+
+        value = str(
+            info.get(
+                "value",
+                ""
+            )
+        ).strip()
+
+        if not value:
+            continue
+
+        symbol = (
+            info.get(
+                "symbol",
+                {}
+            )
+        )
+
+        fill_color = (
+            arcgis_color_to_css(
+                symbol.get(
+                    "color"
+                )
+            )
+        )
+
+        outline = (
+            symbol.get(
+                "outline",
+                {}
+            )
+        )
+
+        outline_color = (
+            arcgis_color_to_css(
+                outline.get(
+                    "color"
+                )
+            )
+        )
+
+        outline_width = (
+            outline.get(
+                "width",
+                0
+            )
+        )
+
+        output[value] = {
+
+            "label":
+                info.get(
+                    "label",
+                    value
+                ),
+
+            "fill":
+                fill_color,
+
+            "stroke":
+                outline_color,
+
+            "stroke_width":
+                outline_width
+
+        }
+
+    print(
+        f"Renderer categories found: "
+        f"{len(output)}"
+    )
+
+    return output
+
+
+# ============================================================
+# DOWNLOAD FEATURES
+# ============================================================
+
+def get_features(
+    layer_id
+):
+
+    print()
+    print("=" * 70)
+
+    print(
+        f"Downloading NWS layer "
+        f"{layer_id}"
+    )
+
+    print("=" * 70)
+
+    data = request_json(
+
+        f"{BASE_SERVICE}/"
+        f"{layer_id}/query",
+
+        {
+            "where":
+                "1=1",
+
+            "outFields":
+                "*",
+
+            "returnGeometry":
+                "true",
+
+            "outSR":
+                "4326",
+
+            "returnZ":
+                "false",
+
+            "f":
+                "geojson"
+        }
+
+    )
+
+    features = (
+        data.get(
+            "features",
+            []
+        )
+    )
+
+    print(
+        f"Downloaded "
+        f"{len(features)} features."
+    )
+
+    return features
+
+
+# ============================================================
+# CLASSIFY HAZARD
+# ============================================================
+
+def classify_hazard(
+    product
+):
+
+    if not product:
+        return "other"
+
+    product = str(
+        product
+    ).strip()
+
+    if product in SEVERE_PRODUCTS:
+        return "severe"
+
+    if product in WATCH_PRODUCTS:
+        return "watches"
+
+    if product in FLOOD_PRODUCTS:
+        return "flood"
+
+    if product in FIRE_PRODUCTS:
+        return "fire"
+
+    if product in HEAT_PRODUCTS:
+        return "heat"
+
+    if product in WINTER_PRODUCTS:
+        return "winter"
+
+
+    # ========================================================
+    # FALLBACK CLASSIFICATION
+    # ========================================================
+
+    lower = product.lower()
+
+    if (
+        "tornado" in lower
+        or
+        "severe thunderstorm" in lower
+    ):
+
+        if "watch" in lower:
+            return "watches"
+
+        return "severe"
+
+
+    if "flood" in lower:
+        return "flood"
+
+
+    if (
+        "red flag" in lower
+        or
+        "fire" in lower
+    ):
+        return "fire"
+
+
+    if "heat" in lower:
+        return "heat"
+
+
+    winter_words = [
+
+        "winter",
+        "snow",
+        "blizzard",
+        "ice",
+        "freezing",
+        "wind chill",
+        "extreme cold",
+        "cold weather",
+        "lake effect"
+
+    ]
+
+    if any(
+        word in lower
+        for word in winter_words
+    ):
+        return "winter"
+
+
+    return "other"
+
+
+# ============================================================
+# CURRENT WARNING CODE
+#
+# Layer 0 renderer is based on:
+#
+#   phenom + "," + sig
+#
+# Examples:
+#
+#   TO,W
+#   SV,W
+#   FF,W
+#   SQ,W
+#   MA,W
+# ============================================================
+
+def make_warning_code(
+    properties
+):
+
+    phenom = (
+        properties.get(
+            "phenom"
+        )
+        or
+        ""
+    )
+
+    sig = (
+        properties.get(
+            "sig"
+        )
+        or
+        ""
+    )
+
+    return (
+        f"{phenom},{sig}"
+    )
+
+
+# ============================================================
+# NORMALIZE CURRENT WARNING
+# ============================================================
+
+def normalize_current_warning(
     feature,
-    source_layer,
+    renderer
 ):
 
     properties = (
@@ -845,240 +574,246 @@ def normalize_feature(
         or {}
     )
 
-
-    # ========================================================
-    # PRODUCT TYPE
-    # ========================================================
-
-    product = get_property(
-
-        properties,
-
-        "prod_type",
-
-        "event",
-
-        "product",
-
-        "EVENT",
-
-        "PROD_TYPE",
-
+    product = (
+        properties.get(
+            "prod_type"
+        )
+        or
+        "Unknown"
     )
 
+    warning_code = (
+        make_warning_code(
+            properties
+        )
+    )
 
-    if product is not None:
-
-        product = str(
-            product
-        ).strip()
-
-
-    # ========================================================
-    # GROUP
-    # ========================================================
-
-    hazard_group = (
-        classify_hazard(
-            product
+    style = (
+        renderer.get(
+            warning_code,
+            {}
         )
     )
 
 
     # ========================================================
-    # COLORS
+    # FALLBACK WARNING COLORS
     # ========================================================
 
-    colors = (
-        get_hazard_colors(
+    fallback_strokes = {
 
-            product,
+        "TO,W":
+            "rgb(255,0,0)",
 
-            hazard_group
+        "SV,W":
+            "rgb(255,255,0)",
 
-        )
-    )
+        "FF,W":
+            "rgb(57,121,57)",
 
+        "SQ,W":
+            "rgb(199,21,133)",
 
-    # ========================================================
-    # COMMON PROPERTIES
-    # ========================================================
+        "MA,W":
+            "rgb(230,152,0)"
+
+    }
+
 
     properties[
         "source_layer"
-    ] = source_layer
+    ] = "current_warnings"
 
 
     properties[
         "hazard"
-    ] = product or "Unknown"
+    ] = product
 
 
     properties[
         "hazard_group"
-    ] = hazard_group
+    ] = classify_hazard(
+        product
+    )
 
 
     properties[
+        "warning_code"
+    ] = warning_code
+
+
+    # CurrentWarnings are intentionally transparent.
+
+    properties[
         "fill"
-    ] = colors[
-        "fill"
-    ]
+    ] = "rgba(0,0,0,0)"
 
 
     properties[
         "stroke"
-    ] = colors[
-        "stroke"
-    ]
-
-
-    # ========================================================
-    # MESSAGE TYPE
-    # ========================================================
-
-    msg_type = get_property(
-
-        properties,
-
-        "msg_type",
-
-        "message_type",
-
-        "MSG_TYPE",
-
+    ] = (
+        style.get(
+            "stroke"
+        )
+        or
+        fallback_strokes.get(
+            warning_code,
+            "rgb(255,255,255)"
+        )
     )
 
 
-    if msg_type is not None:
-
-        properties[
-            "message_type"
-        ] = str(
-            msg_type
+    properties[
+        "stroke_width"
+    ] = (
+        style.get(
+            "stroke_width",
+            2
         )
-
-
-    # ========================================================
-    # PHENOMENON
-    # ========================================================
-
-    phenom = get_property(
-
-        properties,
-
-        "phenom",
-
-        "phenomena",
-
-        "PHENOM",
-
     )
-
-
-    if phenom is not None:
-
-        properties[
-            "phenom"
-        ] = str(
-            phenom
-        )
 
 
     feature[
         "properties"
     ] = properties
 
+    return feature
+
+
+# ============================================================
+# NORMALIZE WATCH / WARNING / ADVISORY
+# ============================================================
+
+def normalize_wwa(
+    feature,
+    renderer
+):
+
+    properties = (
+        feature.get(
+            "properties",
+            {}
+        )
+        or {}
+    )
+
+    product = (
+        properties.get(
+            "prod_type"
+        )
+        or
+        "Unknown"
+    )
+
+    product = str(
+        product
+    ).strip()
+
+
+    style = (
+        renderer.get(
+            product,
+            {}
+        )
+    )
+
+
+    properties[
+        "source_layer"
+    ] = "watches_warnings"
+
+
+    properties[
+        "hazard"
+    ] = product
+
+
+    properties[
+        "hazard_group"
+    ] = classify_hazard(
+        product
+    )
+
+
+    properties[
+        "fill"
+    ] = (
+        style.get(
+            "fill"
+        )
+        or
+        "rgb(128,128,128)"
+    )
+
+
+    properties[
+        "stroke"
+    ] = (
+        style.get(
+            "stroke"
+        )
+        or
+        "rgb(110,110,110)"
+    )
+
+
+    properties[
+        "stroke_width"
+    ] = (
+        style.get(
+            "stroke_width",
+            0
+        )
+    )
+
+
+    feature[
+        "properties"
+    ] = properties
 
     return feature
 
 
 # ============================================================
-# NORMALIZE ONE LAYER
+# VALID POLYGON?
 # ============================================================
 
-def normalize_layer(
-    data,
-    source_layer,
+def valid_polygon(
+    feature
 ):
 
-    cleaned_features = []
-
-
-    for feature in data.get(
-        "features",
-        []
-    ):
-
-        geometry = (
-            feature.get(
-                "geometry"
-            )
+    geometry = (
+        feature.get(
+            "geometry"
         )
+    )
 
+    if not geometry:
+        return False
 
-        # ====================================================
-        # SKIP FEATURES WITHOUT POLYGON GEOMETRY
-        # ====================================================
-
-        if not geometry:
-
-            continue
-
-
-        geometry_type = (
-            geometry.get(
-                "type"
-            )
+    return (
+        geometry.get(
+            "type"
         )
-
-
-        if (
-            geometry_type
-            not in
-            (
-                "Polygon",
-                "MultiPolygon",
-            )
-        ):
-
-            continue
-
-
-        cleaned_feature = (
-            normalize_feature(
-
-                feature,
-
-                source_layer
-
-            )
+        in
+        (
+            "Polygon",
+            "MultiPolygon"
         )
-
-
-        cleaned_features.append(
-            cleaned_feature
-        )
-
-
-    return cleaned_features
+    )
 
 
 # ============================================================
-# REMOVE DUPLICATE FEATURES
-#
-# Because some active warnings may appear in both service
-# layers, use CAP ID / object ID / geometry as a fallback.
+# REMOVE DUPLICATES WITHIN EACH SOURCE
 # ============================================================
 
-def deduplicate_features(
+def deduplicate(
     features
 ):
 
-    output = []
-
     seen = set()
 
+    output = []
 
     for feature in features:
 
@@ -1089,6 +824,17 @@ def deduplicate_features(
             )
         )
 
+        source_layer = (
+            properties.get(
+                "source_layer"
+            )
+        )
+
+        cap_id = (
+            properties.get(
+                "cap_id"
+            )
+        )
 
         geometry = (
             feature.get(
@@ -1096,296 +842,43 @@ def deduplicate_features(
             )
         )
 
-
-        cap_id = get_property(
-
-            properties,
-
-            "cap_id",
-
-            "CAP_ID",
-
-            "id",
-
-            "identifier",
-
-        )
-
-
         if cap_id:
 
             key = (
-                "cap",
-                str(
-                    cap_id
-                ),
+                source_layer,
+                cap_id
             )
-
 
         else:
 
-            product = (
-                properties.get(
-                    "hazard"
-                )
-            )
-
-
-            start = get_property(
-
-                properties,
-
-                "onset",
-
-                "start",
-
-                "issue",
-
-                "issue_time",
-
-            )
-
-
-            end = get_property(
-
-                properties,
-
-                "expires",
-
-                "end",
-
-                "expire",
-
-                "end_time",
-
-            )
-
-
-            geometry_text = (
-                json.dumps(
-
-                    geometry,
-
-                    sort_keys=True,
-
-                    separators=(
-                        ",",
-                        ":",
-                    )
-
-                )
-            )
-
-
             key = (
 
-                "fallback",
+                source_layer,
 
-                product,
-
-                str(
-                    start
+                properties.get(
+                    "hazard"
                 ),
 
-                str(
-                    end
-                ),
-
-                geometry_text,
+                json.dumps(
+                    geometry,
+                    sort_keys=True,
+                    separators=(",", ":")
+                )
 
             )
 
-
         if key in seen:
-
             continue
-
 
         seen.add(
             key
         )
 
-
         output.append(
             feature
         )
 
-
     return output
-
-
-# ============================================================
-# PRINT SUMMARY
-# ============================================================
-
-def print_summary(
-    features
-):
-
-    groups = {
-
-        "severe": 0,
-
-        "watches": 0,
-
-        "flood": 0,
-
-        "fire": 0,
-
-        "heat": 0,
-
-        "winter": 0,
-
-        "other": 0,
-
-    }
-
-
-    product_counts = {}
-
-
-    for feature in features:
-
-        properties = (
-            feature.get(
-                "properties",
-                {}
-            )
-        )
-
-
-        group = (
-            properties.get(
-                "hazard_group",
-                "other"
-            )
-        )
-
-
-        hazard = (
-            properties.get(
-                "hazard",
-                "Unknown"
-            )
-        )
-
-
-        groups[
-            group
-        ] = (
-            groups.get(
-                group,
-                0
-            )
-            +
-            1
-        )
-
-
-        product_counts[
-            hazard
-        ] = (
-            product_counts.get(
-                hazard,
-                0
-            )
-            +
-            1
-        )
-
-
-    print()
-    print("=" * 70)
-
-    print(
-        "NWS HAZARD SUMMARY"
-    )
-
-    print("=" * 70)
-
-
-    print(
-        f"Total polygons: "
-        f"{len(features)}"
-    )
-
-
-    print()
-
-
-    for group, count in groups.items():
-
-        print(
-            f"{group}: "
-            f"{count}"
-        )
-
-
-    print()
-    print(
-        "Active products:"
-    )
-
-
-    for product in sorted(
-        product_counts
-    ):
-
-        print(
-
-            f"  {product}: "
-            f"{product_counts[product]}"
-
-        )
-
-
-# ============================================================
-# WRITE GEOJSON
-# ============================================================
-
-def write_geojson(
-    features
-):
-
-    output_data = {
-
-        "type":
-            "FeatureCollection",
-
-        "features":
-            features,
-
-    }
-
-
-    with OUTPUT_FILE.open(
-
-        "w",
-
-        encoding=
-            "utf-8"
-
-    ) as file:
-
-        json.dump(
-
-            output_data,
-
-            file,
-
-            separators=(
-                ",",
-                ":",
-            )
-
-        )
-
-
-    print()
-    print(
-        f"Wrote: "
-        f"{OUTPUT_FILE}"
-    )
 
 
 # ============================================================
@@ -1398,152 +891,220 @@ def main():
     print("=" * 70)
 
     print(
-        "NWS WATCHES / WARNINGS / "
-        "ADVISORIES UPDATE"
+        "NWS WATCH / WARNING / "
+        "ADVISORY UPDATE"
     )
 
     print("=" * 70)
 
 
-    print()
-    print(
-        f"Output file: "
-        f"{OUTPUT_FILE}"
+    # ========================================================
+    # READ OFFICIAL NWS RENDERERS
+    # ========================================================
+
+    warning_renderer = (
+        get_renderer(
+            0
+        )
+    )
+
+    wwa_renderer = (
+        get_renderer(
+            1
+        )
     )
 
 
-    all_features = []
+    # ========================================================
+    # DOWNLOAD DATA
+    # ========================================================
+
+    current_warnings = (
+        get_features(
+            0
+        )
+    )
+
+    watches_warnings = (
+        get_features(
+            1
+        )
+    )
 
 
-    successful_layers = 0
+    output_features = []
 
 
     # ========================================================
-    # DOWNLOAD BOTH WWA LAYERS
+    # CURRENT WARNINGS
     # ========================================================
 
-    for layer_config in (
-        NWS_WWA_LAYERS
-    ):
+    for feature in current_warnings:
 
-        layer_id = (
-            layer_config[
-                "layer_id"
+        if not valid_polygon(
+            feature
+        ):
+            continue
+
+        output_features.append(
+
+            normalize_current_warning(
+                feature,
+                warning_renderer
+            )
+
+        )
+
+
+    # ========================================================
+    # WATCHES / WARNINGS / ADVISORIES
+    # ========================================================
+
+    for feature in watches_warnings:
+
+        if not valid_polygon(
+            feature
+        ):
+            continue
+
+        output_features.append(
+
+            normalize_wwa(
+                feature,
+                wwa_renderer
+            )
+
+        )
+
+
+    output_features = (
+        deduplicate(
+            output_features
+        )
+    )
+
+
+    # ========================================================
+    # COUNTS
+    # ========================================================
+
+    group_counts = {}
+
+    source_counts = {}
+
+
+    for feature in output_features:
+
+        properties = (
+            feature[
+                "properties"
             ]
         )
 
-
-        source_layer = (
-            layer_config[
-                "source_layer"
-            ]
+        group = (
+            properties.get(
+                "hazard_group",
+                "other"
+            )
         )
 
-
-        try:
-
-            data = (
-                fetch_layer(
-
-                    layer_id,
-
-                    source_layer
-
-                )
+        source = (
+            properties.get(
+                "source_layer",
+                "unknown"
             )
+        )
 
-
-            features = (
-                normalize_layer(
-
-                    data,
-
-                    source_layer
-
-                )
+        group_counts[group] = (
+            group_counts.get(
+                group,
+                0
             )
+            +
+            1
+        )
 
-
-            print(
-                f"Valid polygon features "
-                f"from layer {layer_id}: "
-                f"{len(features)}"
+        source_counts[source] = (
+            source_counts.get(
+                source,
+                0
             )
-
-
-            all_features.extend(
-                features
-            )
-
-
-            successful_layers += 1
-
-
-        except Exception as error:
-
-            print()
-            print(
-                f"ERROR downloading "
-                f"NWS layer {layer_id}:"
-            )
-
-            print(
-                error
-            )
-
-
-    # ========================================================
-    # FAIL ONLY IF BOTH SERVICE LAYERS FAILED
-    # ========================================================
-
-    if (
-        successful_layers
-        ==
-        0
-    ):
-
-        raise RuntimeError(
-
-            "Both NWS WWA layers failed."
-
+            +
+            1
         )
 
 
     # ========================================================
-    # REMOVE DUPLICATES
+    # WRITE GEOJSON
     # ========================================================
 
-    all_features = (
-        deduplicate_features(
-            all_features
+    output_data = {
+
+        "type":
+            "FeatureCollection",
+
+        "features":
+            output_features
+
+    }
+
+
+    with OUTPUT_FILE.open(
+        "w",
+        encoding="utf-8"
+    ) as file:
+
+        json.dump(
+            output_data,
+            file,
+            separators=(",", ":")
         )
+
+
+    print()
+    print("=" * 70)
+
+    print(
+        "OUTPUT SUMMARY"
+    )
+
+    print("=" * 70)
+
+
+    print(
+        f"Current warning polygons: "
+        f"{source_counts.get('current_warnings', 0)}"
     )
 
 
-    # ========================================================
-    # WRITE FILE
-    #
-    # Zero features is allowed. It simply means no active
-    # polygons were returned at that moment.
-    # ========================================================
-
-    write_geojson(
-        all_features
+    print(
+        f"WWA polygons: "
+        f"{source_counts.get('watches_warnings', 0)}"
     )
 
 
-    # ========================================================
-    # SUMMARY
-    # ========================================================
-
-    print_summary(
-        all_features
+    print(
+        f"Total polygons: "
+        f"{len(output_features)}"
     )
 
 
     print()
+
+
+    for group in sorted(
+        group_counts
+    ):
+
+        print(
+            f"{group}: "
+            f"{group_counts[group]}"
+        )
+
+
+    print()
     print(
-        "NWS hazards update complete."
+        f"Wrote: {OUTPUT_FILE}"
     )
 
 
@@ -1552,5 +1113,4 @@ def main():
 # ============================================================
 
 if __name__ == "__main__":
-
     main()
