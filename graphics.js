@@ -3,7 +3,7 @@
 // ============================================================
 
 mapboxgl.accessToken =
-    "YOUR_EXISTING_MAPBOX_TOKEN";
+    "pk.eyJ1IjoibWF0dGhld2xhYmVuejciLCJhIjoiY21zbjhxZ3ZkMXBoNDJ3cHl5eG5uNzlpZCJ9.UBy4k84SejJzzu2VF0TtcA";
 
 
 // ============================================================
