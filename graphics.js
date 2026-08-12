@@ -6467,7 +6467,118 @@ function setupUiEvents() {
 
             };
 
+    // ========================================================
+    // NWS SEVERE WARNINGS
+    // ========================================================
 
+    document
+        .getElementById(
+            "nws-severe-toggle"
+        )
+        .onchange =
+            event => {
+
+                overlayState.nwsSevere =
+                    event.target.checked;
+
+                refreshOverlayMaps();
+
+            };
+
+
+    // ========================================================
+    // NWS SEVERE WATCHES
+    // ========================================================
+
+    document
+        .getElementById(
+            "nws-watches-toggle"
+        )
+        .onchange =
+            event => {
+
+                overlayState.nwsWatches =
+                    event.target.checked;
+
+                refreshOverlayMaps();
+
+            };
+
+
+    // ========================================================
+    // NWS FLOOD
+    // ========================================================
+
+    document
+        .getElementById(
+            "nws-flood-toggle"
+        )
+        .onchange =
+            event => {
+
+                overlayState.nwsFlood =
+                    event.target.checked;
+
+                refreshOverlayMaps();
+
+            };
+
+
+    // ========================================================
+    // NWS FIRE WEATHER
+    // ========================================================
+
+    document
+        .getElementById(
+            "nws-fire-toggle"
+        )
+        .onchange =
+            event => {
+
+                overlayState.nwsFire =
+                    event.target.checked;
+
+                refreshOverlayMaps();
+
+            };
+
+
+    // ========================================================
+    // NWS HEAT
+    // ========================================================
+
+    document
+        .getElementById(
+            "nws-heat-toggle"
+        )
+        .onchange =
+            event => {
+
+                overlayState.nwsHeat =
+                    event.target.checked;
+
+                refreshOverlayMaps();
+
+            };
+
+
+    // ========================================================
+    // NWS WINTER
+    // ========================================================
+
+    document
+        .getElementById(
+            "nws-winter-toggle"
+        )
+        .onchange =
+            event => {
+
+                overlayState.nwsWinter =
+                    event.target.checked;
+
+                refreshOverlayMaps();
+
+            };
     // ========================================================
     // WPC DAY 1
     // ========================================================
