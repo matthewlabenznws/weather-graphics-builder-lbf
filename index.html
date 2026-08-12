@@ -12,10 +12,12 @@
 
     <title>NWS North Platte Weather Graphics</title>
 
+
     <link
         href="https://api.mapbox.com/mapbox-gl-js/v3.25.0/mapbox-gl.css"
         rel="stylesheet"
     >
+
 
     <link
         rel="stylesheet"
@@ -24,12 +26,23 @@
 
 </head>
 
+
 <body>
+
+
+    <!-- =====================================================
+         SINGLE MODEL MAP
+         ===================================================== -->
 
     <div
         id="single-map"
         class="map-panel"
     ></div>
+
+
+    <!-- =====================================================
+         COMPARISON MAPS
+         ===================================================== -->
 
     <div
         id="comparison-container"
@@ -42,6 +55,7 @@
                 id="left-map"
                 class="compare-map"
             ></div>
+
 
             <div class="compare-panel-label">
 
@@ -57,7 +71,9 @@
 
         </div>
 
+
         <div class="compare-divider"></div>
+
 
         <div class="compare-panel">
 
@@ -65,6 +81,7 @@
                 id="right-map"
                 class="compare-map"
             ></div>
+
 
             <div class="compare-panel-label">
 
@@ -82,17 +99,32 @@
 
     </div>
 
+
+    <!-- =====================================================
+         OVERLAYS
+         ===================================================== -->
+
     <div id="overlay-menu">
 
+
         <button id="overlay-menu-button">
+
             Overlays ▼
+
         </button>
 
+
         <div id="overlay-menu-content">
+
+
+            <!-- =================================================
+                 SPC SEVERE
+                 ================================================= -->
 
             <div class="overlay-section-title">
                 SPC Severe Outlooks
             </div>
+
 
             <label class="overlay-row">
 
@@ -106,6 +138,7 @@
 
             </label>
 
+
             <label class="overlay-row">
 
                 <input
@@ -116,6 +149,7 @@
                 Day 2 Categorical
 
             </label>
+
 
             <label class="overlay-row">
 
@@ -129,9 +163,14 @@
             </label>
 
 
+            <!-- =================================================
+                 SPC FIRE WEATHER
+                 ================================================= -->
+
             <div class="overlay-section-title">
                 SPC Fire Weather
             </div>
+
 
             <label class="overlay-row">
 
@@ -143,6 +182,7 @@
                 Day 1 Fire Weather
 
             </label>
+
 
             <label class="overlay-row">
 
@@ -156,9 +196,14 @@
             </label>
 
 
+            <!-- =================================================
+                 WPC EXCESSIVE RAINFALL
+                 ================================================= -->
+
             <div class="overlay-section-title">
                 WPC Excessive Rainfall
             </div>
+
 
             <label class="overlay-row">
 
@@ -171,6 +216,7 @@
 
             </label>
 
+
             <label class="overlay-row">
 
                 <input
@@ -181,6 +227,7 @@
                 Day 2 ERO
 
             </label>
+
 
             <label class="overlay-row">
 
@@ -194,9 +241,95 @@
             </label>
 
 
+            <!-- =================================================
+                 NWS HAZARDS
+                 ================================================= -->
+
+            <div class="overlay-section-title">
+                NWS Hazards
+            </div>
+
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="nws-severe-toggle"
+                >
+
+                Severe Warnings
+
+            </label>
+
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="nws-watches-toggle"
+                >
+
+                Severe Watches
+
+            </label>
+
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="nws-flood-toggle"
+                >
+
+                Flood Headlines
+
+            </label>
+
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="nws-fire-toggle"
+                >
+
+                Fire Weather Headlines
+
+            </label>
+
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="nws-heat-toggle"
+                >
+
+                Heat Headlines
+
+            </label>
+
+
+            <label class="overlay-row">
+
+                <input
+                    type="checkbox"
+                    id="nws-winter-toggle"
+                >
+
+                Winter Headlines
+
+            </label>
+
+
+            <!-- =================================================
+                 NWS
+                 ================================================= -->
+
             <div class="overlay-section-title">
                 NWS
             </div>
+
 
             <label class="overlay-row">
 
@@ -211,9 +344,14 @@
             </label>
 
 
+            <!-- =================================================
+                 BOUNDARIES
+                 ================================================= -->
+
             <div class="overlay-section-title">
                 Boundaries
             </div>
+
 
             <label class="overlay-row">
 
@@ -227,6 +365,7 @@
 
             </label>
 
+
             <label class="overlay-row">
 
                 <input
@@ -239,10 +378,15 @@
 
             </label>
 
+
         </div>
 
     </div>
 
+
+    <!-- =====================================================
+         VALID TIME
+         ===================================================== -->
 
     <div
         id="model-valid-label"
@@ -254,7 +398,12 @@
     </div>
 
 
+    <!-- =====================================================
+         OFFICE BRANDING
+         ===================================================== -->
+
     <div id="office-branding">
+
 
         <img
             id="office-logo"
@@ -262,11 +411,16 @@
             alt="NOAA and National Weather Service logos"
         >
 
+
         <div id="office-name">
+
             NWS North Platte, NE
+
         </div>
 
+
         <div id="viewer-controls">
+
 
             <select id="viewer-mode-select">
 
@@ -306,10 +460,15 @@
 
             </select>
 
+
         </div>
 
     </div>
 
+
+    <!-- =====================================================
+         GRAPHICS CREDIT
+         ===================================================== -->
 
     <div id="graphics-credit">
 
@@ -318,10 +477,15 @@
     </div>
 
 
+    <!-- =====================================================
+         MODEL TIMELINE
+         ===================================================== -->
+
     <div
         id="model-timeline"
         class="model-ui"
     >
+
 
         <button
             id="model-play-button"
@@ -331,6 +495,7 @@
             ▶
         </button>
 
+
         <button
             id="model-prev-button"
             class="timeline-control-button"
@@ -339,7 +504,9 @@
             ‹
         </button>
 
+
         <div id="model-hour-list"></div>
+
 
         <button
             id="model-next-button"
@@ -349,14 +516,25 @@
             ›
         </button>
 
+
     </div>
 
+
+    <!-- =====================================================
+         MAPBOX
+         ===================================================== -->
 
     <script
         src="https://api.mapbox.com/mapbox-gl-js/v3.25.0/mapbox-gl.js"
     ></script>
 
+
+    <!-- =====================================================
+         GRAPHICS
+         ===================================================== -->
+
     <script src="graphics.js"></script>
+
 
 </body>
 
