@@ -158,6 +158,9 @@ const overlayState = {
     fireDay2:
         false,
 
+    nwsAll:
+    false,
+
     nwsSevere:
         false,
 
