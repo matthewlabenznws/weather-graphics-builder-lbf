@@ -166,10 +166,30 @@ const overlayState = {
 
     fireDay2:
         false,
+    
+    nwsSevere:
+        false,
 
+    nwsWatches:
+        false,
+
+    nwsFlood:
+        false,
+
+    nwsFire:
+        false,
+
+    nwsHeat:
+        false,
+
+nwsWinter:
+    false,
+
+cwa:
+    true,
     cwa:
         true,
-
+    
     counties:
         true,
 
@@ -924,6 +944,260 @@ function addSpcFireWeather(
 
 }
 
+// ============================================================
+// ADD NWS HAZARDS
+// ============================================================
+
+function addNwsHazards(
+    map,
+    roadLayer
+) {
+
+    if (
+        !map.getSource(
+            "nws-hazards"
+        )
+    ) {
+
+        map.addSource(
+
+            "nws-hazards",
+
+            {
+                type:
+                    "geojson",
+
+                data:
+                    "data/nws_hazards.geojson"
+            }
+
+        );
+
+    }
+
+
+    const groups = [
+
+        {
+            key: "severe",
+            id: "nws-severe"
+        },
+
+        {
+            key: "watches",
+            id: "nws-watches"
+        },
+
+        {
+            key: "flood",
+            id: "nws-flood"
+        },
+
+        {
+            key: "fire",
+            id: "nws-fire"
+        },
+
+        {
+            key: "heat",
+            id: "nws-heat"
+        },
+
+        {
+            key: "winter",
+            id: "nws-winter"
+        }
+
+    ];
+
+
+    groups.forEach(
+        group => {
+
+            const fillId =
+                `${group.id}-fill`;
+
+            const darkId =
+                `${group.id}-outline-dark`;
+
+            const outlineId =
+                `${group.id}-outline`;
+
+
+            const filter = [
+
+                "==",
+
+                [
+                    "get",
+                    "hazard_group"
+                ],
+
+                group.key
+
+            ];
+
+
+            map.addLayer(
+
+                {
+
+                    id:
+                        fillId,
+
+                    type:
+                        "fill",
+
+                    source:
+                        "nws-hazards",
+
+                    filter:
+                        filter,
+
+                    paint: {
+
+                        "fill-color": [
+
+                            "coalesce",
+
+                            [
+                                "get",
+                                "fill"
+                            ],
+
+                            "#888888"
+
+                        ],
+
+                        "fill-opacity":
+                            0.42
+
+                    }
+
+                },
+
+                roadLayer
+
+            );
+
+
+            map.addLayer(
+
+                {
+
+                    id:
+                        darkId,
+
+                    type:
+                        "line",
+
+                    source:
+                        "nws-hazards",
+
+                    filter:
+                        filter,
+
+                    paint: {
+
+                        "line-color":
+                            "#111111",
+
+                        "line-width": [
+
+                            "interpolate",
+
+                            [
+                                "linear"
+                            ],
+
+                            [
+                                "zoom"
+                            ],
+
+                            4, 2.6,
+
+                            6, 3.4,
+
+                            8, 4.2,
+
+                            10, 5.0
+
+                        ]
+
+                    }
+
+                },
+
+                roadLayer
+
+            );
+
+
+            map.addLayer(
+
+                {
+
+                    id:
+                        outlineId,
+
+                    type:
+                        "line",
+
+                    source:
+                        "nws-hazards",
+
+                    filter:
+                        filter,
+
+                    paint: {
+
+                        "line-color": [
+
+                            "coalesce",
+
+                            [
+                                "get",
+                                "stroke"
+                            ],
+
+                            "#ffffff"
+
+                        ],
+
+                        "line-width": [
+
+                            "interpolate",
+
+                            [
+                                "linear"
+                            ],
+
+                            [
+                                "zoom"
+                            ],
+
+                            4, 1.6,
+
+                            6, 2.2,
+
+                            8, 2.8,
+
+                            10, 3.4
+
+                        ]
+
+                    }
+
+                },
+
+                roadLayer
+
+            );
+
+        }
+    );
+
+}
 
 // ============================================================
 // ADD WPC ERO
@@ -1212,7 +1486,15 @@ function setupMapLayers(
         roadLayer
     );
 
+    // ========================================================
+    // NWS HAZARDS
+    // ========================================================
 
+    addNwsHazards(
+        map,
+        roadLayer
+    );
+    
     // ========================================================
     // WPC ERO DAY 1-3
     // ========================================================
@@ -1839,8 +2121,119 @@ function applyOverlayStateToMap(
         overlayState.fireDay2
 
     );
+    // ========================================================
+    // NWS SEVERE WARNINGS
+    // ========================================================
+
+    setLayerVisibility(
+
+        map,
+
+        [
+            "nws-severe-fill",
+            "nws-severe-outline-dark",
+            "nws-severe-outline"
+        ],
+
+        overlayState.nwsSevere
+
+    );
 
 
+    // ========================================================
+    // NWS SEVERE WATCHES
+    // ========================================================
+
+    setLayerVisibility(
+
+        map,
+
+        [
+            "nws-watches-fill",
+            "nws-watches-outline-dark",
+            "nws-watches-outline"
+        ],
+
+        overlayState.nwsWatches
+
+    );
+
+
+    // ========================================================
+    // NWS FLOOD
+    // ========================================================
+
+    setLayerVisibility(
+
+        map,
+
+        [
+        "nws-flood-fill",
+        "nws-flood-outline-dark",
+        "nws-flood-outline"
+        ],
+
+        overlayState.nwsFlood
+
+    );
+
+
+    // ========================================================
+    // NWS FIRE WEATHER
+    // ========================================================
+
+    setLayerVisibility(
+
+        map,
+
+        [
+            "nws-fire-fill",
+            "nws-fire-outline-dark",
+            "nws-fire-outline"
+        ],
+
+        overlayState.nwsFire
+
+    );
+
+
+    // ========================================================
+    // NWS HEAT
+    // ========================================================
+
+    setLayerVisibility(
+
+        map,
+
+        [
+            "nws-heat-fill",
+            "nws-heat-outline-dark",
+            "nws-heat-outline"
+        ],
+
+        overlayState.nwsHeat
+
+    );
+
+
+    // ========================================================
+    // NWS WINTER
+    // ========================================================
+
+    setLayerVisibility(
+
+        map,
+
+        [
+            "nws-winter-fill",
+            "nws-winter-outline-dark",
+            "nws-winter-outline"
+        ],
+
+        overlayState.nwsWinter
+
+    );
+    
     // ========================================================
     // WPC DAY 1
     // ========================================================
