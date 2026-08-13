@@ -8260,7 +8260,7 @@ async function createExportCanvas(
 
         ctx.fillText(
 
-            "Weather Graphics Builder",
+            "Graphics created by: Matthew Labenz",
 
             titleX,
 
