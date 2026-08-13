@@ -1,173 +1,585 @@
+#!/usr/bin/env python3
+
 # ============================================================
+# NWS LBF WEATHER GRAPHICS BUILDER
 # METAR OBSERVATION UPDATER
 #
-# Source:
-#   Aviation Weather Center Data API
+# Data source:
+# Aviation Weather Center METAR cache
 #
 # Output:
-#   data/metar.geojson
-#
-# Expected properties for graphics.js:
-#
-#   station
-#   temp_f
-#   dewpoint_f
-#   rh
-#   wind_dir_deg
-#   wind_speed_mph
-#   wind_gust_mph
-#
+# data/metars.geojson
 # ============================================================
 
+from __future__ import annotations
+
+import gzip
+import io
 import json
 import math
+import os
+import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
+import pandas as pd
 import requests
 
 
 # ============================================================
-# AWC METAR API
+# CONFIGURATION
 # ============================================================
 
-METAR_API_URL = (
-    "https://aviationweather.gov/api/data/metar"
+METAR_CACHE_URL = (
+    "https://aviationweather.gov/"
+    "data/cache/metars.cache.csv.gz"
 )
 
-
-# ============================================================
-# OUTPUT
-# ============================================================
-
-BASE_DIR = (
-    Path(__file__)
-    .resolve()
-    .parent
-)
-
-
-DATA_DIR = (
-    BASE_DIR
-    / "data"
-)
-
-
-DATA_DIR.mkdir(
-    parents=True,
-    exist_ok=True
-)
-
-
-OUTPUT_FILE = (
-    DATA_DIR
-    / "metar.geojson"
-)
+OUTPUT_FILE = Path("data/metars.geojson")
 
 
 # ============================================================
-# DOMAIN
+# MAP DOMAIN
 #
-# Large enough to cover the LBF graphics area and surrounding
-# stations.
-#
-# Change these later if you want a larger domain.
+# Central Plains / surrounding region.
+# Change these later if you want.
 # ============================================================
 
 WEST = -106.0
 EAST = -95.0
+
 SOUTH = 36.5
 NORTH = 46.5
 
 
 # ============================================================
-# REQUEST SETTINGS
+# AGE LIMIT
+#
+# The AWC cache contains current observations, but this provides
+# another safeguard against plotting old stations.
 # ============================================================
 
-REQUEST_TIMEOUT_SECONDS = 60
+MAX_OBSERVATION_AGE_HOURS = 3.0
 
-DOWNLOAD_ATTEMPTS = 4
 
-RETRY_SLEEP_SECONDS = 5
+# ============================================================
+# NETWORK SETTINGS
+# ============================================================
+
+REQUEST_TIMEOUT_SECONDS = 90
+
+MAX_DOWNLOAD_ATTEMPTS = 5
+
+RETRY_WAIT_SECONDS = 10
 
 
 HEADERS = {
 
     "User-Agent":
-        "NWS-North-Platte-Weather-Graphics-Builder/1.0",
+        "NWS-LBF-Weather-Graphics-Builder/1.0",
 
     "Accept":
-        "application/json"
+        "*/*"
 
 }
 
 
 # ============================================================
-# UNIT CONVERSIONS
+# UTILITY
 # ============================================================
 
-KNOTS_TO_MPH = 1.150779448
-
-
-def c_to_f(
-    value
-):
-
-    if value is None:
-        return None
-
+def safe_float(value):
 
     try:
 
-        return (
-            float(value)
-            *
-            9.0
-            /
-            5.0
-            +
-            32.0
-        )
+        if pd.isna(value):
+            return None
+
+        value = float(value)
+
+        if not math.isfinite(value):
+            return None
+
+        return value
 
     except Exception:
-
         return None
 
 
-def knots_to_mph(
-    value
+# ============================================================
+# FIND COLUMN
+#
+# AWC has changed cache field naming in the past, so don't
+# hard-code only one possible spelling.
+# ============================================================
+
+def find_column(
+    df,
+    candidates,
+    required=False
 ):
 
-    if value is None:
-        return None
+    lookup = {
 
+        str(column).strip().lower():
+            column
+
+        for column in df.columns
+
+    }
+
+    for candidate in candidates:
+
+        key = candidate.lower()
+
+        if key in lookup:
+            return lookup[key]
+
+    if required:
+
+        raise RuntimeError(
+
+            "Could not find required column. "
+            f"Tried: {candidates}\n\n"
+            f"Available columns:\n{list(df.columns)}"
+
+        )
+
+    return None
+
+
+# ============================================================
+# DOWNLOAD METAR CACHE
+# ============================================================
+
+def download_metar_cache():
+
+    last_error = None
+
+    for attempt in range(
+        1,
+        MAX_DOWNLOAD_ATTEMPTS + 1
+    ):
+
+        print()
+        print("=" * 70)
+
+        print(
+            "Downloading Aviation Weather Center METAR cache"
+        )
+
+        print(
+            f"Attempt {attempt}/{MAX_DOWNLOAD_ATTEMPTS}"
+        )
+
+        print("=" * 70)
+
+        try:
+
+            response = requests.get(
+
+                METAR_CACHE_URL,
+
+                headers=HEADERS,
+
+                timeout=REQUEST_TIMEOUT_SECONDS
+
+            )
+
+            response.raise_for_status()
+
+            content = response.content
+
+            if not content:
+
+                raise RuntimeError(
+                    "AWC returned an empty response."
+                )
+
+            print(
+                f"Downloaded {len(content):,} compressed bytes."
+            )
+
+            return content
+
+        except Exception as exc:
+
+            last_error = exc
+
+            print(
+                f"METAR cache request failed: {exc}"
+            )
+
+            if attempt < MAX_DOWNLOAD_ATTEMPTS:
+
+                print(
+                    f"Waiting {RETRY_WAIT_SECONDS} seconds..."
+                )
+
+                time.sleep(
+                    RETRY_WAIT_SECONDS
+                )
+
+    raise RuntimeError(
+
+        "Could not download the AWC METAR cache "
+        f"after {MAX_DOWNLOAD_ATTEMPTS} attempts. "
+        f"Last error: {last_error}"
+
+    )
+
+
+# ============================================================
+# READ COMPRESSED CSV
+# ============================================================
+
+def read_metar_cache(
+    compressed_data
+):
+
+    print()
+    print("=" * 70)
+    print("Reading METAR cache")
+    print("=" * 70)
 
     try:
 
-        return (
-            float(value)
-            *
-            KNOTS_TO_MPH
+        with gzip.GzipFile(
+
+            fileobj=io.BytesIO(
+                compressed_data
+            )
+
+        ) as gz:
+
+            raw_csv = gz.read()
+
+    except Exception as exc:
+
+        raise RuntimeError(
+
+            f"Could not decompress METAR cache: {exc}"
+
+        ) from exc
+
+
+    # --------------------------------------------------------
+    # AWC cache files may contain comment/header lines.
+    # pandas comment="#" safely ignores those.
+    # --------------------------------------------------------
+
+    try:
+
+        df = pd.read_csv(
+
+            io.BytesIO(
+                raw_csv
+            ),
+
+            comment="#",
+
+            low_memory=False
+
         )
 
-    except Exception:
+    except Exception as exc:
 
-        return None
+        raise RuntimeError(
+
+            f"Could not parse METAR CSV: {exc}"
+
+        ) from exc
+
+
+    print(
+        f"Rows in full AWC cache: {len(df):,}"
+    )
+
+
+    print()
+    print("METAR columns:")
+
+    for column in df.columns:
+
+        print(
+            f"  {column}"
+        )
+
+
+    return df
+
+
+# ============================================================
+# IDENTIFY COLUMNS
+# ============================================================
+
+def identify_columns(
+    df
+):
+
+    columns = {}
+
+
+    # --------------------------------------------------------
+    # STATION ID
+    # --------------------------------------------------------
+
+    columns["station"] = find_column(
+
+        df,
+
+        [
+            "station_id",
+            "station",
+            "icao_id",
+            "icao",
+            "stationId",
+            "ident"
+        ],
+
+        required=True
+
+    )
+
+
+    # --------------------------------------------------------
+    # OBSERVATION TIME
+    # --------------------------------------------------------
+
+    columns["time"] = find_column(
+
+        df,
+
+        [
+            "observation_time",
+            "obsTime",
+            "obs_time",
+            "reportTime",
+            "report_time",
+            "receipt_time",
+            "valid"
+        ],
+
+        required=True
+
+    )
+
+
+    # --------------------------------------------------------
+    # LOCATION
+    # --------------------------------------------------------
+
+    columns["latitude"] = find_column(
+
+        df,
+
+        [
+            "latitude",
+            "lat"
+        ],
+
+        required=True
+
+    )
+
+
+    columns["longitude"] = find_column(
+
+        df,
+
+        [
+            "longitude",
+            "lon",
+            "lng"
+        ],
+
+        required=True
+
+    )
+
+
+    # --------------------------------------------------------
+    # TEMPERATURE
+    # --------------------------------------------------------
+
+    columns["temperature"] = find_column(
+
+        df,
+
+        [
+            "temp_c",
+            "temp",
+            "temperature",
+            "temperature_c"
+        ]
+
+    )
+
+
+    # --------------------------------------------------------
+    # DEWPOINT
+    # --------------------------------------------------------
+
+    columns["dewpoint"] = find_column(
+
+        df,
+
+        [
+            "dewpoint_c",
+            "dewp_c",
+            "dewp",
+            "dewpoint"
+        ]
+
+    )
+
+
+    # --------------------------------------------------------
+    # WIND
+    # --------------------------------------------------------
+
+    columns["wind_direction"] = find_column(
+
+        df,
+
+        [
+            "wind_dir_degrees",
+            "wdir",
+            "wind_dir",
+            "wind_direction"
+        ]
+
+    )
+
+
+    columns["wind_speed"] = find_column(
+
+        df,
+
+        [
+            "wind_speed_kt",
+            "wspd",
+            "wind_speed",
+            "wind_speed_kts"
+        ]
+
+    )
+
+
+    columns["wind_gust"] = find_column(
+
+        df,
+
+        [
+            "wind_gust_kt",
+            "wgst",
+            "wind_gust",
+            "wind_gust_kts"
+        ]
+
+    )
+
+
+    # --------------------------------------------------------
+    # VISIBILITY
+    # --------------------------------------------------------
+
+    columns["visibility"] = find_column(
+
+        df,
+
+        [
+            "visibility_statute_mi",
+            "visib",
+            "visibility",
+            "visibility_mi"
+        ]
+
+    )
+
+
+    # --------------------------------------------------------
+    # ALTIMETER
+    # --------------------------------------------------------
+
+    columns["altimeter"] = find_column(
+
+        df,
+
+        [
+            "altim_in_hg",
+            "altim",
+            "altimeter",
+            "altimeter_in_hg"
+        ]
+
+    )
+
+
+    # --------------------------------------------------------
+    # WEATHER STRING
+    # --------------------------------------------------------
+
+    columns["weather"] = find_column(
+
+        df,
+
+        [
+            "wx_string",
+            "wxString",
+            "weather",
+            "present_weather"
+        ]
+
+    )
+
+
+    # --------------------------------------------------------
+    # RAW METAR
+    # --------------------------------------------------------
+
+    columns["raw"] = find_column(
+
+        df,
+
+        [
+            "raw_text",
+            "rawOb",
+            "raw_ob",
+            "raw_metar",
+            "metar"
+        ]
+
+    )
+
+
+    print()
+    print("=" * 70)
+    print("Detected METAR fields")
+    print("=" * 70)
+
+    for key, value in columns.items():
+
+        print(
+            f"{key:18s}: {value}"
+        )
+
+
+    return columns
 
 
 # ============================================================
 # RELATIVE HUMIDITY
-#
-# Magnus formula using temperature and dew point in Celsius.
 # ============================================================
 
-def calculate_rh(
-    temp_c,
+def calculate_relative_humidity(
+    temperature_c,
     dewpoint_c
 ):
 
     if (
-        temp_c is None
+        temperature_c is None
         or
         dewpoint_c is None
     ):
@@ -177,30 +589,18 @@ def calculate_rh(
 
     try:
 
-        temp_c = float(
-            temp_c
-        )
-
-
-        dewpoint_c = float(
-            dewpoint_c
-        )
-
-
-        a = 17.625
-        b = 243.04
-
-
         numerator = math.exp(
 
             (
-                a
+                17.625
                 *
                 dewpoint_c
             )
+
             /
+
             (
-                b
+                243.04
                 +
                 dewpoint_c
             )
@@ -211,15 +611,17 @@ def calculate_rh(
         denominator = math.exp(
 
             (
-                a
+                17.625
                 *
-                temp_c
+                temperature_c
             )
+
             /
+
             (
-                b
+                243.04
                 +
-                temp_c
+                temperature_c
             )
 
         )
@@ -243,8 +645,10 @@ def calculate_rh(
         )
 
 
-        return rh
-
+        return round(
+            rh,
+            1
+        )
 
     except Exception:
 
@@ -252,762 +656,643 @@ def calculate_rh(
 
 
 # ============================================================
-# SAFE FLOAT
+# CELSIUS -> FAHRENHEIT
 # ============================================================
 
-def safe_float(
+def c_to_f(
     value
 ):
 
-    if (
-        value is None
-        or
-        value == ""
-    ):
-
+    if value is None:
         return None
 
+    return round(
+        value * 9.0 / 5.0 + 32.0,
+        1
+    )
+
+
+# ============================================================
+# KNOTS -> MPH
+# ============================================================
+
+def knots_to_mph(
+    value
+):
+
+    if value is None:
+        return None
+
+    return round(
+        value * 1.150779448,
+        1
+    )
+
+
+# ============================================================
+# FILTER METARS
+# ============================================================
+
+def filter_metars(
+    df,
+    columns
+):
+
+    print()
+    print("=" * 70)
+    print("Filtering METAR observations")
+    print("=" * 70)
+
+
+    lat_col = columns["latitude"]
+    lon_col = columns["longitude"]
+    time_col = columns["time"]
+    station_col = columns["station"]
+
+
+    # --------------------------------------------------------
+    # NUMERIC LAT/LON
+    # --------------------------------------------------------
+
+    df[lat_col] = pd.to_numeric(
+
+        df[lat_col],
+
+        errors="coerce"
+
+    )
+
+
+    df[lon_col] = pd.to_numeric(
+
+        df[lon_col],
+
+        errors="coerce"
+
+    )
+
+
+    # --------------------------------------------------------
+    # TIME
+    # --------------------------------------------------------
+
+    df["_observation_time"] = pd.to_datetime(
+
+        df[time_col],
+
+        utc=True,
+
+        errors="coerce"
+
+    )
+
+
+    # --------------------------------------------------------
+    # REMOVE INVALID LOCATION/TIME
+    # --------------------------------------------------------
+
+    df = df.dropna(
+
+        subset=[
+
+            lat_col,
+            lon_col,
+            "_observation_time"
+
+        ]
+
+    ).copy()
+
+
+    # --------------------------------------------------------
+    # DOMAIN
+    # --------------------------------------------------------
+
+    df = df[
+
+        (
+            df[lon_col] >= WEST
+        )
+
+        &
+
+        (
+            df[lon_col] <= EAST
+        )
+
+        &
+
+        (
+            df[lat_col] >= SOUTH
+        )
+
+        &
+
+        (
+            df[lat_col] <= NORTH
+        )
+
+    ].copy()
+
+
+    print(
+        f"Stations/observations inside domain: {len(df):,}"
+    )
+
+
+    # --------------------------------------------------------
+    # AGE FILTER
+    # --------------------------------------------------------
+
+    now = pd.Timestamp.now(
+        tz="UTC"
+    )
+
+
+    df["_age_hours"] = (
+
+        now
+        -
+        df["_observation_time"]
+
+    ).dt.total_seconds() / 3600.0
+
+
+    df = df[
+
+        (
+            df["_age_hours"] >= -0.25
+        )
+
+        &
+
+        (
+            df["_age_hours"]
+            <=
+            MAX_OBSERVATION_AGE_HOURS
+        )
+
+    ].copy()
+
+
+    print(
+
+        "Observations after age filter: "
+        f"{len(df):,}"
+
+    )
+
+
+    # --------------------------------------------------------
+    # KEEP NEWEST OBSERVATION PER STATION
+    # --------------------------------------------------------
+
+    df["_station_sort"] = (
+
+        df[station_col]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+
+    )
+
+
+    df = (
+
+        df
+        .sort_values(
+            "_observation_time"
+        )
+        .drop_duplicates(
+            subset="_station_sort",
+            keep="last"
+        )
+        .copy()
+
+    )
+
+
+    print(
+        f"Unique stations retained: {len(df):,}"
+    )
+
+
+    return df
+
+
+# ============================================================
+# GET ROW VALUE
+# ============================================================
+
+def row_value(
+    row,
+    column
+):
+
+    if column is None:
+        return None
 
     try:
 
-        return float(
-            value
-        )
+        value = row[column]
+
+        if pd.isna(value):
+            return None
+
+        return value
 
     except Exception:
-
         return None
 
 
 # ============================================================
-# SAFE INT
+# CREATE GEOJSON
 # ============================================================
 
-def safe_int(
-    value
+def create_geojson(
+    df,
+    columns
 ):
 
-    number = safe_float(
-        value
-    )
+    print()
+    print("=" * 70)
+    print("Creating METAR GeoJSON")
+    print("=" * 70)
 
 
-    if number is None:
+    features = []
 
-        return None
 
+    for _, row in df.iterrows():
 
-    return int(
-        round(
-            number
-        )
-    )
+        station = str(
 
-
-# ============================================================
-# API REQUEST
-# ============================================================
-
-def request_metars():
-
-    last_error = None
-
-
-    # ========================================================
-    # AWC supports a geographic bounding box through bbox.
-    #
-    # Format:
-    #   min_lon,min_lat,max_lon,max_lat
-    #
-    # Request the most recent observations.
-    # ========================================================
-
-    params = {
-
-        "format":
-            "json",
-
-        "bbox":
-            f"{WEST},{SOUTH},{EAST},{NORTH}",
-
-        "hours":
-            "2"
-
-    }
-
-
-    for attempt in range(
-        1,
-        DOWNLOAD_ATTEMPTS + 1
-    ):
-
-        try:
-
-            print()
-            print("=" * 70)
-
-            print(
-                "Downloading METAR observations"
-            )
-
-            print(
-                f"Attempt "
-                f"{attempt}/"
-                f"{DOWNLOAD_ATTEMPTS}"
-            )
-
-            print("=" * 70)
-
-
-            response = requests.get(
-
-                METAR_API_URL,
-
-                params=params,
-
-                headers=HEADERS,
-
-                timeout=
-                    REQUEST_TIMEOUT_SECONDS
-
-            )
-
-
-            response.raise_for_status()
-
-
-            data = (
-                response.json()
-            )
-
-
-            if (
-                not isinstance(
-                    data,
-                    list
-                )
-            ):
-
-                raise RuntimeError(
-
-                    "AWC METAR response was not a JSON list."
-
-                )
-
-
-            print(
-                f"Downloaded "
-                f"{len(data)} METAR records."
-            )
-
-
-            return data
-
-
-        except Exception as error:
-
-            last_error = error
-
-
-            print(
-                f"METAR request failed: "
-                f"{error}"
-            )
-
-
-            if (
-                attempt
-                <
-                DOWNLOAD_ATTEMPTS
-            ):
-
-                print(
-                    f"Waiting "
-                    f"{RETRY_SLEEP_SECONDS} seconds..."
-                )
-
-
-                time.sleep(
-                    RETRY_SLEEP_SECONDS
-                )
-
-
-    raise RuntimeError(
-
-        f"Could not download METAR data: "
-        f"{last_error}"
-
-    )
-
-
-# ============================================================
-# GET VALUE USING POSSIBLE FIELD NAMES
-# ============================================================
-
-def get_field(
-    record,
-    *names
-):
-
-    for name in names:
-
-        if name in record:
-
-            value = (
-                record.get(
-                    name
-                )
-            )
-
-
-            if (
-                value is not None
-                and
-                value != ""
-            ):
-
-                return value
-
-
-    return None
-
-
-# ============================================================
-# NORMALIZE ONE METAR
-# ============================================================
-
-def normalize_metar(
-    record
-):
-
-    # ========================================================
-    # STATION
-    # ========================================================
-
-    station = get_field(
-
-        record,
-
-        "icaoId",
-
-        "station_id",
-
-        "station",
-
-        "id"
-
-    )
-
-
-    if not station:
-
-        return None
-
-
-    station = (
-        str(
-            station
-        )
-        .strip()
-        .upper()
-    )
-
-
-    # ========================================================
-    # LOCATION
-    # ========================================================
-
-    lat = safe_float(
-
-        get_field(
-
-            record,
-
-            "lat",
-
-            "latitude"
-
-        )
-
-    )
-
-
-    lon = safe_float(
-
-        get_field(
-
-            record,
-
-            "lon",
-
-            "longitude"
-
-        )
-
-    )
-
-
-    if (
-        lat is None
-        or
-        lon is None
-    ):
-
-        return None
-
-
-    # ========================================================
-    # DOMAIN CHECK
-    # ========================================================
-
-    if (
-        lon < WEST
-        or
-        lon > EAST
-        or
-        lat < SOUTH
-        or
-        lat > NORTH
-    ):
-
-        return None
-
-
-    # ========================================================
-    # TEMPERATURE / DEWPOINT
-    # ========================================================
-
-    temp_c = safe_float(
-
-        get_field(
-
-            record,
-
-            "temp",
-
-            "tempC",
-
-            "temperature"
-
-        )
-
-    )
-
-
-    dewpoint_c = safe_float(
-
-        get_field(
-
-            record,
-
-            "dewp",
-
-            "dewpoint",
-
-            "dewpointC"
-
-        )
-
-    )
-
-
-    temp_f = c_to_f(
-        temp_c
-    )
-
-
-    dewpoint_f = c_to_f(
-        dewpoint_c
-    )
-
-
-    rh = calculate_rh(
-
-        temp_c,
-
-        dewpoint_c
-
-    )
-
-
-    # ========================================================
-    # WIND
-    # ========================================================
-
-    wind_dir = safe_float(
-
-        get_field(
-
-            record,
-
-            "wdir",
-
-            "windDir",
-
-            "wind_dir_degrees"
-
-        )
-
-    )
-
-
-    wind_speed_kt = safe_float(
-
-        get_field(
-
-            record,
-
-            "wspd",
-
-            "windSpeed",
-
-            "wind_speed_kt"
-
-        )
-
-    )
-
-
-    wind_gust_kt = safe_float(
-
-        get_field(
-
-            record,
-
-            "wgst",
-
-            "windGust",
-
-            "wind_gust_kt"
-
-        )
-
-    )
-
-
-    wind_speed_mph = (
-        knots_to_mph(
-            wind_speed_kt
-        )
-    )
-
-
-    wind_gust_mph = (
-        knots_to_mph(
-            wind_gust_kt
-        )
-    )
-
-
-    # ========================================================
-    # OBSERVATION TIME
-    # ========================================================
-
-    observation_time = get_field(
-
-        record,
-
-        "obsTime",
-
-        "observation_time",
-
-        "reportTime",
-
-        "receiptTime"
-
-    )
-
-
-    # ========================================================
-    # RAW METAR
-    # ========================================================
-
-    raw_metar = get_field(
-
-        record,
-
-        "rawOb",
-
-        "raw_text",
-
-        "raw"
-
-    )
-
-
-    # ========================================================
-    # OPTIONAL CONDITIONS
-    # ========================================================
-
-    visibility = safe_float(
-
-        get_field(
-
-            record,
-
-            "visib",
-
-            "visibility"
-
-        )
-
-    )
-
-
-    altimeter = safe_float(
-
-        get_field(
-
-            record,
-
-            "altim",
-
-            "altimeter"
-
-        )
-
-    )
-
-
-    flight_category = get_field(
-
-        record,
-
-        "fltCat",
-
-        "flight_category"
-
-    )
-
-
-    # ========================================================
-    # FEATURE
-    # ========================================================
-
-    feature = {
-
-        "type":
-            "Feature",
-
-        "geometry": {
-
-            "type":
-                "Point",
-
-            "coordinates": [
-
-                lon,
-
-                lat
-
+            row[
+                columns["station"]
             ]
 
-        },
-
-        "properties": {
-
-            "station":
-                station,
-
-            "temp_f":
-                round(
-                    temp_f,
-                    1
-                )
-                if temp_f is not None
-                else None,
-
-            "dewpoint_f":
-                round(
-                    dewpoint_f,
-                    1
-                )
-                if dewpoint_f is not None
-                else None,
-
-            "rh":
-                round(
-                    rh,
-                    1
-                )
-                if rh is not None
-                else None,
-
-            "wind_dir_deg":
-                round(
-                    wind_dir,
-                    0
-                )
-                if wind_dir is not None
-                else None,
-
-            "wind_speed_mph":
-                round(
-                    wind_speed_mph,
-                    1
-                )
-                if wind_speed_mph is not None
-                else None,
-
-            "wind_gust_mph":
-                round(
-                    wind_gust_mph,
-                    1
-                )
-                if wind_gust_mph is not None
-                else None,
-
-            "wind_speed_kt":
-                round(
-                    wind_speed_kt,
-                    1
-                )
-                if wind_speed_kt is not None
-                else None,
-
-            "wind_gust_kt":
-                round(
-                    wind_gust_kt,
-                    1
-                )
-                if wind_gust_kt is not None
-                else None,
-
-            "visibility_sm":
-                visibility,
-
-            "altimeter":
-                altimeter,
-
-            "flight_category":
-                flight_category,
-
-            "observation_time":
-                observation_time,
-
-            "raw_metar":
-                raw_metar
-
-        }
-
-    }
+        ).strip().upper()
 
 
-    return feature
+        lat = safe_float(
 
-
-# ============================================================
-# OBSERVATION TIME SORT VALUE
-# ============================================================
-
-def observation_sort_value(
-    record
-):
-
-    value = get_field(
-
-        record,
-
-        "obsTime",
-
-        "observation_time",
-
-        "reportTime",
-
-        "receiptTime"
-
-    )
-
-
-    if (
-        value is None
-    ):
-
-        return ""
-
-
-    return str(
-        value
-    )
-
-
-# ============================================================
-# KEEP MOST RECENT REPORT PER STATION
-# ============================================================
-
-def keep_latest_per_station(
-    records
-):
-
-    latest = {}
-
-
-    # Sort oldest -> newest.
-    # Newer records overwrite older ones.
-
-    records = sorted(
-
-        records,
-
-        key=
-            observation_sort_value
-
-    )
-
-
-    for record in records:
-
-        station = get_field(
-
-            record,
-
-            "icaoId",
-
-            "station_id",
-
-            "station",
-
-            "id"
+            row[
+                columns["latitude"]
+            ]
 
         )
 
 
-        if not station:
+        lon = safe_float(
+
+            row[
+                columns["longitude"]
+            ]
+
+        )
+
+
+        if (
+            lat is None
+            or
+            lon is None
+        ):
 
             continue
 
 
-        station = (
-            str(
-                station
+        # ----------------------------------------------------
+        # TEMPERATURE
+        # ----------------------------------------------------
+
+        temp_c = safe_float(
+
+            row_value(
+                row,
+                columns["temperature"]
             )
-            .strip()
-            .upper()
+
         )
 
 
-        latest[
-            station
-        ] = record
+        dewpoint_c = safe_float(
+
+            row_value(
+                row,
+                columns["dewpoint"]
+            )
+
+        )
 
 
-    return list(
-        latest.values()
-    )
+        # ----------------------------------------------------
+        # WIND
+        # ----------------------------------------------------
+
+        wind_direction = safe_float(
+
+            row_value(
+                row,
+                columns["wind_direction"]
+            )
+
+        )
 
 
-# ============================================================
-# WRITE GEOJSON
-# ============================================================
+        wind_speed_kt = safe_float(
 
-def write_geojson(
-    features
-):
+            row_value(
+                row,
+                columns["wind_speed"]
+            )
 
-    output = {
+        )
+
+
+        wind_gust_kt = safe_float(
+
+            row_value(
+                row,
+                columns["wind_gust"]
+            )
+
+        )
+
+
+        # ----------------------------------------------------
+        # VISIBILITY
+        # ----------------------------------------------------
+
+        visibility_mi = safe_float(
+
+            row_value(
+                row,
+                columns["visibility"]
+            )
+
+        )
+
+
+        # ----------------------------------------------------
+        # ALTIMETER
+        # ----------------------------------------------------
+
+        altimeter = safe_float(
+
+            row_value(
+                row,
+                columns["altimeter"]
+            )
+
+        )
+
+
+        # ----------------------------------------------------
+        # WEATHER
+        # ----------------------------------------------------
+
+        weather = row_value(
+
+            row,
+            columns["weather"]
+
+        )
+
+
+        if weather is not None:
+
+            weather = str(
+                weather
+            ).strip()
+
+
+        # ----------------------------------------------------
+        # RAW METAR
+        # ----------------------------------------------------
+
+        raw_metar = row_value(
+
+            row,
+            columns["raw"]
+
+        )
+
+
+        if raw_metar is not None:
+
+            raw_metar = str(
+                raw_metar
+            ).strip()
+
+
+        # ----------------------------------------------------
+        # OBSERVATION TIME
+        # ----------------------------------------------------
+
+        observation_time = row[
+            "_observation_time"
+        ]
+
+
+        observation_iso = (
+
+            observation_time
+            .to_pydatetime()
+            .astimezone(
+                timezone.utc
+            )
+            .isoformat()
+            .replace(
+                "+00:00",
+                "Z"
+            )
+
+        )
+
+
+        # ----------------------------------------------------
+        # DERIVED VALUES
+        # ----------------------------------------------------
+
+        rh = calculate_relative_humidity(
+
+            temp_c,
+            dewpoint_c
+
+        )
+
+
+        temp_f = c_to_f(
+            temp_c
+        )
+
+
+        dewpoint_f = c_to_f(
+            dewpoint_c
+        )
+
+
+        wind_speed_mph = knots_to_mph(
+            wind_speed_kt
+        )
+
+
+        wind_gust_mph = knots_to_mph(
+            wind_gust_kt
+        )
+
+
+        # ----------------------------------------------------
+        # FEATURE
+        # ----------------------------------------------------
+
+        feature = {
+
+            "type":
+                "Feature",
+
+            "geometry": {
+
+                "type":
+                    "Point",
+
+                "coordinates": [
+
+                    lon,
+                    lat
+
+                ]
+
+            },
+
+            "properties": {
+
+                "station":
+                    station,
+
+                "observation_time":
+                    observation_iso,
+
+                "age_hours":
+                    round(
+                        safe_float(
+                            row["_age_hours"]
+                        ) or 0,
+                        2
+                    ),
+
+                # --------------------------------------------
+                # TEMPERATURE
+                # --------------------------------------------
+
+                "temp_c":
+                    temp_c,
+
+                "temp_f":
+                    temp_f,
+
+                "dewpoint_c":
+                    dewpoint_c,
+
+                "dewpoint_f":
+                    dewpoint_f,
+
+                "relative_humidity":
+                    rh,
+
+                # --------------------------------------------
+                # WIND
+                # --------------------------------------------
+
+                "wind_direction":
+                    wind_direction,
+
+                "wind_speed_kt":
+                    wind_speed_kt,
+
+                "wind_speed_mph":
+                    wind_speed_mph,
+
+                "wind_gust_kt":
+                    wind_gust_kt,
+
+                "wind_gust_mph":
+                    wind_gust_mph,
+
+                # --------------------------------------------
+                # OTHER
+                # --------------------------------------------
+
+                "visibility_mi":
+                    visibility_mi,
+
+                "altimeter_inhg":
+                    altimeter,
+
+                "weather":
+                    weather,
+
+                "raw_metar":
+                    raw_metar,
+
+                # --------------------------------------------
+                # NETWORK
+                # --------------------------------------------
+
+                "network":
+                    "METAR",
+
+                "source":
+                    "Aviation Weather Center"
+
+            }
+
+        }
+
+
+        features.append(
+            feature
+        )
+
+
+    geojson = {
 
         "type":
             "FeatureCollection",
+
+        "generated":
+            datetime.now(
+                timezone.utc
+            )
+            .isoformat()
+            .replace(
+                "+00:00",
+                "Z"
+            ),
+
+        "source":
+            "Aviation Weather Center METAR Cache",
+
+        "bounds": {
+
+            "west":
+                WEST,
+
+            "east":
+                EAST,
+
+            "south":
+                SOUTH,
+
+            "north":
+                NORTH
+
+        },
+
+        "feature_count":
+            len(
+                features
+            ),
 
         "features":
             features
@@ -1015,156 +1300,88 @@ def write_geojson(
     }
 
 
-    with OUTPUT_FILE.open(
+    print(
+        f"GeoJSON features created: {len(features):,}"
+    )
+
+
+    return geojson
+
+
+# ============================================================
+# WRITE GEOJSON
+# ============================================================
+
+def write_geojson(
+    geojson
+):
+
+    OUTPUT_FILE.parent.mkdir(
+
+        parents=True,
+
+        exist_ok=True
+
+    )
+
+
+    temporary_file = OUTPUT_FILE.with_suffix(
+        ".geojson.tmp"
+    )
+
+
+    with open(
+
+        temporary_file,
 
         "w",
 
-        encoding=
-            "utf-8"
+        encoding="utf-8"
 
     ) as file:
 
         json.dump(
 
-            output,
+            geojson,
 
             file,
 
             separators=(
                 ",",
                 ":"
-            )
+            ),
+
+            allow_nan=False
 
         )
 
 
-    print()
-    print(
-        f"Wrote: "
-        f"{OUTPUT_FILE}"
+    # --------------------------------------------------------
+    # Atomic replacement prevents the website from reading
+    # a partially written GeoJSON file.
+    # --------------------------------------------------------
+
+    os.replace(
+
+        temporary_file,
+
+        OUTPUT_FILE
+
     )
 
-
-# ============================================================
-# PRINT SUMMARY
-# ============================================================
-
-def print_summary(
-    features
-):
 
     print()
     print("=" * 70)
 
     print(
-        "METAR SUMMARY"
+        f"Saved: {OUTPUT_FILE}"
+    )
+
+    print(
+        f"Features: {geojson['feature_count']:,}"
     )
 
     print("=" * 70)
-
-
-    print(
-        f"Stations written: "
-        f"{len(features)}"
-    )
-
-
-    gust_features = [
-
-        feature
-
-        for feature in features
-
-        if (
-            feature
-            .get(
-                "properties",
-                {}
-            )
-            .get(
-                "wind_gust_mph"
-            )
-            is not None
-        )
-
-    ]
-
-
-    print(
-        f"Stations reporting gusts: "
-        f"{len(gust_features)}"
-    )
-
-
-    if gust_features:
-
-        strongest = max(
-
-            gust_features,
-
-            key=lambda feature:
-
-                feature[
-                    "properties"
-                ][
-                    "wind_gust_mph"
-                ]
-
-        )
-
-
-        properties = (
-            strongest[
-                "properties"
-            ]
-        )
-
-
-        print(
-
-            f"Strongest gust: "
-            f"{properties['station']} "
-            f"{properties['wind_gust_mph']} mph"
-
-        )
-
-
-    print()
-    print(
-        "Sample stations:"
-    )
-
-
-    for feature in (
-        features[
-            :15
-        ]
-    ):
-
-        properties = (
-            feature[
-                "properties"
-            ]
-        )
-
-
-        print(
-
-            f"  "
-            f"{properties['station']}: "
-
-            f"T={properties['temp_f']}F, "
-
-            f"Td={properties['dewpoint_f']}F, "
-
-            f"RH={properties['rh']}%, "
-
-            f"Wind={properties['wind_dir_deg']} "
-            f"@ {properties['wind_speed_mph']} mph, "
-
-            f"Gust={properties['wind_gust_mph']} mph"
-
-        )
 
 
 # ============================================================
@@ -1175,145 +1392,106 @@ def main():
 
     print()
     print("=" * 70)
-
-    print(
-        "METAR OBSERVATION UPDATE"
-    )
-
+    print("NWS LBF METAR OBSERVATION UPDATE")
     print("=" * 70)
 
+    print(
+        "Domain:"
+    )
 
     print(
-        f"Domain: "
-        f"{WEST} to {EAST} longitude, "
-        f"{SOUTH} to {NORTH} latitude"
+        f"  Longitude: {WEST} to {EAST}"
+    )
+
+    print(
+        f"  Latitude:  {SOUTH} to {NORTH}"
+    )
+
+    print(
+        f"  Maximum age: {MAX_OBSERVATION_AGE_HOURS} hours"
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # DOWNLOAD
-    # ========================================================
+    # --------------------------------------------------------
 
-    records = (
-        request_metars()
+    compressed_data = (
+        download_metar_cache()
     )
 
 
-    # ========================================================
-    # KEEP LATEST OBSERVATION PER STATION
-    # ========================================================
+    # --------------------------------------------------------
+    # READ
+    # --------------------------------------------------------
 
-    records = (
-        keep_latest_per_station(
-            records
-        )
+    df = read_metar_cache(
+        compressed_data
     )
 
 
-    print(
-        f"Unique stations after latest-report filter: "
-        f"{len(records)}"
+    # --------------------------------------------------------
+    # COLUMNS
+    # --------------------------------------------------------
+
+    columns = identify_columns(
+        df
     )
 
 
-    # ========================================================
-    # NORMALIZE
-    # ========================================================
+    # --------------------------------------------------------
+    # FILTER
+    # --------------------------------------------------------
 
-    features = []
+    df = filter_metars(
 
+        df,
 
-    skipped = 0
-
-
-    for record in records:
-
-        feature = (
-            normalize_metar(
-                record
-            )
-        )
-
-
-        if (
-            feature is None
-        ):
-
-            skipped += 1
-
-            continue
-
-
-        features.append(
-            feature
-        )
-
-
-    # ========================================================
-    # SORT BY STATION NAME
-    # ========================================================
-
-    features.sort(
-
-        key=lambda feature:
-
-            feature[
-                "properties"
-            ][
-                "station"
-            ]
+        columns
 
     )
 
 
-    print(
-        f"Valid stations: "
-        f"{len(features)}"
+    # --------------------------------------------------------
+    # GEOJSON
+    # --------------------------------------------------------
+
+    geojson = create_geojson(
+
+        df,
+
+        columns
+
     )
 
 
-    print(
-        f"Skipped records: "
-        f"{skipped}"
-    )
-
-
-    # ========================================================
-    # SAFETY
-    #
-    # Do not overwrite a previously valid file if the API
-    # unexpectedly returns nothing.
-    # ========================================================
+    # --------------------------------------------------------
+    # SAFETY CHECK
+    # --------------------------------------------------------
 
     if (
-        len(features)
+        geojson[
+            "feature_count"
+        ]
         ==
         0
     ):
 
         raise RuntimeError(
 
-            "No valid METAR stations were produced. "
-            "Existing metar.geojson was not overwritten."
+            "No METAR observations were found inside "
+            "the requested domain. Existing output "
+            "was NOT overwritten."
 
         )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # WRITE
-    # ========================================================
+    # --------------------------------------------------------
 
     write_geojson(
-        features
-    )
-
-
-    # ========================================================
-    # SUMMARY
-    # ========================================================
-
-    print_summary(
-        features
+        geojson
     )
 
 
@@ -1329,4 +1507,23 @@ def main():
 
 if __name__ == "__main__":
 
-    main()
+    try:
+
+        main()
+
+    except Exception as exc:
+
+        print()
+        print("=" * 70)
+        print("METAR UPDATE FAILED")
+        print("=" * 70)
+
+        print(
+            str(exc)
+        )
+
+        print()
+
+        sys.exit(
+            1
+        )
