@@ -245,7 +245,7 @@ const NWS_WINTER_PRODUCTS = [
 // ============================================================
 
 const METAR_GEOJSON_URL =
-    "data/metar.geojson";
+    "data/metars.geojson";
 
 
 const OBSERVATION_REFRESH_MS =
