@@ -2376,6 +2376,1306 @@ function connectMetarPopups(
 
 }
 // ============================================================
+// ADD SPC OUTLOOK
+// ============================================================
+
+function addSpcOutlook(map, day, roadLayer) {
+
+    const sourceId = `spc-day${day}-cat`;
+    const fillId = `spc-day${day}-fill`;
+    const darkId = `spc-day${day}-outline-dark`;
+    const outlineId = `spc-day${day}-outline`;
+
+    if (!map.getSource(sourceId)) {
+
+        map.addSource(sourceId, {
+            type: "geojson",
+            data: `data/spc_day${day}_cat.geojson`
+        });
+
+    }
+
+    if (!map.getLayer(fillId)) {
+
+        map.addLayer({
+            id: fillId,
+            type: "fill",
+            source: sourceId,
+
+            paint: {
+                "fill-color": [
+                    "coalesce",
+                    ["get", "fill"],
+                    "#888888"
+                ],
+
+                "fill-opacity": 0.68
+            }
+
+        }, roadLayer);
+
+    }
+
+    if (!map.getLayer(darkId)) {
+
+        map.addLayer({
+            id: darkId,
+            type: "line",
+            source: sourceId,
+
+            paint: {
+                "line-color": "#1A1A1A",
+
+                "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    4, 2.2,
+                    6, 3.0,
+                    8, 3.8,
+                    10, 4.5
+                ]
+            }
+
+        }, roadLayer);
+
+    }
+
+    if (!map.getLayer(outlineId)) {
+
+        map.addLayer({
+            id: outlineId,
+            type: "line",
+            source: sourceId,
+
+            paint: {
+                "line-color": [
+                    "coalesce",
+                    ["get", "stroke"],
+                    "#000000"
+                ],
+
+                "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    4, 1.3,
+                    6, 1.8,
+                    8, 2.3,
+                    10, 2.8
+                ]
+            }
+
+        }, roadLayer);
+
+    }
+
+}
+
+
+// ============================================================
+// ADD SPC FIRE WEATHER
+// ============================================================
+
+function addSpcFireWeather(map, day, roadLayer) {
+
+    const sourceId = `spc-fire-day${day}`;
+    const fillId = `spc-fire-day${day}-fill`;
+    const darkId = `spc-fire-day${day}-outline-dark`;
+    const outlineId = `spc-fire-day${day}-outline`;
+
+    if (!map.getSource(sourceId)) {
+
+        map.addSource(sourceId, {
+            type: "geojson",
+            data: `data/spc_fire_day${day}.geojson`
+        });
+
+    }
+
+    if (!map.getLayer(fillId)) {
+
+        map.addLayer({
+            id: fillId,
+            type: "fill",
+            source: sourceId,
+
+            paint: {
+                "fill-color": [
+                    "coalesce",
+                    ["get", "fill"],
+                    "#888888"
+                ],
+
+                "fill-opacity": 0.65
+            }
+
+        }, roadLayer);
+
+    }
+
+    if (!map.getLayer(darkId)) {
+
+        map.addLayer({
+            id: darkId,
+            type: "line",
+            source: sourceId,
+
+            paint: {
+                "line-color": "#1A1A1A",
+
+                "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    4, 2.2,
+                    6, 3.0,
+                    8, 3.8,
+                    10, 4.5
+                ]
+            }
+
+        }, roadLayer);
+
+    }
+
+    if (!map.getLayer(outlineId)) {
+
+        map.addLayer({
+            id: outlineId,
+            type: "line",
+            source: sourceId,
+
+            paint: {
+                "line-color": [
+                    "coalesce",
+                    ["get", "stroke"],
+                    "#000000"
+                ],
+
+                "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    4, 1.3,
+                    6, 1.8,
+                    8, 2.3,
+                    10, 2.8
+                ]
+            }
+
+        }, roadLayer);
+
+    }
+
+}
+
+
+// ============================================================
+// ARC GIS COLOR -> CSS
+// ============================================================
+
+function arcgisColorToCss(
+    color,
+    fallback = "rgba(128,128,128,1)"
+) {
+
+    if (
+        !Array.isArray(color)
+        ||
+        color.length < 3
+    ) {
+        return fallback;
+    }
+
+    const r = Number(color[0]);
+    const g = Number(color[1]);
+    const b = Number(color[2]);
+
+    const a =
+        color.length >= 4
+            ? Number(color[3]) / 255
+            : 1;
+
+    return `rgba(${r},${g},${b},${a})`;
+
+}
+
+
+// ============================================================
+// FETCH JSON WITH TIMEOUT
+// ============================================================
+
+async function fetchJsonWithTimeout(url) {
+
+    const controller =
+        new AbortController();
+
+    const timeout =
+        setTimeout(
+            () => controller.abort(),
+            NWS_REQUEST_TIMEOUT_MS
+        );
+
+    try {
+
+        const response =
+            await fetch(url, {
+                cache: "no-store",
+                signal: controller.signal
+            });
+
+        if (!response.ok) {
+            throw new Error(
+                `HTTP ${response.status}`
+            );
+        }
+
+        return await response.json();
+
+    }
+
+    finally {
+
+        clearTimeout(timeout);
+
+    }
+
+}
+
+
+// ============================================================
+// FETCH NWS LAYER METADATA
+// ============================================================
+
+async function fetchNwsLayerMetadata(layerNumber) {
+
+    const url =
+        `${NWS_HAZARD_SERVICE}/${layerNumber}?f=pjson`;
+
+    return await fetchJsonWithTimeout(url);
+
+}
+
+
+// ============================================================
+// FETCH ONE NWS GEOJSON PAGE
+// ============================================================
+
+async function fetchNwsGeoJsonPage(
+    layerNumber,
+    offset
+) {
+
+    const params =
+        new URLSearchParams();
+
+    params.set("where", "1=1");
+    params.set("outFields", "*");
+    params.set("returnGeometry", "true");
+    params.set("outSR", "4326");
+
+    params.set(
+        "resultOffset",
+        String(offset)
+    );
+
+    params.set(
+        "resultRecordCount",
+        String(NWS_PAGE_SIZE)
+    );
+
+    params.set(
+        "f",
+        "geojson"
+    );
+
+    const url =
+        `${NWS_HAZARD_SERVICE}/${layerNumber}/query?${params.toString()}`;
+
+    return await fetchJsonWithTimeout(url);
+
+}
+
+
+// ============================================================
+// FETCH COMPLETE NWS LAYER
+// ============================================================
+
+async function fetchCompleteNwsLayer(
+    layerNumber
+) {
+
+    const features = [];
+
+    let offset = 0;
+
+    while (true) {
+
+        const page =
+            await fetchNwsGeoJsonPage(
+                layerNumber,
+                offset
+            );
+
+        const pageFeatures =
+            Array.isArray(page.features)
+                ? page.features
+                : [];
+
+        features.push(
+            ...pageFeatures
+        );
+
+        if (
+            pageFeatures.length
+            <
+            NWS_PAGE_SIZE
+        ) {
+            break;
+        }
+
+        offset += NWS_PAGE_SIZE;
+
+        if (offset > 50000) {
+
+            console.warn(
+                "Stopped NWS pagination at 50,000 records."
+            );
+
+            break;
+
+        }
+
+    }
+
+    return {
+        type: "FeatureCollection",
+        features: features
+    };
+
+}
+
+
+// ============================================================
+// PARSE WATCH/WARNING/ADVISORY RENDERER
+// ============================================================
+
+function parseWatchesWarningsRenderer(
+    metadata
+) {
+
+    const renderer =
+        metadata
+            ?.drawingInfo
+            ?.renderer;
+
+    const output = {};
+
+    if (!renderer) {
+        return output;
+    }
+
+    const infos =
+        renderer.uniqueValueInfos
+        ||
+        [];
+
+    infos.forEach(info => {
+
+        const product =
+            String(
+                info.value
+                ??
+                info.label
+                ??
+                ""
+            ).trim();
+
+        if (!product) {
+            return;
+        }
+
+        output[product] = {
+
+            label:
+                info.label
+                ||
+                product,
+
+            fill:
+                arcgisColorToCss(
+                    info?.symbol?.color,
+                    "rgba(128,128,128,1)"
+                ),
+
+            outline:
+                arcgisColorToCss(
+                    info
+                        ?.symbol
+                        ?.outline
+                        ?.color,
+
+                    "rgba(110,110,110,1)"
+                )
+
+        };
+
+    });
+
+    return output;
+
+}
+
+
+// ============================================================
+// PARSE CURRENT WARNING RENDERER
+// ============================================================
+
+function parseCurrentWarningRenderer(
+    metadata
+) {
+
+    const renderer =
+        metadata
+            ?.drawingInfo
+            ?.renderer;
+
+    const output = {};
+
+    if (!renderer) {
+        return output;
+    }
+
+    const infos =
+        renderer.uniqueValueInfos
+        ||
+        [];
+
+    infos.forEach(info => {
+
+        const raw =
+            String(
+                info.value
+                ??
+                ""
+            );
+
+        const pieces =
+            raw.split(",");
+
+        if (pieces.length < 2) {
+            return;
+        }
+
+        const phenom =
+            pieces[0].trim();
+
+        const sig =
+            pieces[1].trim();
+
+        const key =
+            `${phenom}|${sig}`;
+
+        const symbol =
+            info.symbol
+            ||
+            {};
+
+        let outlineColor =
+            symbol
+                ?.outline
+                ?.color;
+
+        // CurrentWarnings may use line symbols rather
+        // than polygon symbols.
+        if (
+            !outlineColor
+            &&
+            symbol.color
+        ) {
+            outlineColor =
+                symbol.color;
+        }
+
+        output[key] = {
+
+            label:
+                info.label
+                ||
+                key,
+
+            outline:
+                arcgisColorToCss(
+                    outlineColor,
+                    "#ffffff"
+                )
+
+        };
+
+    });
+
+    return output;
+
+}
+
+
+// ============================================================
+// DECORATE WATCH/WARNING FEATURES
+// ============================================================
+
+function decorateWatchesWarnings(
+    geojson,
+    renderer
+) {
+
+    geojson.features.forEach(feature => {
+
+        if (!feature.properties) {
+            feature.properties = {};
+        }
+
+        const product =
+            String(
+                feature
+                    .properties
+                    .prod_type
+                ||
+                ""
+            ).trim();
+
+        const style =
+            renderer[product];
+
+        feature.properties.nws_product =
+            product;
+
+        feature.properties.nws_fill =
+            style?.fill
+            ||
+            "rgba(128,128,128,1)";
+
+        feature.properties.nws_outline =
+            style?.outline
+            ||
+            "rgba(110,110,110,1)";
+
+    });
+
+    return geojson;
+
+}
+
+
+// ============================================================
+// DECORATE CURRENT WARNING FEATURES
+// ============================================================
+
+function decorateCurrentWarnings(
+    geojson,
+    renderer
+) {
+
+    geojson.features.forEach(feature => {
+
+        if (!feature.properties) {
+            feature.properties = {};
+        }
+
+        const phenom =
+            String(
+                feature
+                    .properties
+                    .phenom
+                ||
+                ""
+            ).trim();
+
+        const sig =
+            String(
+                feature
+                    .properties
+                    .sig
+                ||
+                ""
+            ).trim();
+
+        const key =
+            `${phenom}|${sig}`;
+
+        const style =
+            renderer[key];
+
+        feature.properties.nws_product =
+            feature
+                .properties
+                .prod_type
+            ||
+            style?.label
+            ||
+            key;
+
+        feature.properties.nws_outline =
+            style?.outline
+            ||
+            "#ffffff";
+
+    });
+
+    return geojson;
+
+}
+
+
+// ============================================================
+// LOAD NWS HAZARD DATA
+// ============================================================
+
+async function loadNwsHazardData() {
+
+    if (nwsHazardsLoaded) {
+        return;
+    }
+
+    console.log(
+        "Loading live NWS hazards..."
+    );
+
+    const [
+        currentMetadata,
+        watchesMetadata,
+        currentGeoJson,
+        watchesGeoJson
+    ] =
+        await Promise.all([
+
+            fetchNwsLayerMetadata(
+                NWS_CURRENT_WARNINGS_LAYER
+            ),
+
+            fetchNwsLayerMetadata(
+                NWS_WATCHES_WARNINGS_LAYER
+            ),
+
+            fetchCompleteNwsLayer(
+                NWS_CURRENT_WARNINGS_LAYER
+            ),
+
+            fetchCompleteNwsLayer(
+                NWS_WATCHES_WARNINGS_LAYER
+            )
+
+        ]);
+
+    nwsCurrentWarningRenderer =
+        parseCurrentWarningRenderer(
+            currentMetadata
+        );
+
+    nwsWatchesWarningsRenderer =
+        parseWatchesWarningsRenderer(
+            watchesMetadata
+        );
+
+    nwsCurrentWarningsData =
+        decorateCurrentWarnings(
+            currentGeoJson,
+            nwsCurrentWarningRenderer
+        );
+
+    nwsWatchesWarningsData =
+        decorateWatchesWarnings(
+            watchesGeoJson,
+            nwsWatchesWarningsRenderer
+        );
+
+    nwsHazardsLoaded =
+        true;
+
+    console.log(
+        "NWS current warning polygons:",
+        nwsCurrentWarningsData.features.length
+    );
+
+    console.log(
+        "NWS WWA polygons:",
+        nwsWatchesWarningsData.features.length
+    );
+
+}
+
+
+// ============================================================
+// PRODUCT FILTER
+// ============================================================
+
+function buildProductFilter(
+    products
+) {
+
+    return [
+        "match",
+        ["get", "nws_product"],
+        products,
+        true,
+        false
+    ];
+
+}
+
+
+// ============================================================
+// GENERIC NWS PRODUCT GROUP
+// ============================================================
+
+function addNwsProductGroup(
+    map,
+    roadLayer,
+    id,
+    products
+) {
+
+    const fillId =
+        `${id}-fill`;
+
+    const warningId =
+        `${id}-current-warning`;
+
+    if (!map.getLayer(fillId)) {
+
+        map.addLayer({
+            id: fillId,
+            type: "fill",
+
+            source:
+                "nws-watches-warnings",
+
+            filter:
+                buildProductFilter(
+                    products
+                ),
+
+            paint: {
+
+                "fill-color": [
+                    "coalesce",
+                    ["get", "nws_fill"],
+                    "#888888"
+                ],
+
+                "fill-opacity":
+                    0.78,
+
+                "fill-outline-color": [
+                    "coalesce",
+                    ["get", "nws_outline"],
+                    "#666666"
+                ]
+
+            }
+
+        }, roadLayer);
+
+    }
+
+    if (!map.getLayer(warningId)) {
+
+        map.addLayer({
+            id: warningId,
+            type: "line",
+
+            source:
+                "nws-current-warnings",
+
+            filter:
+                buildProductFilter(
+                    products
+                ),
+
+            paint: {
+
+                "line-color": [
+                    "coalesce",
+                    ["get", "nws_outline"],
+                    "#ffffff"
+                ],
+
+                "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    4, 2.0,
+                    6, 2.5,
+                    8, 3.0,
+                    10, 4.0
+                ],
+
+                "line-opacity":
+                    1.0
+
+            }
+
+        }, roadLayer);
+
+    }
+
+}
+
+
+// ============================================================
+// ADD NWS HAZARDS
+// ============================================================
+
+async function addNwsHazards(
+    map,
+    roadLayer
+) {
+
+    await loadNwsHazardData();
+
+
+    // ========================================================
+    // SOURCES
+    // ========================================================
+
+    if (
+        !map.getSource(
+            "nws-current-warnings"
+        )
+    ) {
+
+        map.addSource(
+            "nws-current-warnings",
+            {
+                type: "geojson",
+                data: nwsCurrentWarningsData
+            }
+        );
+
+    }
+
+    if (
+        !map.getSource(
+            "nws-watches-warnings"
+        )
+    ) {
+
+        map.addSource(
+            "nws-watches-warnings",
+            {
+                type: "geojson",
+                data: nwsWatchesWarningsData
+            }
+        );
+
+    }
+
+
+    // ========================================================
+    // ALL HAZARDS
+    // ========================================================
+
+    if (
+        !map.getLayer(
+            "nws-all-fill"
+        )
+    ) {
+
+        map.addLayer({
+            id: "nws-all-fill",
+            type: "fill",
+
+            source:
+                "nws-watches-warnings",
+
+            paint: {
+
+                "fill-color": [
+                    "coalesce",
+                    ["get", "nws_fill"],
+                    "rgba(128,128,128,1)"
+                ],
+
+                "fill-opacity":
+                    0.78,
+
+                "fill-outline-color": [
+                    "coalesce",
+                    ["get", "nws_outline"],
+                    "rgba(110,110,110,1)"
+                ]
+
+            }
+
+        }, roadLayer);
+
+    }
+
+
+    if (
+        !map.getLayer(
+            "nws-all-current-warning"
+        )
+    ) {
+
+        map.addLayer({
+            id:
+                "nws-all-current-warning",
+
+            type:
+                "line",
+
+            source:
+                "nws-current-warnings",
+
+            paint: {
+
+                "line-color": [
+                    "coalesce",
+                    ["get", "nws_outline"],
+                    "#ffffff"
+                ],
+
+                "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    4, 2.0,
+                    6, 2.5,
+                    8, 3.0,
+                    10, 4.0
+                ],
+
+                "line-opacity":
+                    1.0
+
+            }
+
+        }, roadLayer);
+
+    }
+
+
+    // ========================================================
+    // SEVERE WARNINGS
+    // ========================================================
+
+    if (
+        !map.getLayer(
+            "nws-severe-fill"
+        )
+    ) {
+
+        map.addLayer({
+            id:
+                "nws-severe-fill",
+
+            type:
+                "fill",
+
+            source:
+                "nws-watches-warnings",
+
+            filter:
+                buildProductFilter(
+                    NWS_SEVERE_PRODUCTS
+                ),
+
+            paint: {
+
+                "fill-color": [
+                    "coalesce",
+                    ["get", "nws_fill"],
+                    "#888888"
+                ],
+
+                "fill-opacity":
+                    0.78
+
+            }
+
+        }, roadLayer);
+
+    }
+
+
+    if (
+        !map.getLayer(
+            "nws-severe-current-warning"
+        )
+    ) {
+
+        map.addLayer({
+            id:
+                "nws-severe-current-warning",
+
+            type:
+                "line",
+
+            source:
+                "nws-current-warnings",
+
+            filter:
+                buildProductFilter(
+                    NWS_SEVERE_PRODUCTS
+                ),
+
+            paint: {
+
+                "line-color": [
+                    "coalesce",
+                    ["get", "nws_outline"],
+                    "#ffffff"
+                ],
+
+                "line-width":
+                    3,
+
+                "line-opacity":
+                    1.0
+
+            }
+
+        }, roadLayer);
+
+    }
+
+
+    // ========================================================
+    // SEVERE WATCHES
+    // ========================================================
+
+    if (
+        !map.getLayer(
+            "nws-watches-fill"
+        )
+    ) {
+
+        map.addLayer({
+            id:
+                "nws-watches-fill",
+
+            type:
+                "fill",
+
+            source:
+                "nws-watches-warnings",
+
+            filter:
+                buildProductFilter(
+                    NWS_WATCH_PRODUCTS
+                ),
+
+            paint: {
+
+                "fill-color": [
+                    "coalesce",
+                    ["get", "nws_fill"],
+                    "#888888"
+                ],
+
+                "fill-opacity":
+                    0.78
+
+            }
+
+        }, roadLayer);
+
+    }
+
+
+    // Empty compatibility layer.
+    if (
+        !map.getLayer(
+            "nws-watches-current-warning"
+        )
+    ) {
+
+        map.addLayer({
+            id:
+                "nws-watches-current-warning",
+
+            type:
+                "line",
+
+            source:
+                "nws-current-warnings",
+
+            filter: [
+                "==",
+                ["get", "nws_product"],
+                "__NO_CURRENT_WARNING_MATCH__"
+            ],
+
+            paint: {
+                "line-color": "#ffffff",
+                "line-width": 3
+            }
+
+        }, roadLayer);
+
+    }
+
+
+    // ========================================================
+    // OTHER GROUPS
+    // ========================================================
+
+    addNwsProductGroup(
+        map,
+        roadLayer,
+        "nws-flood",
+        NWS_FLOOD_PRODUCTS
+    );
+
+    addNwsProductGroup(
+        map,
+        roadLayer,
+        "nws-fire",
+        NWS_FIRE_PRODUCTS
+    );
+
+    addNwsProductGroup(
+        map,
+        roadLayer,
+        "nws-heat",
+        NWS_HEAT_PRODUCTS
+    );
+
+    addNwsProductGroup(
+        map,
+        roadLayer,
+        "nws-winter",
+        NWS_WINTER_PRODUCTS
+    );
+
+}
+
+
+// ============================================================
+// ADD WPC ERO
+// ============================================================
+
+function addWpcEro(
+    map,
+    day,
+    roadLayer
+) {
+
+    const sourceId =
+        `wpc-day${day}-ero`;
+
+    const fillId =
+        `wpc-day${day}-ero-fill`;
+
+    const darkId =
+        `wpc-day${day}-ero-outline-dark`;
+
+    const outlineId =
+        `wpc-day${day}-ero-outline`;
+
+
+    if (!map.getSource(sourceId)) {
+
+        map.addSource(
+            sourceId,
+            {
+                type: "geojson",
+                data:
+                    `data/wpc_day${day}_ero.geojson`
+            }
+        );
+
+    }
+
+
+    if (!map.getLayer(fillId)) {
+
+        map.addLayer({
+            id: fillId,
+            type: "fill",
+            source: sourceId,
+
+            paint: {
+
+                "fill-color": [
+                    "coalesce",
+                    ["get", "fill"],
+                    "#888888"
+                ],
+
+                "fill-opacity":
+                    0.62
+
+            }
+
+        }, roadLayer);
+
+    }
+
+
+    if (!map.getLayer(darkId)) {
+
+        map.addLayer({
+            id: darkId,
+            type: "line",
+            source: sourceId,
+
+            paint: {
+
+                "line-color":
+                    "#111111",
+
+                "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    4, 2.0,
+                    6, 2.8,
+                    8, 3.5,
+                    10, 4.2
+                ]
+
+            }
+
+        }, roadLayer);
+
+    }
+
+
+    if (!map.getLayer(outlineId)) {
+
+        map.addLayer({
+            id: outlineId,
+            type: "line",
+            source: sourceId,
+
+            paint: {
+
+                "line-color": [
+                    "coalesce",
+                    ["get", "stroke"],
+                    "#000000"
+                ],
+
+                "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    4, 1.2,
+                    6, 1.7,
+                    8, 2.2,
+                    10, 2.7
+                ]
+
+            }
+
+        }, roadLayer);
+
+    }
+
+}
+// ============================================================
 // FIND ROAD LAYER
 // ============================================================
 
