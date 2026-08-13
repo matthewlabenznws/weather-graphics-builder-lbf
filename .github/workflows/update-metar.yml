@@ -1,0 +1,58 @@
+name: Update METAR Observations
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-metar:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+
+      - name: Update METAR observations
+        run: |
+          python update_metar.py
+
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add data/metar.geojson
+
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No METAR changes detected."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "METAR observations changed."
+          fi
+
+
+      - name: Commit updated METAR observations
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "METAR Update Bot"
+          git config user.email "actions@github.com"
+
+          git commit -m "Update METAR observations"
+
+          git push
