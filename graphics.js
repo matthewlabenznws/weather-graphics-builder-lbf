@@ -719,7 +719,7 @@ function formatValidTimeCentral(
 
 
 // ============================================================
-// OBSERVATION VALUE
+// GET OBSERVATION VALUE
 // ============================================================
 
 function getObservationValue(
@@ -853,7 +853,7 @@ function getObservationValue(
 
         const rh =
             Number(
-                properties.rh
+                properties.relative_humidity
             );
 
 
@@ -931,17 +931,10 @@ function getObservationLabel(
 // ============================================================
 // WIND ARROW ROTATION
 //
-// METAR wind direction tells where the wind is FROM.
+// GeoJSON wind_direction tells where the wind is FROM.
 //
-// Example:
-// 270° = wind FROM west.
-//
-// Add 180 degrees so the arrow points toward where
-// the wind is moving:
-//
-// 270° + 180° = 90°
-// arrow points east.
-//
+// Add 180 degrees so our arrow points toward where
+// the wind is moving.
 // ============================================================
 
 function getWindArrowRotation(
@@ -959,7 +952,7 @@ function getWindArrowRotation(
 
     const direction =
         Number(
-            properties.wind_dir_deg
+            properties.wind_direction
         );
 
 
@@ -1000,6 +993,8 @@ function observationUsesWindArrow() {
     );
 
 }
+
+
 // ============================================================
 // LOAD METAR GEOJSON
 // ============================================================
@@ -1059,6 +1054,11 @@ async function loadMetarData() {
             data;
 
 
+        console.log(
+            `Loaded ${data.features.length} METAR observations.`
+        );
+
+
         return data;
 
     }
@@ -1100,6 +1100,7 @@ async function refreshMetarData() {
 
 
     allMaps().forEach(
+
         map => {
 
             if (
@@ -1135,6 +1136,7 @@ async function refreshMetarData() {
             );
 
         }
+
     );
 
 }
@@ -1257,7 +1259,7 @@ function createWindArrowImage() {
 
 
     // ========================================================
-    // DARK OUTLINE FOR VISIBILITY
+    // DARK OUTLINE
     // ========================================================
 
     ctx.strokeStyle =
@@ -1552,47 +1554,44 @@ function addMetarObservations(
                         "case",
 
                         [
-
                             "all",
 
                             [
                                 "has",
-                                "wind_dir_deg"
+                                "wind_direction"
                             ],
 
                             [
                                 "!=",
+
                                 [
                                     "get",
-                                    "wind_dir_deg"
+                                    "wind_direction"
                                 ],
+
                                 null
                             ]
-
                         ],
 
                         [
-
                             "%",
 
                             [
-
                                 "+",
 
                                 [
                                     "to-number",
+
                                     [
                                         "get",
-                                        "wind_dir_deg"
+                                        "wind_direction"
                                     ]
                                 ],
 
                                 180
-
                             ],
 
                             360
-
                         ],
 
                         0
@@ -1826,25 +1825,24 @@ function buildObservationTextExpression() {
             ],
 
             [
-
                 "concat",
 
                 "G",
 
                 [
-
                     "to-string",
 
                     [
-
                         "round",
 
                         [
                             "to-number",
+
                             [
                                 "get",
                                 "wind_gust_mph"
                             ]
+
                         ]
 
                     ]
@@ -1874,19 +1872,19 @@ function buildObservationTextExpression() {
             ],
 
             [
-
                 "to-string",
 
                 [
-
                     "round",
 
                     [
                         "to-number",
+
                         [
                             "get",
                             "wind_speed_mph"
                         ]
+
                     ]
 
                 ]
@@ -1914,19 +1912,19 @@ function buildObservationTextExpression() {
             ],
 
             [
-
                 "to-string",
 
                 [
-
                     "round",
 
                     [
                         "to-number",
+
                         [
                             "get",
                             "temp_f"
                         ]
+
                     ]
 
                 ]
@@ -1954,19 +1952,19 @@ function buildObservationTextExpression() {
             ],
 
             [
-
                 "to-string",
 
                 [
-
                     "round",
 
                     [
                         "to-number",
+
                         [
                             "get",
                             "dewpoint_f"
                         ]
+
                     ]
 
                 ]
@@ -1990,27 +1988,26 @@ function buildObservationTextExpression() {
 
             [
                 "has",
-                "rh"
+                "relative_humidity"
             ],
 
             [
-
                 "concat",
 
                 [
-
                     "to-string",
 
                     [
-
                         "round",
 
                         [
                             "to-number",
+
                             [
                                 "get",
-                                "rh"
+                                "relative_humidity"
                             ]
+
                         ]
 
                     ]
@@ -2130,6 +2127,7 @@ function setObservationParameter(
 
 
     allMaps().forEach(
+
         map => {
 
             if (
@@ -2145,6 +2143,7 @@ function setObservationParameter(
             }
 
         }
+
     );
 
 }
@@ -2178,13 +2177,13 @@ function makeMetarPopupHtml(
 
     const rh =
         Number(
-            properties.rh
+            properties.relative_humidity
         );
 
 
     const windDir =
         Number(
-            properties.wind_dir_deg
+            properties.wind_direction
         );
 
 
@@ -2200,15 +2199,23 @@ function makeMetarPopupHtml(
         );
 
 
+    const visibility =
+        Number(
+            properties.visibility_mi
+        );
+
+
     const format =
         value => {
 
             return Number.isFinite(
                 value
             )
+
                 ? Math.round(
                     value
                 )
+
                 : "N/A";
 
         };
@@ -2218,7 +2225,7 @@ function makeMetarPopupHtml(
 
         <div style="
             font-family: Arial, sans-serif;
-            min-width: 190px;
+            min-width: 200px;
         ">
 
             <div style="
@@ -2226,8 +2233,11 @@ function makeMetarPopupHtml(
                 font-weight: 800;
                 margin-bottom: 8px;
             ">
+
                 ${station}
+
             </div>
+
 
             <div style="
                 font-size: 12px;
@@ -2258,6 +2268,13 @@ function makeMetarPopupHtml(
 
                 <b>Gust:</b>
                 ${format(windGust)} mph
+
+                <br>
+
+                <b>Visibility:</b>
+                ${Number.isFinite(visibility)
+                    ? visibility.toFixed(1)
+                    : "N/A"} mi
 
             </div>
 
