@@ -12,9 +12,17 @@ jobs:
 
     steps:
 
+      # ======================================================
+      # CHECKOUT
+      # ======================================================
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
+
+      # ======================================================
+      # PYTHON
+      # ======================================================
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -22,21 +30,43 @@ jobs:
           python-version: "3.11"
 
 
+      # ======================================================
+      # DEPENDENCIES
+      # ======================================================
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests pandas
 
 
+      # ======================================================
+      # UPDATE METARS
+      # ======================================================
+
       - name: Update METAR observations
         run: |
           python update_metar.py
 
 
+      # ======================================================
+      # VERIFY OUTPUT
+      # ======================================================
+
+      - name: Verify METAR output
+        run: |
+          echo "Generated METAR file:"
+          ls -lh data/metars.geojson
+
+
+      # ======================================================
+      # CHECK FOR CHANGES
+      # ======================================================
+
       - name: Check for changes
         id: changes
         run: |
-          git add data/metar.geojson
+          git add data/metars.geojson
 
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -47,10 +77,14 @@ jobs:
           fi
 
 
+      # ======================================================
+      # COMMIT / PUSH
+      # ======================================================
+
       - name: Commit updated METAR observations
         if: steps.changes.outputs.changed == 'true'
         run: |
-          git config user.name "METAR Update Bot"
+          git config user.name "METAR Bot"
           git config user.email "actions@github.com"
 
           git commit -m "Update METAR observations"
