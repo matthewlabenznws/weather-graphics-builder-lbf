@@ -348,6 +348,16 @@ let mesonetData =
 
     };
 
+// ============================================================
+// MRMS STATE
+// ============================================================
+
+let mrmsManifest =
+    null;
+
+
+let activeMrmsPeriod =
+    "24h";
 
 // ============================================================
 // NWS HAZARD CACHE
@@ -415,6 +425,13 @@ const overlayState = {
         false,
 
     mesonet:
+        false,
+
+    // ========================================================
+    // MRMS PRECIPITATION
+    // ========================================================
+
+    mrms:
         false,
 
 
@@ -2823,6 +2840,922 @@ function connectMetarPopups(
     );
 
 }
+// ============================================================
+// MRMS PRECIPITATION
+// ============================================================
+
+
+// ============================================================
+// LOAD MRMS MANIFEST
+// ============================================================
+
+async function loadMrmsManifest() {
+
+    try {
+
+        const response =
+            await fetch(
+
+                `${MRMS_MANIFEST_URL}?t=${Date.now()}`,
+
+                {
+                    cache:
+                        "no-store"
+                }
+
+            );
+
+
+        if (
+            !response.ok
+        ) {
+
+            throw new Error(
+                `MRMS manifest HTTP ${response.status}`
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            !data
+            ||
+            !data.products
+        ) {
+
+            throw new Error(
+                "MRMS manifest is invalid."
+            );
+
+        }
+
+
+        mrmsManifest =
+            data;
+
+
+        console.log(
+            "MRMS manifest loaded:",
+            data.generated
+        );
+
+
+        return data;
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "MRMS manifest load failed:",
+            error
+        );
+
+
+        return null;
+
+    }
+
+}
+
+
+// ============================================================
+// GET CURRENT MRMS PRODUCT
+// ============================================================
+
+function getActiveMrmsProduct() {
+
+    if (
+        !mrmsManifest
+        ||
+        !mrmsManifest.products
+    ) {
+
+        return null;
+
+    }
+
+
+    return (
+
+        mrmsManifest.products[
+            activeMrmsPeriod
+        ]
+
+        ||
+
+        null
+
+    );
+
+}
+
+
+// ============================================================
+// GET MRMS IMAGE COORDINATES
+//
+// Mapbox image source coordinate order:
+//
+// Northwest
+// Northeast
+// Southeast
+// Southwest
+// ============================================================
+
+function getMrmsImageCoordinates(
+    product
+) {
+
+    if (
+        !product
+        ||
+        !product.extent
+    ) {
+
+        return null;
+
+    }
+
+
+    const extent =
+        product.extent;
+
+
+    return [
+
+        [
+            Number(
+                extent.west
+            ),
+
+            Number(
+                extent.north
+            )
+        ],
+
+        [
+            Number(
+                extent.east
+            ),
+
+            Number(
+                extent.north
+            )
+        ],
+
+        [
+            Number(
+                extent.east
+            ),
+
+            Number(
+                extent.south
+            )
+        ],
+
+        [
+            Number(
+                extent.west
+            ),
+
+            Number(
+                extent.south
+            )
+        ]
+
+    ];
+
+}
+
+
+// ============================================================
+// BUILD MRMS CITY VALUE GEOJSON
+// ============================================================
+
+function buildMrmsCityGeoJson(
+    product
+) {
+
+    const features =
+        [];
+
+
+    if (
+        !product
+        ||
+        !Array.isArray(
+            product.city_values
+        )
+    ) {
+
+        return {
+
+            type:
+                "FeatureCollection",
+
+            features:
+                []
+
+        };
+
+    }
+
+
+    product.city_values.forEach(
+
+        city => {
+
+            const amount =
+                Number(
+                    city.precip_inches
+                );
+
+
+            const longitude =
+                Number(
+                    city.lon
+                );
+
+
+            const latitude =
+                Number(
+                    city.lat
+                );
+
+
+            if (
+                !Number.isFinite(
+                    amount
+                )
+                ||
+                !Number.isFinite(
+                    longitude
+                )
+                ||
+                !Number.isFinite(
+                    latitude
+                )
+            ) {
+
+                return;
+
+            }
+
+
+            // =================================================
+            // DO NOT LABEL ZERO / TRACE VALUES
+            // =================================================
+
+            if (
+                amount
+                <
+                MRMS_LABEL_MINIMUM_INCHES
+            ) {
+
+                return;
+
+            }
+
+
+            features.push({
+
+                type:
+                    "Feature",
+
+                geometry: {
+
+                    type:
+                        "Point",
+
+                    coordinates: [
+
+                        longitude,
+                        latitude
+
+                    ]
+
+                },
+
+                properties: {
+
+                    name:
+                        city.name
+                        ||
+                        "",
+
+                    precip_inches:
+                        amount,
+
+                    label:
+                        `${amount.toFixed(2)}"`
+
+                }
+
+            });
+
+        }
+
+    );
+
+
+    return {
+
+        type:
+            "FeatureCollection",
+
+        features:
+            features
+
+    };
+
+}
+
+
+// ============================================================
+// ADD MRMS PRECIPITATION TO MAP
+// ============================================================
+
+function addMrmsPrecipitation(
+    map,
+    roadLayer
+) {
+
+    const product =
+        getActiveMrmsProduct();
+
+
+    if (
+        !product
+    ) {
+
+        console.warn(
+            "MRMS product unavailable during map setup."
+        );
+
+
+        return;
+
+    }
+
+
+    const coordinates =
+        getMrmsImageCoordinates(
+            product
+        );
+
+
+    if (
+        !coordinates
+    ) {
+
+        console.warn(
+            "MRMS image extent unavailable."
+        );
+
+
+        return;
+
+    }
+
+
+    // ========================================================
+    // MRMS IMAGE SOURCE
+    // ========================================================
+
+    if (
+        !map.getSource(
+            "mrms-precip"
+        )
+    ) {
+
+        map.addSource(
+
+            "mrms-precip",
+
+            {
+
+                type:
+                    "image",
+
+                url:
+                    `${product.image}?t=${Date.now()}`,
+
+                coordinates:
+                    coordinates
+
+            }
+
+        );
+
+    }
+
+
+    // ========================================================
+    // MRMS PRECIPITATION RASTER
+    // ========================================================
+
+    if (
+        !map.getLayer(
+            "mrms-precip-layer"
+        )
+    ) {
+
+        map.addLayer(
+
+            {
+
+                id:
+                    "mrms-precip-layer",
+
+                type:
+                    "raster",
+
+                source:
+                    "mrms-precip",
+
+                layout: {
+
+                    visibility:
+                        "none"
+
+                },
+
+                paint: {
+
+                    "raster-opacity":
+                        0.88,
+
+                    "raster-fade-duration":
+                        0,
+
+                    "raster-resampling":
+                        "linear"
+
+                }
+
+            },
+
+            roadLayer
+
+        );
+
+    }
+
+
+    // ========================================================
+    // MRMS CITY VALUE SOURCE
+    // ========================================================
+
+    if (
+        !map.getSource(
+            "mrms-city-values"
+        )
+    ) {
+
+        map.addSource(
+
+            "mrms-city-values",
+
+            {
+
+                type:
+                    "geojson",
+
+                data:
+                    buildMrmsCityGeoJson(
+                        product
+                    )
+
+            }
+
+        );
+
+    }
+
+
+    // ========================================================
+    // MRMS PRECIPITATION AMOUNT LABELS
+    //
+    // These are plotted ABOVE the city coordinate.
+    // ========================================================
+
+    if (
+        !map.getLayer(
+            "mrms-city-value-labels"
+        )
+    ) {
+
+        map.addLayer({
+
+            id:
+                "mrms-city-value-labels",
+
+            type:
+                "symbol",
+
+            source:
+                "mrms-city-values",
+
+            minzoom:
+                5.0,
+
+            layout: {
+
+                "text-field": [
+
+                    "get",
+                    "label"
+
+                ],
+
+                "text-size": [
+
+                    "interpolate",
+
+                    [
+                        "linear"
+                    ],
+
+                    [
+                        "zoom"
+                    ],
+
+                    4,
+                    11,
+
+                    5,
+                    12,
+
+                    6,
+                    14,
+
+                    8,
+                    16,
+
+                    10,
+                    18
+
+                ],
+
+                "text-font": [
+
+                    "DIN Pro Bold",
+                    "Arial Unicode MS Bold"
+
+                ],
+
+                "text-anchor":
+                    "bottom",
+
+                "text-offset": [
+
+                    0,
+                    -0.75
+
+                ],
+
+                "text-allow-overlap":
+                    true,
+
+                "text-ignore-placement":
+                    true
+
+            },
+
+            paint: {
+
+                "text-color":
+                    "#ffffff",
+
+                "text-halo-color":
+                    "#000000",
+
+                "text-halo-width":
+                    2.5,
+
+                "text-halo-blur":
+                    0.25
+
+            }
+
+        });
+
+    }
+
+
+    updateMrmsLayerState(
+        map
+    );
+
+}
+
+
+// ============================================================
+// UPDATE MRMS PRODUCT ON ONE MAP
+// ============================================================
+
+function updateMrmsProductOnMap(
+    map
+) {
+
+    if (
+        !map
+        ||
+        !map.isStyleLoaded()
+    ) {
+
+        return;
+
+    }
+
+
+    const product =
+        getActiveMrmsProduct();
+
+
+    if (
+        !product
+    ) {
+
+        return;
+
+    }
+
+
+    const coordinates =
+        getMrmsImageCoordinates(
+            product
+        );
+
+
+    // ========================================================
+    // UPDATE PRECIPITATION IMAGE
+    // ========================================================
+
+    const imageSource =
+        map.getSource(
+            "mrms-precip"
+        );
+
+
+    if (
+        imageSource
+        &&
+        coordinates
+    ) {
+
+        imageSource.updateImage({
+
+            url:
+                `${product.image}?t=${Date.now()}`,
+
+            coordinates:
+                coordinates
+
+        });
+
+    }
+
+
+    // ========================================================
+    // UPDATE CITY VALUES
+    // ========================================================
+
+    const citySource =
+        map.getSource(
+            "mrms-city-values"
+        );
+
+
+    if (
+        citySource
+    ) {
+
+        citySource.setData(
+
+            buildMrmsCityGeoJson(
+                product
+            )
+
+        );
+
+    }
+
+
+    // ========================================================
+    // VISIBILITY
+    // ========================================================
+
+    updateMrmsLayerState(
+        map
+    );
+
+
+    // ========================================================
+    // KEEP CITY VALUES ABOVE MAPBOX LABELS
+    // ========================================================
+
+    moveMrmsLabelsToTop(
+        map
+    );
+
+
+    // ========================================================
+    // KEEP METARS ABOVE MRMS
+    // ========================================================
+
+    moveMetarObservationsToTop(
+        map
+    );
+
+}
+
+
+// ============================================================
+// UPDATE MRMS VISIBILITY
+// ============================================================
+
+function updateMrmsLayerState(
+    map
+) {
+
+    if (
+        !map
+    ) {
+
+        return;
+
+    }
+
+
+    const visible =
+        !!overlayState.mrms;
+
+
+    setLayerVisibility(
+
+        map,
+
+        [
+
+            "mrms-precip-layer",
+            "mrms-city-value-labels"
+
+        ],
+
+        visible
+
+    );
+
+}
+
+
+// ============================================================
+// MOVE MRMS CITY VALUES ABOVE BASEMAP LABELS
+// ============================================================
+
+function moveMrmsLabelsToTop(
+    map
+) {
+
+    if (
+        !map
+    ) {
+
+        return;
+
+    }
+
+
+    if (
+        map.getLayer(
+            "mrms-city-value-labels"
+        )
+    ) {
+
+        map.moveLayer(
+            "mrms-city-value-labels"
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// SET MRMS ACCUMULATION PERIOD
+// ============================================================
+
+function setMrmsPeriod(
+    period
+) {
+
+    const validPeriods = [
+
+        "24h",
+        "48h",
+        "72h"
+
+    ];
+
+
+    if (
+        !validPeriods.includes(
+            period
+        )
+    ) {
+
+        console.warn(
+            "Invalid MRMS accumulation period:",
+            period
+        );
+
+
+        return;
+
+    }
+
+
+    activeMrmsPeriod =
+        period;
+
+
+    console.log(
+        "MRMS accumulation changed to:",
+        activeMrmsPeriod
+    );
+
+
+    allMaps().forEach(
+
+        map => {
+
+            updateMrmsProductOnMap(
+                map
+            );
+
+        }
+
+    );
+
+}
+
+
+// ============================================================
+// REFRESH MRMS DATA
+// ============================================================
+
+async function refreshMrmsData() {
+
+    try {
+
+        const manifest =
+            await loadMrmsManifest();
+
+
+        if (
+            !manifest
+        ) {
+
+            return;
+
+        }
+
+
+        allMaps().forEach(
+
+            map => {
+
+                updateMrmsProductOnMap(
+                    map
+                );
+
+            }
+
+        );
+
+
+        console.log(
+            "MRMS precipitation refreshed."
+        );
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "MRMS refresh failed:",
+            error
+        );
+
+    }
+
+}
+
 // ============================================================
 // ADD SPC OUTLOOK
 // ============================================================
