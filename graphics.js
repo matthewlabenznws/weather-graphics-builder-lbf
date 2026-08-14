@@ -735,6 +735,10 @@ function getObservationValue(
     }
 
 
+    // ========================================================
+    // WIND GUST
+    // ========================================================
+
     if (
         observationParameter === "gust"
     ) {
@@ -749,6 +753,8 @@ function getObservationValue(
             Number.isFinite(
                 gust
             )
+            &&
+            gust > 0
         ) {
 
             return Math.round(
@@ -762,6 +768,10 @@ function getObservationValue(
 
     }
 
+
+    // ========================================================
+    // WIND SPEED
+    // ========================================================
 
     if (
         observationParameter === "wind"
@@ -791,6 +801,10 @@ function getObservationValue(
     }
 
 
+    // ========================================================
+    // TEMPERATURE
+    // ========================================================
+
     if (
         observationParameter === "temp"
     ) {
@@ -819,6 +833,10 @@ function getObservationValue(
     }
 
 
+    // ========================================================
+    // DEW POINT
+    // ========================================================
+
     if (
         observationParameter === "dewpoint"
     ) {
@@ -846,6 +864,10 @@ function getObservationValue(
 
     }
 
+
+    // ========================================================
+    // RELATIVE HUMIDITY
+    // ========================================================
 
     if (
         observationParameter === "rh"
@@ -904,15 +926,6 @@ function getObservationLabel(
 
 
     if (
-        observationParameter === "gust"
-    ) {
-
-        return `G${value}`;
-
-    }
-
-
-    if (
         observationParameter === "rh"
     ) {
 
@@ -932,8 +945,7 @@ function getObservationLabel(
 // WIND ARROW ROTATION
 //
 // wind_direction tells where the wind is FROM.
-// Add 180 degrees so the arrow points toward where
-// the wind is moving.
+// Add 180° so the arrow points where the wind is going.
 // ============================================================
 
 function getWindArrowRotation(
@@ -1134,6 +1146,11 @@ async function refreshMetarData() {
                 map
             );
 
+
+            moveMetarObservationsToTop(
+                map
+            );
+
         }
 
     );
@@ -1142,10 +1159,12 @@ async function refreshMetarData() {
 
 
 // ============================================================
-// CREATE WIND ARROW IMAGE
+// CREATE COLORED WIND ARROW IMAGE
 // ============================================================
 
-function createWindArrowImage() {
+function createWindArrowImage(
+    arrowColor
+) {
 
     const size =
         72;
@@ -1223,11 +1242,11 @@ function createWindArrowImage() {
 
 
     // ========================================================
-    // WHITE SHAFT
+    // COLORED SHAFT
     // ========================================================
 
     ctx.strokeStyle =
-        "#ffffff";
+        arrowColor;
 
 
     ctx.lineWidth =
@@ -1253,7 +1272,7 @@ function createWindArrowImage() {
 
 
     // ========================================================
-    // BLACK ARROW HEAD
+    // BLACK ARROWHEAD
     // ========================================================
 
     ctx.fillStyle =
@@ -1288,11 +1307,11 @@ function createWindArrowImage() {
 
 
     // ========================================================
-    // WHITE ARROW HEAD
+    // COLORED ARROWHEAD
     // ========================================================
 
     ctx.fillStyle =
-        "#ffffff";
+        arrowColor;
 
 
     ctx.beginPath();
@@ -1336,38 +1355,72 @@ function createWindArrowImage() {
 
 
 // ============================================================
-// ENSURE WIND ARROW IMAGE
+// ENSURE ALL WIND ARROW COLORS EXIST
 // ============================================================
 
-function ensureWindArrowImage(
+function ensureWindArrowImages(
     map
 ) {
 
-    if (
-        map.hasImage(
-            "metar-wind-arrow"
-        )
-    ) {
+    const arrowColors = {
 
-        return;
+        "metar-wind-arrow-white":
+            "#ffffff",
 
-    }
+        "metar-wind-arrow-yellow":
+            "#ffff00",
+
+        "metar-wind-arrow-orange":
+            "#ff9900",
+
+        "metar-wind-arrow-red":
+            "#ff3333",
+
+        "metar-wind-arrow-magenta":
+            "#ff00ff",
+
+        "metar-wind-arrow-purple":
+            "#cc66ff"
+
+    };
 
 
-    const image =
-        createWindArrowImage();
+    Object.entries(
+        arrowColors
+    ).forEach(
+
+        ([
+            imageName,
+            color
+        ]) => {
+
+            if (
+                map.hasImage(
+                    imageName
+                )
+            ) {
+
+                return;
+
+            }
 
 
-    map.addImage(
+            map.addImage(
 
-        "metar-wind-arrow",
+                imageName,
 
-        image,
+                createWindArrowImage(
+                    color
+                ),
 
-        {
+                {
 
-            pixelRatio:
-                2
+                    pixelRatio:
+                        2
+
+                }
+
+            );
 
         }
 
@@ -1385,7 +1438,7 @@ function addMetarObservations(
     roadLayer
 ) {
 
-    ensureWindArrowImage(
+    ensureWindArrowImages(
         map
     );
 
@@ -1516,7 +1569,7 @@ function addMetarObservations(
                 layout: {
 
                     "icon-image":
-                        "metar-wind-arrow",
+                        "metar-wind-arrow-white",
 
                     "icon-size": [
 
@@ -1815,6 +1868,8 @@ function addMetarObservations(
     );
 
 }
+
+
 // ============================================================
 // MOVE METAR OBSERVATIONS TO TOP
 // ============================================================
@@ -1834,6 +1889,7 @@ function moveMetarObservationsToTop(
 
 
     layers.forEach(
+
         layerId => {
 
             if (
@@ -1849,15 +1905,23 @@ function moveMetarObservationsToTop(
             }
 
         }
+
     );
 
 }
+
 
 // ============================================================
 // OBSERVATION TEXT EXPRESSION
 // ============================================================
 
 function buildObservationTextExpression() {
+
+    // ========================================================
+    // GUST
+    //
+    // Do not show missing/zero gusts.
+    // ========================================================
 
     if (
         observationParameter === "gust"
@@ -1868,29 +1932,44 @@ function buildObservationTextExpression() {
             "case",
 
             [
-                "has",
-                "wind_gust_mph"
+                "all",
+
+                [
+                    "has",
+                    "wind_gust_mph"
+                ],
+
+                [
+                    ">",
+
+                    [
+                        "to-number",
+
+                        [
+                            "get",
+                            "wind_gust_mph"
+                        ]
+
+                    ],
+
+                    0
+
+                ]
+
             ],
 
             [
-                "concat",
-
-                "G",
+                "to-string",
 
                 [
-                    "to-string",
+                    "round",
 
                     [
-                        "round",
+                        "to-number",
 
                         [
-                            "to-number",
-
-                            [
-                                "get",
-                                "wind_gust_mph"
-                            ]
-
+                            "get",
+                            "wind_gust_mph"
                         ]
 
                     ]
@@ -1905,6 +1984,10 @@ function buildObservationTextExpression() {
 
     }
 
+
+    // ========================================================
+    // WIND
+    // ========================================================
 
     if (
         observationParameter === "wind"
@@ -1946,6 +2029,10 @@ function buildObservationTextExpression() {
     }
 
 
+    // ========================================================
+    // TEMPERATURE
+    // ========================================================
+
     if (
         observationParameter === "temp"
     ) {
@@ -1986,6 +2073,10 @@ function buildObservationTextExpression() {
     }
 
 
+    // ========================================================
+    // DEW POINT
+    // ========================================================
+
     if (
         observationParameter === "dewpoint"
     ) {
@@ -2025,6 +2116,10 @@ function buildObservationTextExpression() {
 
     }
 
+
+    // ========================================================
+    // RELATIVE HUMIDITY
+    // ========================================================
 
     if (
         observationParameter === "rh"
@@ -2079,121 +2174,179 @@ function buildObservationTextExpression() {
 
 
 // ============================================================
-// OBSERVATION VALUE COLOR
+// WIND CATEGORY COLOR EXPRESSION
 // ============================================================
 
 function buildObservationColorExpression() {
 
-    // ========================================================
-    // WIND GUST
-    // ========================================================
+    let propertyName =
+        null;
+
 
     if (
         observationParameter === "gust"
     ) {
 
-        return [
-
-            "case",
-
-            [
-                "!",
-                [
-                    "has",
-                    "wind_gust_mph"
-                ]
-            ],
-
-            "#ffffff",
-
-            [
-                "step",
-
-                [
-                    "to-number",
-
-                    [
-                        "get",
-                        "wind_gust_mph"
-                    ]
-
-                ],
-
-                "#ffffff",
-
-                20,
-                "#ffff00",
-
-                30,
-                "#ff9900",
-
-                40,
-                "#ff3333",
-
-                50,
-                "#ff00ff",
-
-                60,
-                "#cc66ff"
-
-            ]
-
-        ];
+        propertyName =
+            "wind_gust_mph";
 
     }
 
 
-    // ========================================================
-    // SUSTAINED WIND
-    // ========================================================
-
-    if (
+    else if (
         observationParameter === "wind"
     ) {
 
-        return [
+        propertyName =
+            "wind_speed_mph";
+
+    }
+
+
+    else {
+
+        return "#ffffff";
+
+    }
+
+
+    return [
+
+        "step",
+
+        [
+            "to-number",
+
+            [
+                "coalesce",
+
+                [
+                    "get",
+                    propertyName
+                ],
+
+                0
+
+            ]
+
+        ],
+
+        "#ffffff",
+
+        20,
+        "#ffff00",
+
+        30,
+        "#ff9900",
+
+        40,
+        "#ff3333",
+
+        50,
+        "#ff00ff",
+
+        60,
+        "#cc66ff"
+
+    ];
+
+}
+
+
+// ============================================================
+// WIND ARROW IMAGE EXPRESSION
+//
+// In gust mode:
+// - use gust magnitude when a gust exists
+// - otherwise fall back to sustained wind magnitude
+// ============================================================
+
+function buildWindArrowImageExpression() {
+
+    let windValueExpression;
+
+
+    if (
+        observationParameter === "gust"
+    ) {
+
+        windValueExpression = [
 
             "case",
 
             [
-                "!",
+                "all",
+
                 [
                     "has",
-                    "wind_speed_mph"
-                ]
-            ],
-
-            "#ffffff",
-
-            [
-                "step",
+                    "wind_gust_mph"
+                ],
 
                 [
-                    "to-number",
+                    ">",
+
+                    [
+                        "to-number",
+
+                        [
+                            "get",
+                            "wind_gust_mph"
+                        ]
+
+                    ],
+
+                    0
+
+                ]
+
+            ],
+
+            [
+                "to-number",
+
+                [
+                    "get",
+                    "wind_gust_mph"
+                ]
+
+            ],
+
+            [
+                "to-number",
+
+                [
+                    "coalesce",
 
                     [
                         "get",
                         "wind_speed_mph"
-                    ]
+                    ],
 
+                    0
+
+                ]
+
+            ]
+
+        ];
+
+    }
+
+    else {
+
+        windValueExpression = [
+
+            "to-number",
+
+            [
+                "coalesce",
+
+                [
+                    "get",
+                    "wind_speed_mph"
                 ],
 
-                "#ffffff",
-
-                20,
-                "#ffff00",
-
-                30,
-                "#ff9900",
-
-                40,
-                "#ff3333",
-
-                50,
-                "#ff00ff",
-
-                60,
-                "#cc66ff"
+                0
 
             ]
 
@@ -2202,11 +2355,30 @@ function buildObservationColorExpression() {
     }
 
 
-    // ========================================================
-    // OTHER PARAMETERS
-    // ========================================================
+    return [
 
-    return "#ffffff";
+        "step",
+
+        windValueExpression,
+
+        "metar-wind-arrow-white",
+
+        20,
+        "metar-wind-arrow-yellow",
+
+        30,
+        "metar-wind-arrow-orange",
+
+        40,
+        "metar-wind-arrow-red",
+
+        50,
+        "metar-wind-arrow-magenta",
+
+        60,
+        "metar-wind-arrow-purple"
+
+    ];
 
 }
 
@@ -2233,7 +2405,7 @@ function updateObservationLayerState(
 
 
     // ========================================================
-    // METAR BASE VISIBILITY
+    // BASE METAR LAYERS
     // ========================================================
 
     setLayerVisibility(
@@ -2252,7 +2424,7 @@ function updateObservationLayerState(
 
 
     // ========================================================
-    // WIND ARROW ONLY FOR WIND / GUST
+    // WIND ARROWS
     // ========================================================
 
     setLayerVisibility(
@@ -2268,6 +2440,29 @@ function updateObservationLayerState(
         observationUsesWindArrow()
 
     );
+
+
+    // ========================================================
+    // UPDATE WIND ARROW COLOR
+    // ========================================================
+
+    if (
+        map.getLayer(
+            "metar-wind-arrow-layer"
+        )
+    ) {
+
+        map.setLayoutProperty(
+
+            "metar-wind-arrow-layer",
+
+            "icon-image",
+
+            buildWindArrowImageExpression()
+
+        );
+
+    }
 
 
     // ========================================================
@@ -2329,6 +2524,11 @@ function setObservationParameter(
             ) {
 
                 updateObservationLayerState(
+                    map
+                );
+
+
+                moveMetarObservationsToTop(
                     map
                 );
 
@@ -2413,6 +2613,19 @@ function makeMetarPopupHtml(
         };
 
 
+    const gustText =
+
+        Number.isFinite(
+            windGust
+        )
+        &&
+        windGust > 0
+
+            ? `${Math.round(windGust)} mph`
+
+            : "Not reported";
+
+
     return `
 
         <div style="
@@ -2459,7 +2672,7 @@ function makeMetarPopupHtml(
                 <br>
 
                 <b>Gust:</b>
-                ${format(windGust)} mph
+                ${gustText}
 
                 <br>
 
