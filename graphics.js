@@ -4543,6 +4543,14 @@ async function setupMapLayers(
         map
     );
 
+    // ========================================================
+    // MOVE METAR OBSERVATIONS ABOVE ALL OTHER LAYERS
+    // ========================================================
+
+    moveMetarObservationsToTop(
+        map
+    );
+
 
     // ========================================================
     // REMOVE UNWANTED BASEMAP LABELS
