@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-14T17:36:23.823814Z",
+  "generated": "2026-08-14T18:18:04.949912Z",
   "source": "NOAA/NCEP MRMS MultiSensor QPE Pass 2",
   "units": "inches",
   "transparent_below_inches": 0.01,
@@ -21,7 +21,7 @@
         "north": 46.500000242783656
       },
       "minimum_inches": 0.0,
-      "maximum_inches": 8.244,
+      "maximum_inches": 7.465,
       "city_values": [
         {
           "name": "Gordon",
@@ -156,7 +156,7 @@
         "north": 46.500000242783656
       },
       "minimum_inches": 0.0,
-      "maximum_inches": 18.579,
+      "maximum_inches": 17.406,
       "city_values": [
         {
           "name": "Gordon",
