@@ -96,11 +96,6 @@
 
             <div class="mrms-colorbar-content">
 
-
-                <!-- =========================================
-                     COLOR SCALE
-                ========================================== -->
-
                 <canvas
                     id="mrms-colorbar-canvas"
                     width="28"
@@ -108,15 +103,10 @@
                 ></canvas>
 
 
-                <!-- =========================================
-                     COLORBAR LABELS
-                ========================================== -->
-
                 <div
                     id="mrms-colorbar-labels"
                     class="mrms-colorbar-labels"
                 ></div>
-
 
             </div>
 
@@ -133,7 +123,6 @@
     <div id="top-header">
 
         <div id="branding-box">
-
 
             <img
                 id="branding-logo"
@@ -159,7 +148,6 @@
 
             </div>
 
-
         </div>
 
     </div>
@@ -182,23 +170,15 @@
         >
 
             <option value="single">
-
                 Model
-
             </option>
-
 
             <option value="compare">
-
                 HRRR vs RRFS
-
             </option>
 
-
             <option value="overlays">
-
                 Overlays Only
-
             </option>
 
         </select>
@@ -214,16 +194,11 @@
         >
 
             <option value="hrrr">
-
                 HRRR
-
             </option>
 
-
             <option value="rrfs">
-
                 RRFS
-
             </option>
 
         </select>
@@ -239,9 +214,7 @@
         >
 
             <option value="reflUH">
-
                 Reflectivity + UH ≥ 75
-
             </option>
 
         </select>
@@ -323,7 +296,6 @@
 
                 <div class="observation-parameter-container">
 
-
                     <label
                         class="observation-parameter-label"
                         for="observation-parameter-select"
@@ -336,44 +308,27 @@
 
                     <select id="observation-parameter-select">
 
-
                         <option value="gust">
-
                             Wind Gust
-
                         </option>
-
 
                         <option value="wind">
-
                             Wind Speed
-
                         </option>
-
 
                         <option value="temp">
-
                             Temperature
-
                         </option>
-
 
                         <option value="dewpoint">
-
                             Dew Point
-
                         </option>
-
 
                         <option value="rh">
-
                             Relative Humidity
-
                         </option>
 
-
                     </select>
-
 
                 </div>
 
@@ -403,10 +358,6 @@
                 </div>
 
 
-                <!-- =========================================
-                     MRMS TOGGLE
-                ========================================== -->
-
                 <label class="overlay-row">
 
                     <input
@@ -415,20 +366,13 @@
                     >
 
                     <span>
-
                         Show MRMS
-
                     </span>
 
                 </label>
 
 
-                <!-- =========================================
-                     MRMS ACCUMULATION
-                ========================================== -->
-
                 <div class="observation-parameter-container">
-
 
                     <label
                         class="observation-parameter-label"
@@ -442,33 +386,22 @@
 
                     <select id="mrms-period-select">
 
-
                         <option
                             value="24h"
                             selected
                         >
-
                             24 Hour
-
                         </option>
-
 
                         <option value="48h">
-
                             48 Hour
-
                         </option>
-
 
                         <option value="72h">
-
                             72 Hour
-
                         </option>
 
-
                     </select>
-
 
                 </div>
 
@@ -479,6 +412,37 @@
                     Amounts are in inches.
 
                 </div>
+
+
+            </div>
+
+
+            <!-- =============================================
+                 CLIMATE & DROUGHT
+            ============================================== -->
+
+            <div class="overlay-section">
+
+
+                <div class="overlay-section-title">
+
+                    Climate & Drought
+
+                </div>
+
+
+                <label class="overlay-row">
+
+                    <input
+                        type="checkbox"
+                        id="drought-toggle"
+                    >
+
+                    <span>
+                        U.S. Drought Monitor
+                    </span>
+
+                </label>
 
 
             </div>
@@ -507,9 +471,7 @@
                     >
 
                     <span>
-
                         Day 1
-
                     </span>
 
                 </label>
@@ -523,9 +485,7 @@
                     >
 
                     <span>
-
                         Day 2
-
                     </span>
 
                 </label>
@@ -539,9 +499,7 @@
                     >
 
                     <span>
-
                         Day 3
-
                     </span>
 
                 </label>
@@ -572,9 +530,7 @@
                     >
 
                     <span>
-
                         Day 1
-
                     </span>
 
                 </label>
@@ -588,9 +544,7 @@
                     >
 
                     <span>
-
                         Day 2
-
                     </span>
 
                 </label>
@@ -621,9 +575,7 @@
                     >
 
                     <span>
-
                         Day 1 ERO
-
                     </span>
 
                 </label>
@@ -637,9 +589,7 @@
                     >
 
                     <span>
-
                         Day 2 ERO
-
                     </span>
 
                 </label>
@@ -653,9 +603,7 @@
                     >
 
                     <span>
-
                         Day 3 ERO
-
                     </span>
 
                 </label>
@@ -686,9 +634,7 @@
                     >
 
                     <span>
-
                         All Hazards
-
                     </span>
 
                 </label>
@@ -702,9 +648,7 @@
                     >
 
                     <span>
-
                         Severe Warnings
-
                     </span>
 
                 </label>
@@ -718,9 +662,7 @@
                     >
 
                     <span>
-
                         Severe Watches
-
                     </span>
 
                 </label>
@@ -734,9 +676,7 @@
                     >
 
                     <span>
-
                         Flood
-
                     </span>
 
                 </label>
@@ -750,9 +690,7 @@
                     >
 
                     <span>
-
                         Fire Weather
-
                     </span>
 
                 </label>
@@ -766,9 +704,7 @@
                     >
 
                     <span>
-
                         Heat
-
                     </span>
 
                 </label>
@@ -782,9 +718,7 @@
                     >
 
                     <span>
-
                         Winter
-
                     </span>
 
                 </label>
@@ -816,9 +750,7 @@
                     >
 
                     <span>
-
                         LBF CWA
-
                     </span>
 
                 </label>
@@ -833,9 +765,7 @@
                     >
 
                     <span>
-
                         Counties
-
                     </span>
 
                 </label>
@@ -850,9 +780,7 @@
                     >
 
                     <span>
-
                         States
-
                     </span>
 
                 </label>
@@ -940,7 +868,7 @@
 
     <script src="gif.js"></script>
 
-    <script src="graphics.js"></script>
+    <script src="graphics.js?v=20260814-drought1"></script>
 
 
 </body>
