@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-#!/usr/bin/env python3
 
 # ============================================================
 # NWS NORTH PLATTE WEATHER GRAPHICS BUILDER
@@ -13,8 +12,11 @@
 # MRMS source units:
 #   millimeters
 #
-# Display units:
+# Display / color scale units:
 #   inches
+#
+# Rendering:
+#   matplotlib contourf
 #
 # Outputs:
 #   data/mrms/qpe_24h.png
@@ -22,10 +24,11 @@
 #   data/mrms/qpe_72h.png
 #   data/mrms/latest.json
 #
-# City labels:
-#   5-km neighborhood mean precipitation
+# City precipitation labels have been REMOVED.
 #
-# The raster itself is NOT smoothed.
+# The vertical precipitation colorbar should be handled
+# separately in index.html / graphics.js so it does not
+# alter the geographic dimensions of the PNG.
 # ============================================================
 
 
@@ -34,7 +37,6 @@ from __future__ import annotations
 
 import gzip
 import json
-import math
 import os
 import sys
 import tempfile
@@ -81,6 +83,8 @@ OUTPUT_DIR.mkdir(
 
 # ============================================================
 # MAP DOMAIN
+#
+# Broad Central Plains domain.
 # ============================================================
 
 WEST = -106.0
@@ -93,111 +97,6 @@ NORTH = 46.5
 
 
 # ============================================================
-# CITY LABEL SAMPLING
-#
-# The raster remains full-resolution MRMS.
-#
-# Only the displayed city values use a neighborhood mean.
-# ============================================================
-
-CITY_SAMPLE_RADIUS_KM = 5.0
-
-
-# ============================================================
-# LBF CWA CITY SAMPLE LOCATIONS
-# ============================================================
-
-CITIES = {
-
-    "Gordon": {
-        "lat": 42.8047,
-        "lon": -102.2032
-    },
-
-    "Valentine": {
-        "lat": 42.8728,
-        "lon": -100.5509
-    },
-
-    "Ainsworth": {
-        "lat": 42.5497,
-        "lon": -99.8626
-    },
-
-    "Butte": {
-        "lat": 42.9114,
-        "lon": -98.8498
-    },
-
-    "O'Neill": {
-        "lat": 42.4578,
-        "lon": -98.6476
-    },
-
-    "Oshkosh": {
-        "lat": 41.4053,
-        "lon": -102.3446
-    },
-
-    "Chappell": {
-        "lat": 41.0925,
-        "lon": -102.4707
-    },
-
-    "Mullen": {
-        "lat": 42.0428,
-        "lon": -101.0427
-    },
-
-    "Thedford": {
-        "lat": 41.9783,
-        "lon": -100.5762
-    },
-
-    "Burwell": {
-        "lat": 41.7817,
-        "lon": -99.1332
-    },
-
-    "Ogallala": {
-        "lat": 41.1281,
-        "lon": -101.7196
-    },
-
-    "Stapleton": {
-        "lat": 41.4803,
-        "lon": -100.5129
-    },
-
-    "North Platte": {
-        "lat": 41.1403,
-        "lon": -100.7601
-    },
-
-    "Broken Bow": {
-        "lat": 41.4019,
-        "lon": -99.6393
-    },
-
-    "Grant": {
-        "lat": 40.8414,
-        "lon": -101.7252
-    },
-
-    "Imperial": {
-        "lat": 40.5169,
-        "lon": -101.6432
-    },
-
-    "Curtis": {
-        "lat": 40.6308,
-        "lon": -100.5107
-    }
-
-}
-
-
-# ============================================================
 # MRMS SERVER
 # ============================================================
 
@@ -207,7 +106,7 @@ MRMS_BASE_URL = (
 
 
 # ============================================================
-# PRODUCTS
+# MRMS PRODUCTS
 # ============================================================
 
 PRODUCTS = {
@@ -221,7 +120,9 @@ PRODUCTS = {
             "MRMS_MultiSensor_QPE_24H_Pass2.latest.grib2.gz",
 
         "output":
-            OUTPUT_DIR / "qpe_24h.png",
+            OUTPUT_DIR
+            /
+            "qpe_24h.png",
 
         "label":
             "24-Hour MRMS Precipitation"
@@ -238,7 +139,9 @@ PRODUCTS = {
             "MRMS_MultiSensor_QPE_48H_Pass2.latest.grib2.gz",
 
         "output":
-            OUTPUT_DIR / "qpe_48h.png",
+            OUTPUT_DIR
+            /
+            "qpe_48h.png",
 
         "label":
             "48-Hour MRMS Precipitation"
@@ -255,7 +158,9 @@ PRODUCTS = {
             "MRMS_MultiSensor_QPE_72H_Pass2.latest.grib2.gz",
 
         "output":
-            OUTPUT_DIR / "qpe_72h.png",
+            OUTPUT_DIR
+            /
+            "qpe_72h.png",
 
         "label":
             "72-Hour MRMS Precipitation"
@@ -290,15 +195,18 @@ REQUEST_HEADERS = {
 # ============================================================
 # PIVOTAL-STYLE PRECIPITATION COLORMAP
 #
-# KEEPING YOUR ORIGINAL SCALE.
+# Units = inches
 #
-# Units = inches.
-#
-# Values below 0.01 inch are explicitly masked before
-# rendering so the Mapbox basemap remains visible.
+# Keep this exact palette.
 # ============================================================
 
 COLORS = [
+
+    # --------------------------------------------------------
+    # 0.00 - 0.01
+    #
+    # Transparent / trace
+    # --------------------------------------------------------
 
     (
         1.0,
@@ -307,10 +215,20 @@ COLORS = [
         0.0
     ),
 
+
+    # --------------------------------------------------------
+    # GRAYS
+    # --------------------------------------------------------
+
     "#dcdcdc",
     "#bebebe",
     "#a0a0a0",
     "#828282",
+
+
+    # --------------------------------------------------------
+    # GREENS
+    # --------------------------------------------------------
 
     "#b7f0be",
     "#9fdbb3",
@@ -320,6 +238,11 @@ COLORS = [
     "#3f8885",
     "#277479",
     "#146473",
+
+
+    # --------------------------------------------------------
+    # BLUES
+    # --------------------------------------------------------
 
     "#1450b4",
     "#2a61bb",
@@ -332,6 +255,11 @@ COLORS = [
     "#c1dceb",
     "#d7edf2",
 
+
+    # --------------------------------------------------------
+    # PURPLES
+    # --------------------------------------------------------
+
     "#cebce0",
     "#c9addb",
     "#c49ed5",
@@ -343,6 +271,11 @@ COLORS = [
     "#a546b4",
     "#a037af",
 
+
+    # --------------------------------------------------------
+    # REDS
+    # --------------------------------------------------------
+
     "#a53a34",
     "#ad4842",
     "#b5554f",
@@ -351,6 +284,11 @@ COLORS = [
     "#ce7f79",
     "#d68c86",
     "#de9a94",
+
+
+    # --------------------------------------------------------
+    # YELLOW / ORANGE / BROWN
+    # --------------------------------------------------------
 
     "#f8eea2",
     "#eed68c",
@@ -368,12 +306,18 @@ COLORS = [
 
 
 # ============================================================
-# ORIGINAL PRECIPITATION BOUNDS
+# PIVOTAL-STYLE PRECIPITATION BOUNDS
+#
+# Units = inches
 # ============================================================
 
 BOUNDS = np.concatenate(
 
     [
+
+        # ----------------------------------------------------
+        # 0.00
+        # ----------------------------------------------------
 
         np.arange(
             0.00,
@@ -381,11 +325,21 @@ BOUNDS = np.concatenate(
             0.01
         ),
 
+
+        # ----------------------------------------------------
+        # 0.01, 0.03
+        # ----------------------------------------------------
+
         np.arange(
             0.01,
             0.05,
             0.02
         ),
+
+
+        # ----------------------------------------------------
+        # 0.05, 0.075
+        # ----------------------------------------------------
 
         np.arange(
             0.05,
@@ -393,11 +347,21 @@ BOUNDS = np.concatenate(
             0.025
         ),
 
+
+        # ----------------------------------------------------
+        # 0.10 through 0.95 every 0.05
+        # ----------------------------------------------------
+
         np.arange(
             0.10,
             1.00,
             0.05
         ),
+
+
+        # ----------------------------------------------------
+        # 1.00 through 1.90 every 0.10
+        # ----------------------------------------------------
 
         np.arange(
             1.00,
@@ -405,11 +369,21 @@ BOUNDS = np.concatenate(
             0.10
         ),
 
+
+        # ----------------------------------------------------
+        # 2.00 through 3.75 every 0.25
+        # ----------------------------------------------------
+
         np.arange(
             2.00,
             4.00,
             0.25
         ),
+
+
+        # ----------------------------------------------------
+        # 4.00 through 5.50 every 0.50
+        # ----------------------------------------------------
 
         np.arange(
             4.00,
@@ -417,11 +391,21 @@ BOUNDS = np.concatenate(
             0.50
         ),
 
+
+        # ----------------------------------------------------
+        # 6 through 9 every 1 inch
+        # ----------------------------------------------------
+
         np.arange(
             6.00,
             10.00,
             1.00
         ),
+
+
+        # ----------------------------------------------------
+        # 10, 12.5, 15
+        # ----------------------------------------------------
 
         np.arange(
             10.00,
@@ -433,6 +417,10 @@ BOUNDS = np.concatenate(
 
 )
 
+
+# ============================================================
+# FINAL ENDPOINT
+# ============================================================
 
 if (
     BOUNDS[-1]
@@ -450,18 +438,26 @@ if (
 
 
 # ============================================================
-# VERIFY COLORMAP
+# VERIFY COLOR COUNT
 # ============================================================
 
 NUMBER_OF_INTERVALS = (
-    len(BOUNDS)
+
+    len(
+        BOUNDS
+    )
+
     -
+
     1
+
 )
 
 
 if (
-    len(COLORS)
+    len(
+        COLORS
+    )
     !=
     NUMBER_OF_INTERVALS
 ):
@@ -491,6 +487,10 @@ CMAP = ListedColormap(
 )
 
 
+# ============================================================
+# MISSING DATA TRANSPARENT
+# ============================================================
+
 CMAP.set_bad(
 
     (
@@ -503,13 +503,28 @@ CMAP.set_bad(
 )
 
 
+# ============================================================
+# VALUES ABOVE 17.5 INCHES
+#
+# Use darkest brown.
+# ============================================================
+
+CMAP.set_over(
+    "#553115"
+)
+
+
+# ============================================================
+# NORMALIZATION
+# ============================================================
+
 NORM = BoundaryNorm(
 
     BOUNDS,
 
     CMAP.N,
 
-    clip=True
+    clip=False
 
 )
 
@@ -526,14 +541,27 @@ def download_file(
 
 
     for attempt in range(
+
         1,
-        MAX_DOWNLOAD_ATTEMPTS + 1
+
+        MAX_DOWNLOAD_ATTEMPTS
+        +
+        1
+
     ):
 
         print()
-        print("=" * 70)
-        print("DOWNLOADING MRMS DATA")
-        print("=" * 70)
+        print(
+            "=" * 70
+        )
+
+        print(
+            "DOWNLOADING MRMS DATA"
+        )
+
+        print(
+            "=" * 70
+        )
 
         print(
             f"Attempt "
@@ -611,6 +639,7 @@ def download_file(
                     f"{RETRY_WAIT_SECONDS} seconds..."
                 )
 
+
                 time.sleep(
                     RETRY_WAIT_SECONDS
                 )
@@ -626,7 +655,7 @@ def download_file(
 
 
 # ============================================================
-# DECOMPRESS MRMS
+# DECOMPRESS MRMS GZIP
 # ============================================================
 
 def decompress_mrms(
@@ -678,11 +707,17 @@ def read_mrms_grib(
 
     try:
 
+        # ====================================================
+        # TEMPORARY GRIB2 FILE
+        # ====================================================
+
         with tempfile.NamedTemporaryFile(
 
-            suffix=".grib2",
+            suffix=
+                ".grib2",
 
-            delete=False
+            delete=
+                False
 
         ) as temporary_file:
 
@@ -696,14 +731,26 @@ def read_mrms_grib(
             )
 
 
+        # ====================================================
+        # OPEN GRIB2
+        # ====================================================
+
         with rasterio.open(
             temporary_path
         ) as source:
 
             print()
-            print("=" * 70)
-            print("MRMS GRID INFORMATION")
-            print("=" * 70)
+            print(
+                "=" * 70
+            )
+
+            print(
+                "MRMS GRID INFORMATION"
+            )
+
+            print(
+                "=" * 70
+            )
 
             print(
                 f"CRS: "
@@ -744,9 +791,11 @@ def read_mrms_grib(
 
 
             window = (
+
                 window
                 .round_offsets()
                 .round_lengths()
+
             )
 
 
@@ -769,15 +818,21 @@ def read_mrms_grib(
             )
 
 
+            # =================================================
+            # TRANSFORM FOR CROPPED GRID
+            # =================================================
+
             crop_transform = (
+
                 source.window_transform(
                     window
                 )
+
             )
 
 
             # =================================================
-            # ACTUAL IMAGE EXTENT
+            # GEOGRAPHIC EXTENT
             # =================================================
 
             left = (
@@ -854,7 +909,9 @@ def read_mrms_grib(
 
 
             # =================================================
-            # INVALID / MISSING VALUES
+            # INVALID / MISSING MRMS VALUES
+            #
+            # Negative MRMS values are missing/coverage flags.
             # =================================================
 
             precipitation_mm[
@@ -902,6 +959,10 @@ def read_mrms_grib(
 
     finally:
 
+        # ====================================================
+        # DELETE TEMPORARY GRIB
+        # ====================================================
+
         if (
             temporary_path
             and
@@ -916,7 +977,7 @@ def read_mrms_grib(
 
 
 # ============================================================
-# MILLIMETERS -> INCHES
+# MILLIMETERS TO INCHES
 # ============================================================
 
 def millimeters_to_inches(
@@ -933,591 +994,128 @@ def millimeters_to_inches(
 
 
 # ============================================================
-# CALCULATE DISTANCE FROM CITY
+# BUILD 1-D LATITUDE / LONGITUDE ARRAYS
 #
-# Small-distance approximation is more than adequate for a
-# 5-km sampling radius.
+# MRMS is on a regular geographic grid, so contourf can use
+# 1-D x/y arrays instead of a large 2-D coordinate mesh.
+#
+# This reduces memory use significantly.
 # ============================================================
 
-def calculate_distance_km(
-    grid_latitudes,
-    grid_longitudes,
-    city_latitude,
-    city_longitude
-):
-
-    latitude_scale_km = (
-        111.32
-    )
-
-
-    longitude_scale_km = (
-
-        111.32
-
-        *
-
-        math.cos(
-            math.radians(
-                city_latitude
-            )
-        )
-
-    )
-
-
-    delta_y = (
-
-        grid_latitudes
-        -
-        city_latitude
-
-    ) * latitude_scale_km
-
-
-    delta_x = (
-
-        grid_longitudes
-        -
-        city_longitude
-
-    ) * longitude_scale_km
-
-
-    return np.sqrt(
-
-        delta_x ** 2
-
-        +
-
-        delta_y ** 2
-
-    )
-
-
-# ============================================================
-# SAMPLE 5-KM NEIGHBORHOOD MEAN
-# ============================================================
-
-def sample_city_precipitation(
-    precipitation_inches,
-    crop_transform,
-    latitude,
-    longitude,
-    radius_km=
-        CITY_SAMPLE_RADIUS_KM
+def build_coordinate_arrays(
+    shape,
+    transform
 ):
 
     height, width = (
-        precipitation_inches.shape
+        shape
     )
 
 
     # ========================================================
-    # APPROXIMATE LAT/LON SEARCH WINDOW
+    # PIXEL CENTER LONGITUDES
     # ========================================================
 
-    latitude_radius_degrees = (
+    columns = np.arange(
 
-        radius_km
-        /
-        111.32
+        width,
 
-    )
-
-
-    cosine_latitude = math.cos(
-        math.radians(
-            latitude
-        )
-    )
-
-
-    if (
-        abs(
-            cosine_latitude
-        )
-        <
-        0.01
-    ):
-
-        return None
-
-
-    longitude_radius_degrees = (
-
-        radius_km
-
-        /
-
-        (
-            111.32
-            *
-            cosine_latitude
-        )
+        dtype=
+            np.float64
 
     )
 
 
-    west = (
-        longitude
-        -
-        longitude_radius_degrees
-    )
+    longitudes = (
 
-
-    east = (
-        longitude
-        +
-        longitude_radius_degrees
-    )
-
-
-    south = (
-        latitude
-        -
-        latitude_radius_degrees
-    )
-
-
-    north = (
-        latitude
-        +
-        latitude_radius_degrees
-    )
-
-
-    # ========================================================
-    # CONVERT SEARCH BOX TO PIXEL BOUNDS
-    # ========================================================
-
-    inverse_transform = (
-        ~crop_transform
-    )
-
-
-    corner_pixels = [
-
-        inverse_transform
-        *
-        (
-            west,
-            north
-        ),
-
-        inverse_transform
-        *
-        (
-            east,
-            north
-        ),
-
-        inverse_transform
-        *
-        (
-            west,
-            south
-        ),
-
-        inverse_transform
-        *
-        (
-            east,
-            south
-        )
-
-    ]
-
-
-    columns = [
-        point[0]
-        for point in corner_pixels
-    ]
-
-
-    rows = [
-        point[1]
-        for point in corner_pixels
-    ]
-
-
-    column_min = max(
-
-        0,
-
-        int(
-            math.floor(
-                min(
-                    columns
-                )
-            )
-        )
-
-    )
-
-
-    column_max = min(
-
-        width - 1,
-
-        int(
-            math.ceil(
-                max(
-                    columns
-                )
-            )
-        )
-
-    )
-
-
-    row_min = max(
-
-        0,
-
-        int(
-            math.floor(
-                min(
-                    rows
-                )
-            )
-        )
-
-    )
-
-
-    row_max = min(
-
-        height - 1,
-
-        int(
-            math.ceil(
-                max(
-                    rows
-                )
-            )
-        )
-
-    )
-
-
-    if (
-        row_min
-        >
-        row_max
-
-        or
-
-        column_min
-        >
-        column_max
-    ):
-
-        return None
-
-
-    # ========================================================
-    # SUBSET
-    # ========================================================
-
-    subset = precipitation_inches[
-
-        row_min:
-        row_max + 1,
-
-        column_min:
-        column_max + 1
-
-    ]
-
-
-    # ========================================================
-    # GRID CELL CENTER COORDINATES
-    # ========================================================
-
-    row_indices = np.arange(
-
-        row_min,
-        row_max + 1,
-
-        dtype=np.float64
-
-    )
-
-
-    column_indices = np.arange(
-
-        column_min,
-        column_max + 1,
-
-        dtype=np.float64
-
-    )
-
-
-    column_grid, row_grid = np.meshgrid(
-
-        column_indices,
-        row_indices
-
-    )
-
-
-    grid_longitudes = (
-
-        crop_transform.c
+        transform.c
 
         +
 
         (
-            column_grid
+            columns
             +
             0.5
         )
         *
-        crop_transform.a
+        transform.a
+
+    )
+
+
+    # ========================================================
+    # PIXEL CENTER LATITUDES
+    # ========================================================
+
+    rows = np.arange(
+
+        height,
+
+        dtype=
+            np.float64
+
+    )
+
+
+    latitudes = (
+
+        transform.f
 
         +
 
         (
-            row_grid
+            rows
             +
             0.5
         )
         *
-        crop_transform.b
+        transform.e
 
     )
 
 
-    grid_latitudes = (
+    return (
 
-        crop_transform.f
-
-        +
-
-        (
-            column_grid
-            +
-            0.5
-        )
-        *
-        crop_transform.d
-
-        +
-
-        (
-            row_grid
-            +
-            0.5
-        )
-        *
-        crop_transform.e
+        longitudes,
+        latitudes
 
     )
-
-
-    # ========================================================
-    # TRUE 5-KM CIRCLE
-    # ========================================================
-
-    distances = calculate_distance_km(
-
-        grid_latitudes,
-        grid_longitudes,
-
-        latitude,
-        longitude
-
-    )
-
-
-    valid_mask = (
-
-        distances
-        <=
-        radius_km
-
-    ) & np.isfinite(
-        subset
-    )
-
-
-    values = subset[
-        valid_mask
-    ]
-
-
-    if (
-        values.size
-        ==
-        0
-    ):
-
-        return None
-
-
-    # ========================================================
-    # NEIGHBORHOOD MEAN
-    # ========================================================
-
-    mean_value = float(
-
-        np.nanmean(
-            values
-        )
-
-    )
-
-
-    return mean_value
-
-
-# ============================================================
-# SAMPLE ALL LBF CITIES
-# ============================================================
-
-def sample_city_values(
-    precipitation_inches,
-    crop_transform
-):
-
-    city_values = []
-
-
-    print()
-    print("=" * 70)
-
-    print(
-        f"LBF CWA CITY PRECIPITATION "
-        f"({CITY_SAMPLE_RADIUS_KM:.0f}-KM MEAN)"
-    )
-
-    print("=" * 70)
-
-
-    for (
-        city_name,
-        location
-    ) in CITIES.items():
-
-        latitude = (
-            location[
-                "lat"
-            ]
-        )
-
-
-        longitude = (
-            location[
-                "lon"
-            ]
-        )
-
-
-        precipitation = (
-            sample_city_precipitation(
-
-                precipitation_inches,
-
-                crop_transform,
-
-                latitude,
-
-                longitude,
-
-                radius_km=
-                    CITY_SAMPLE_RADIUS_KM
-
-            )
-        )
-
-
-        if (
-            precipitation
-            is
-            None
-        ):
-
-            print(
-                f"{city_name:<15} missing"
-            )
-
-
-            continue
-
-
-        rounded_precipitation = round(
-
-            precipitation,
-
-            2
-
-        )
-
-
-        label = (
-
-            f"{rounded_precipitation:.2f}\""
-
-        )
-
-
-        city_values.append(
-
-            {
-
-                "name":
-                    city_name,
-
-                "lat":
-                    latitude,
-
-                "lon":
-                    longitude,
-
-                "precip_inches":
-                    rounded_precipitation,
-
-                "label":
-                    label,
-
-                "sample_radius_km":
-                    CITY_SAMPLE_RADIUS_KM
-
-            }
-
-        )
-
-
-        print(
-
-            f"{city_name:<15} "
-            f"{rounded_precipitation:.2f} in"
-
-        )
-
-
-    return city_values
 
 
 # ============================================================
 # RENDER TRANSPARENT PRECIPITATION PNG
 #
+# Uses contourf rather than imshow.
+#
 # IMPORTANT:
-# THIS USES THE RAW FULL-RESOLUTION precipitation_inches
-# ARRAY. THE RASTER IS NOT A 5-km AVERAGE.
+# The PNG contains ONLY the precipitation raster.
+# No city labels.
+# No colorbar.
+#
+# The colorbar will be added separately in the website UI so
+# Mapbox can preserve the exact geographic image extent.
 # ============================================================
 
 def render_precipitation_png(
+
     precipitation_inches,
-    output_path
+    output_path,
+    crop_transform
+
 ):
 
     print()
-    print("=" * 70)
-    print("RENDERING PRECIPITATION IMAGE")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+
+    print(
+        "RENDERING MRMS CONTOURF IMAGE"
+    )
+
+    print(
+        "=" * 70
+    )
 
     print(
         output_path
@@ -1525,7 +1123,9 @@ def render_precipitation_png(
 
 
     # ========================================================
-    # MASK ZERO / TRACE VALUES
+    # MASK ZERO / TRACE PRECIPITATION
+    #
+    # Anything below 0.01 inch becomes transparent.
     # ========================================================
 
     plot_data = np.ma.masked_where(
@@ -1552,7 +1152,7 @@ def render_precipitation_png(
 
 
     # ========================================================
-    # PRESERVE GRID DIMENSIONS
+    # GRID SIZE
     # ========================================================
 
     image_height = (
@@ -1565,25 +1165,69 @@ def render_precipitation_png(
     )
 
 
-    dpi = 100
+    # ========================================================
+    # LAT/LON ARRAYS
+    # ========================================================
 
+    (
+        longitudes,
+        latitudes
 
-    figure_width = (
-        image_width
-        /
-        dpi
-    )
+    ) = build_coordinate_arrays(
 
+        plot_data.shape,
 
-    figure_height = (
-        image_height
-        /
-        dpi
+        crop_transform
+
     )
 
 
     # ========================================================
-    # FIGURE
+    # DIAGNOSTICS
+    # ========================================================
+
+    print(
+        f"Longitude range: "
+        f"{longitudes.min():.4f} to "
+        f"{longitudes.max():.4f}"
+    )
+
+    print(
+        f"Latitude range: "
+        f"{latitudes.min():.4f} to "
+        f"{latitudes.max():.4f}"
+    )
+
+
+    # ========================================================
+    # FIGURE DIMENSIONS
+    #
+    # Keep approximately one output pixel per MRMS grid point.
+    # ========================================================
+
+    dpi = 100
+
+
+    figure_width = (
+
+        image_width
+        /
+        dpi
+
+    )
+
+
+    figure_height = (
+
+        image_height
+        /
+        dpi
+
+    )
+
+
+    # ========================================================
+    # CREATE FIGURE
     # ========================================================
 
     figure = plt.figure(
@@ -1595,12 +1239,18 @@ def render_precipitation_png(
 
         ),
 
-        dpi=dpi,
+        dpi=
+            dpi,
 
-        frameon=False
+        frameon=
+            False
 
     )
 
+
+    # ========================================================
+    # FULL-FIGURE AXIS
+    # ========================================================
 
     axis = figure.add_axes(
 
@@ -1618,12 +1268,24 @@ def render_precipitation_png(
 
 
     # ========================================================
-    # RENDER
+    # CONTOURF
+    #
+    # Exact Pivotal-style discrete levels.
+    #
+    # No interpolation is applied to the underlying data.
+    # contourf determines polygons between grid points.
     # ========================================================
 
-    axis.imshow(
+    axis.contourf(
+
+        longitudes,
+
+        latitudes,
 
         plot_data,
+
+        levels=
+            BOUNDS,
 
         cmap=
             CMAP,
@@ -1631,33 +1293,91 @@ def render_precipitation_png(
         norm=
             NORM,
 
-        origin=
-            "upper",
+        extend=
+            "max",
 
-        interpolation=
-            "nearest",
-
-        aspect=
-            "auto"
+        antialiased=
+            False
 
     )
 
 
     # ========================================================
-    # SAVE
+    # EXACT GEOGRAPHIC VIEW
+    # ========================================================
+
+    longitude_min = float(
+        np.nanmin(
+            longitudes
+        )
+    )
+
+
+    longitude_max = float(
+        np.nanmax(
+            longitudes
+        )
+    )
+
+
+    latitude_min = float(
+        np.nanmin(
+            latitudes
+        )
+    )
+
+
+    latitude_max = float(
+        np.nanmax(
+            latitudes
+        )
+    )
+
+
+    axis.set_xlim(
+
+        longitude_min,
+        longitude_max
+
+    )
+
+
+    axis.set_ylim(
+
+        latitude_min,
+        latitude_max
+
+    )
+
+
+    # ========================================================
+    # REMOVE ALL MARGINS
+    # ========================================================
+
+    axis.margins(
+        0
+    )
+
+
+    # ========================================================
+    # SAVE TRANSPARENT PNG
     # ========================================================
 
     figure.savefig(
 
         output_path,
 
-        dpi=dpi,
+        dpi=
+            dpi,
 
-        transparent=True,
+        transparent=
+            True,
 
-        bbox_inches=None,
+        bbox_inches=
+            None,
 
-        pad_inches=0
+        pad_inches=
+            0
 
     )
 
@@ -1668,12 +1388,12 @@ def render_precipitation_png(
 
 
     print(
-        "Saved precipitation PNG."
+        "Saved contourf precipitation PNG."
     )
 
 
 # ============================================================
-# PROCESS ONE PRODUCT
+# PROCESS ONE MRMS ACCUMULATION
 # ============================================================
 
 def process_product(
@@ -1683,7 +1403,9 @@ def process_product(
 
     print()
     print()
-    print("#" * 70)
+    print(
+        "#" * 70
+    )
 
     print(
         f"MRMS "
@@ -1691,11 +1413,13 @@ def process_product(
         f"PRECIPITATION"
     )
 
-    print("#" * 70)
+    print(
+        "#" * 70
+    )
 
 
     # ========================================================
-    # URL
+    # BUILD DOWNLOAD URL
     # ========================================================
 
     url = (
@@ -1730,10 +1454,11 @@ def process_product(
 
 
     # ========================================================
-    # READ
+    # READ AND CROP
     # ========================================================
 
     (
+
         precipitation_mm,
         extent,
         crop_transform
@@ -1744,13 +1469,9 @@ def process_product(
 
 
     # ========================================================
-    # MM -> INCHES
+    # CONVERT MM -> INCHES
     #
-    # THIS ARRAY IS USED FOR BOTH:
-    #
-    # 1. raster coloring
-    # 2. city sampling
-    #
+    # THIS IS THE ARRAY USED FOR CONTOURF.
     # ========================================================
 
     precipitation_inches = (
@@ -1761,7 +1482,7 @@ def process_product(
 
 
     # ========================================================
-    # STATS
+    # PRECIPITATION STATISTICS
     # ========================================================
 
     valid_values = precipitation_inches[
@@ -1811,32 +1532,18 @@ def process_product(
 
     else:
 
-        minimum_inches = None
-
-        maximum_inches = None
-
-
-    # ========================================================
-    # CITY VALUES
-    #
-    # Uses 5-km means.
-    # ========================================================
-
-    city_values = (
-        sample_city_values(
-
-            precipitation_inches,
-
-            crop_transform
-
+        minimum_inches = (
+            None
         )
-    )
+
+
+        maximum_inches = (
+            None
+        )
 
 
     # ========================================================
-    # RENDER
-    #
-    # Uses full-resolution field.
+    # RENDER CONTOURF PNG
     # ========================================================
 
     render_precipitation_png(
@@ -1845,13 +1552,17 @@ def process_product(
 
         configuration[
             "output"
-        ]
+        ],
+
+        crop_transform
 
     )
 
 
     # ========================================================
-    # MANIFEST
+    # PRODUCT INFORMATION
+    #
+    # No city_values are written anymore.
     # ========================================================
 
     return {
@@ -1878,6 +1589,7 @@ def process_product(
             extent,
 
         "minimum_inches":
+
             (
                 round(
                     minimum_inches,
@@ -1893,6 +1605,7 @@ def process_product(
             ),
 
         "maximum_inches":
+
             (
                 round(
                     maximum_inches,
@@ -1906,12 +1619,6 @@ def process_product(
                 else
                 None
             ),
-
-        "city_sample_radius_km":
-            CITY_SAMPLE_RADIUS_KM,
-
-        "city_values":
-            city_values,
 
         "source_url":
             url
@@ -1954,11 +1661,11 @@ def write_manifest(
         "units":
             "inches",
 
+        "rendering":
+            "contourf",
+
         "transparent_below_inches":
             0.01,
-
-        "city_sample_radius_km":
-            CITY_SAMPLE_RADIUS_KM,
 
         "domain": {
 
@@ -2000,13 +1707,18 @@ def write_manifest(
     )
 
 
+    # ========================================================
+    # WRITE TEMPORARY FILE
+    # ========================================================
+
     with open(
 
         temporary_path,
 
         "w",
 
-        encoding="utf-8"
+        encoding=
+            "utf-8"
 
     ) as file:
 
@@ -2016,12 +1728,18 @@ def write_manifest(
 
             file,
 
-            indent=2,
+            indent=
+                2,
 
-            allow_nan=False
+            allow_nan=
+                False
 
         )
 
+
+    # ========================================================
+    # ATOMIC REPLACE
+    # ========================================================
 
     os.replace(
 
@@ -2033,9 +1751,17 @@ def write_manifest(
 
 
     print()
-    print("=" * 70)
-    print("MRMS MANIFEST SAVED")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+
+    print(
+        "MRMS MANIFEST SAVED"
+    )
+
+    print(
+        "=" * 70
+    )
 
     print(
         output_path
@@ -2049,9 +1775,17 @@ def write_manifest(
 def main():
 
     print()
-    print("=" * 70)
-    print("NWS NORTH PLATTE MRMS UPDATE")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+
+    print(
+        "NWS NORTH PLATTE MRMS UPDATE"
+    )
+
+    print(
+        "=" * 70
+    )
 
 
     print()
@@ -2078,31 +1812,29 @@ def main():
 
     print()
     print(
-        f"City sampling: "
-        f"{CITY_SAMPLE_RADIUS_KM:.0f}-km mean"
+        "Rendering:"
+    )
+
+    print(
+        "  contourf"
     )
 
 
     print()
     print(
-        "LBF city labels:"
+        "City precipitation labels:"
     )
 
-
-    for city_name in (
-        CITIES.keys()
-    ):
-
-        print(
-            f"  {city_name}"
-        )
+    print(
+        "  disabled"
+    )
 
 
     completed_products = {}
 
 
     # ========================================================
-    # PROCESS 24 / 48 / 72 HOURS
+    # PROCESS 24 / 48 / 72 HOUR PRODUCTS
     # ========================================================
 
     for (
@@ -2121,11 +1853,13 @@ def main():
 
         completed_products[
             product_key
-        ] = result
+        ] = (
+            result
+        )
 
 
     # ========================================================
-    # MANIFEST
+    # WRITE MANIFEST
     # ========================================================
 
     write_manifest(
@@ -2134,13 +1868,21 @@ def main():
 
 
     # ========================================================
-    # FINISHED
+    # COMPLETE
     # ========================================================
 
     print()
-    print("=" * 70)
-    print("MRMS UPDATE COMPLETE")
-    print("=" * 70)
+    print(
+        "=" * 70
+    )
+
+    print(
+        "MRMS UPDATE COMPLETE"
+    )
+
+    print(
+        "=" * 70
+    )
 
 
     print()
@@ -2149,19 +1891,23 @@ def main():
     )
 
     print(
-        f"  {PRODUCTS['24h']['output']}"
+        f"  "
+        f"{PRODUCTS['24h']['output']}"
     )
 
     print(
-        f"  {PRODUCTS['48h']['output']}"
+        f"  "
+        f"{PRODUCTS['48h']['output']}"
     )
 
     print(
-        f"  {PRODUCTS['72h']['output']}"
+        f"  "
+        f"{PRODUCTS['72h']['output']}"
     )
 
     print(
-        f"  {OUTPUT_DIR / 'latest.json'}"
+        f"  "
+        f"{OUTPUT_DIR / 'latest.json'}"
     )
 
 
@@ -2183,9 +1929,17 @@ if (
     except Exception as error:
 
         print()
-        print("=" * 70)
-        print("MRMS UPDATE FAILED")
-        print("=" * 70)
+        print(
+            "=" * 70
+        )
+
+        print(
+            "MRMS UPDATE FAILED"
+        )
+
+        print(
+            "=" * 70
+        )
 
         print(
             error
