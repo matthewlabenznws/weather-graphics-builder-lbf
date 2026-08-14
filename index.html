@@ -24,1323 +24,20 @@
         rel="stylesheet"
     >
 
+
     <script
         src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js"
     ></script>
 
 
     <!-- =====================================================
-         PAGE STYLE
+         SITE STYLE
     ====================================================== -->
 
-    <style>
-
-        * {
-            box-sizing: border-box;
-        }
-
-
-        html,
-        body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-
-            font-family:
-                Arial,
-                Helvetica,
-                sans-serif;
-
-            background:
-                #10151c;
-        }
-
-
-        button,
-        select,
-        input {
-            font-family:
-                inherit;
-        }
-
-
-        .hidden {
-            display:
-                none !important;
-        }
-
-
-        /* ==================================================
-           MAP AREA
-        ================================================== */
-
-        #map-area {
-            position:
-                absolute;
-
-            inset:
-                0;
-
-            background:
-                #111820;
-        }
-
-
-        #single-map {
-            position:
-                absolute;
-
-            inset:
-                0;
-        }
-
-
-        #comparison-container {
-            position:
-                absolute;
-
-            inset:
-                0;
-
-            display:
-                flex;
-        }
-
-
-        #left-map,
-        #right-map {
-            position:
-                relative;
-
-            width:
-                50%;
-
-            height:
-                100%;
-        }
-
-
-        #left-map {
-            border-right:
-                2px solid white;
-        }
-
-
-        /* ==================================================
-           TOP HEADER
-        ================================================== */
-
-        #top-header {
-            position:
-                absolute;
-
-            top:
-                12px;
-
-            left:
-                12px;
-
-            z-index:
-                20;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            gap:
-                10px;
-
-            pointer-events:
-                none;
-        }
-
-
-        #branding-box {
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            gap:
-                10px;
-
-            padding:
-                7px 11px;
-
-            border-radius:
-                7px;
-
-            background:
-                rgba(
-                    18,
-                    24,
-                    32,
-                    0.90
-                );
-
-            box-shadow:
-                0 2px 8px
-                rgba(
-                    0,
-                    0,
-                    0,
-                    0.35
-                );
-
-            color:
-                white;
-
-            pointer-events:
-                auto;
-        }
-
-
-        #branding-logo {
-            width:
-                66px;
-
-            height:
-                auto;
-
-            display:
-                block;
-        }
-
-
-        #branding-text {
-            display:
-                flex;
-
-            flex-direction:
-                column;
-
-            line-height:
-                1.1;
-        }
-
-
-        #branding-title {
-            font-size:
-                17px;
-
-            font-weight:
-                800;
-        }
-
-
-        #branding-subtitle {
-            margin-top:
-                3px;
-
-            font-size:
-                11px;
-
-            opacity:
-                0.78;
-        }
-
-
-        /* ==================================================
-           TOP CONTROLS
-        ================================================== */
-
-        #top-controls {
-            position:
-                absolute;
-
-            top:
-                12px;
-
-            left:
-                50%;
-
-            transform:
-                translateX(-50%);
-
-            z-index:
-                30;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            gap:
-                7px;
-
-            padding:
-                7px;
-
-            border-radius:
-                8px;
-
-            background:
-                rgba(
-                    18,
-                    24,
-                    32,
-                    0.92
-                );
-
-            box-shadow:
-                0 2px 8px
-                rgba(
-                    0,
-                    0,
-                    0,
-                    0.40
-                );
-        }
-
-
-        .top-select {
-            height:
-                34px;
-
-            padding:
-                0 9px;
-
-            border:
-                1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.20
-                );
-
-            border-radius:
-                5px;
-
-            background:
-                #202a36;
-
-            color:
-                white;
-
-            font-size:
-                13px;
-
-            font-weight:
-                700;
-
-            outline:
-                none;
-        }
-
-
-        .top-select:hover {
-            background:
-                #293646;
-        }
-
-
-        /* ==================================================
-           OVERLAY MENU
-        ================================================== */
-
-        #overlay-menu {
-            position:
-                absolute;
-
-            top:
-                74px;
-
-            left:
-                12px;
-
-            z-index:
-                40;
-        }
-
-
-        #overlay-menu-button {
-            min-width:
-                145px;
-
-            height:
-                38px;
-
-            padding:
-                0 13px;
-
-            border:
-                1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.22
-                );
-
-            border-radius:
-                6px;
-
-            background:
-                rgba(
-                    18,
-                    24,
-                    32,
-                    0.94
-                );
-
-            color:
-                white;
-
-            font-size:
-                13px;
-
-            font-weight:
-                800;
-
-            cursor:
-                pointer;
-
-            box-shadow:
-                0 2px 7px
-                rgba(
-                    0,
-                    0,
-                    0,
-                    0.35
-                );
-        }
-
-
-        #overlay-menu-button:hover {
-            background:
-                rgba(
-                    34,
-                    44,
-                    57,
-                    0.97
-                );
-        }
-
-
-        #overlay-menu-content {
-            display:
-                none;
-
-            width:
-                260px;
-
-            max-height:
-                calc(
-                    100vh - 135px
-                );
-
-            margin-top:
-                6px;
-
-            padding:
-                8px;
-
-            overflow-y:
-                auto;
-
-            border:
-                1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.18
-                );
-
-            border-radius:
-                7px;
-
-            background:
-                rgba(
-                    18,
-                    24,
-                    32,
-                    0.96
-                );
-
-            color:
-                white;
-
-            box-shadow:
-                0 4px 14px
-                rgba(
-                    0,
-                    0,
-                    0,
-                    0.45
-                );
-        }
-
-
-        #overlay-menu-content.open {
-            display:
-                block;
-        }
-
-
-        .overlay-section {
-            padding:
-                5px 2px 9px;
-        }
-
-
-        .overlay-section +
-        .overlay-section {
-            border-top:
-                1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.13
-                );
-        }
-
-
-        .overlay-section-title {
-            padding:
-                5px 7px 6px;
-
-            color:
-                #aebdcc;
-
-            font-size:
-                10px;
-
-            font-weight:
-                800;
-
-            letter-spacing:
-                0.9px;
-
-            text-transform:
-                uppercase;
-        }
-
-
-        .overlay-row {
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            gap:
-                8px;
-
-            min-height:
-                31px;
-
-            padding:
-                5px 7px;
-
-            border-radius:
-                4px;
-
-            font-size:
-                13px;
-
-            cursor:
-                pointer;
-        }
-
-
-        .overlay-row:hover {
-            background:
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.08
-                );
-        }
-
-
-        .overlay-row input[type="checkbox"] {
-            width:
-                15px;
-
-            height:
-                15px;
-
-            margin:
-                0;
-
-            accent-color:
-                #4ea3ff;
-
-            cursor:
-                pointer;
-        }
-
-
-        /* ==================================================
-           OBSERVATION / OVERLAY SELECT CONTROLS
-        ================================================== */
-
-        .observation-parameter-container {
-            padding:
-                7px;
-        }
-
-
-        .observation-parameter-label {
-            display:
-                block;
-
-            margin-bottom:
-                5px;
-
-            color:
-                #aebdcc;
-
-            font-size:
-                11px;
-
-            font-weight:
-                700;
-        }
-
-
-        #observation-parameter-select,
-        #mrms-period-select {
-            width:
-                100%;
-
-            height:
-                33px;
-
-            padding:
-                0 7px;
-
-            border:
-                1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.20
-                );
-
-            border-radius:
-                5px;
-
-            background:
-                #202a36;
-
-            color:
-                white;
-
-            font-size:
-                12px;
-
-            font-weight:
-                700;
-
-            outline:
-                none;
-        }
-
-
-        #observation-parameter-select:hover,
-        #mrms-period-select:hover {
-            background:
-                #293646;
-        }
-
-
-        .observation-note {
-            padding:
-                2px 7px 7px;
-
-            color:
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.55
-                );
-
-            font-size:
-                10px;
-
-            line-height:
-                1.35;
-        }
-
-
-        /* ==================================================
-           MODEL TIMELINE
-        ================================================== */
-
-        #model-timeline {
-            position:
-                absolute;
-
-            left:
-                50%;
-
-            bottom:
-                18px;
-
-            transform:
-                translateX(-50%);
-
-            z-index:
-                25;
-
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            gap:
-                6px;
-
-            width:
-                min(
-                    920px,
-                    calc(
-                        100vw - 170px
-                    )
-                );
-
-            padding:
-                7px;
-
-            border-radius:
-                8px;
-
-            background:
-                rgba(
-                    18,
-                    24,
-                    32,
-                    0.93
-                );
-
-            box-shadow:
-                0 2px 10px
-                rgba(
-                    0,
-                    0,
-                    0,
-                    0.45
-                );
-        }
-
-
-        .timeline-button {
-            flex:
-                0 0 auto;
-
-            width:
-                35px;
-
-            height:
-                32px;
-
-            border:
-                1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.18
-                );
-
-            border-radius:
-                5px;
-
-            background:
-                #202a36;
-
-            color:
-                white;
-
-            font-size:
-                13px;
-
-            font-weight:
-                800;
-
-            cursor:
-                pointer;
-        }
-
-
-        .timeline-button:hover {
-            background:
-                #304154;
-        }
-
-
-        #model-hour-list {
-            display:
-                flex;
-
-            align-items:
-                center;
-
-            gap:
-                4px;
-
-            flex:
-                1;
-
-            overflow-x:
-                auto;
-
-            overflow-y:
-                hidden;
-
-            scrollbar-width:
-                thin;
-        }
-
-
-        .model-hour-button {
-            flex:
-                0 0 auto;
-
-            min-width:
-                48px;
-
-            height:
-                30px;
-
-            padding:
-                0 6px;
-
-            border:
-                1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.16
-                );
-
-            border-radius:
-                4px;
-
-            background:
-                #202a36;
-
-            color:
-                white;
-
-            font-size:
-                11px;
-
-            font-weight:
-                700;
-
-            cursor:
-                pointer;
-        }
-
-
-        .model-hour-button.available:hover {
-            background:
-                #33465a;
-        }
-
-
-        .model-hour-button.selected {
-            background:
-                #ffffff;
-
-            color:
-                #111820;
-
-            border-color:
-                white;
-        }
-
-
-        .model-hour-button.unavailable {
-            opacity:
-                0.25;
-
-            cursor:
-                default;
-        }
-
-
-        /* ==================================================
-           VALID TIME
-        ================================================== */
-
-        #model-valid-label {
-            position:
-                absolute;
-
-            bottom:
-                74px;
-
-            left:
-                50%;
-
-            transform:
-                translateX(-50%);
-
-            z-index:
-                24;
-
-            padding:
-                7px 11px;
-
-            border-radius:
-                5px;
-
-            background:
-                rgba(
-                    18,
-                    24,
-                    32,
-                    0.90
-                );
-
-            color:
-                white;
-
-            font-size:
-                13px;
-
-            font-weight:
-                800;
-
-            box-shadow:
-                0 2px 7px
-                rgba(
-                    0,
-                    0,
-                    0,
-                    0.35
-                );
-        }
-
-
-        /* ==================================================
-           CREDIT
-        ================================================== */
-
-        #graphics-credit {
-            position:
-                absolute;
-
-            left:
-                8px;
-
-            bottom:
-                77px;
-
-            z-index:
-                20;
-
-            padding:
-                4px 7px;
-
-            border-radius:
-                4px;
-
-            background:
-                rgba(
-                    20,
-                    24,
-                    32,
-                    0.75
-                );
-
-            color:
-                white;
-
-            font-size:
-                11px;
-
-            font-weight:
-                600;
-
-            pointer-events:
-                none;
-        }
-
-
-        #graphics-credit.no-timeline {
-            bottom:
-                8px;
-        }
-
-
-        /* ==================================================
-           EXPORT CONTROLS
-        ================================================== */
-
-        #export-controls {
-            position:
-                absolute;
-
-            right:
-                12px;
-
-            bottom:
-                18px;
-
-            z-index:
-                60;
-
-            display:
-                flex;
-
-            gap:
-                6px;
-        }
-
-
-        .export-button {
-            height:
-                34px;
-
-            padding:
-                0 11px;
-
-            border:
-                1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.20
-                );
-
-            border-radius:
-                5px;
-
-            background:
-                rgba(
-                    18,
-                    24,
-                    32,
-                    0.94
-                );
-
-            color:
-                white;
-
-            font-size:
-                12px;
-
-            font-weight:
-                800;
-
-            cursor:
-                pointer;
-        }
-
-
-        .export-button:hover {
-            background:
-                #2c3b4d;
-        }
-
-
-        /* ==================================================
-           GIF PANEL
-        ================================================== */
-
-        #gif-panel {
-            display:
-                none;
-
-            position:
-                absolute;
-
-            right:
-                12px;
-
-            bottom:
-                62px;
-
-            z-index:
-                70;
-
-            width:
-                280px;
-
-            padding:
-                12px;
-
-            border:
-                1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.20
-                );
-
-            border-radius:
-                7px;
-
-            background:
-                rgba(
-                    18,
-                    24,
-                    32,
-                    0.97
-                );
-
-            color:
-                white;
-
-            box-shadow:
-                0 4px 14px
-                rgba(
-                    0,
-                    0,
-                    0,
-                    0.50
-                );
-        }
-
-
-        #gif-panel.open {
-            display:
-                block;
-        }
-
-
-        #gif-panel-title {
-            margin-bottom:
-                10px;
-
-            font-size:
-                14px;
-
-            font-weight:
-                800;
-        }
-
-
-        .gif-select-row {
-            display:
-                flex;
-
-            gap:
-                8px;
-        }
-
-
-        .gif-select-box {
-            flex:
-                1;
-        }
-
-
-        .gif-select-box label {
-            display:
-                block;
-
-            margin-bottom:
-                4px;
-
-            color:
-                #aebdcc;
-
-            font-size:
-                10px;
-
-            font-weight:
-                700;
-        }
-
-
-        .gif-select-box select {
-            width:
-                100%;
-
-            height:
-                32px;
-
-            border:
-                1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.20
-                );
-
-            border-radius:
-                4px;
-
-            background:
-                #202a36;
-
-            color:
-                white;
-        }
-
-
-        #gif-panel-actions {
-            display:
-                flex;
-
-            gap:
-                7px;
-
-            margin-top:
-                10px;
-        }
-
-
-        #gif-panel-actions button {
-            flex:
-                1;
-
-            height:
-                32px;
-
-            border:
-                1px solid
-                rgba(
-                    255,
-                    255,
-                    255,
-                    0.20
-                );
-
-            border-radius:
-                4px;
-
-            background:
-                #28384a;
-
-            color:
-                white;
-
-            font-weight:
-                700;
-
-            cursor:
-                pointer;
-        }
-
-
-        #gif-panel-actions button:hover {
-            background:
-                #354b63;
-        }
-
-
-        #gif-status {
-            margin-top:
-                8px;
-
-            color:
-                #cbd6e1;
-
-            font-size:
-                11px;
-        }
-
-
-        /* ==================================================
-           MAPBOX
-        ================================================== */
-
-        .mapboxgl-ctrl-top-right {
-            top:
-                65px;
-        }
-
-
-        .mapboxgl-popup-content {
-            border-radius:
-                6px;
-        }
-
-
-        /* ==================================================
-           MOBILE
-        ================================================== */
-
-        @media (
-            max-width: 800px
-        ) {
-
-            #branding-subtitle {
-                display:
-                    none;
-            }
-
-
-            #branding-title {
-                font-size:
-                    13px;
-            }
-
-
-            #branding-logo {
-                width:
-                    50px;
-            }
-
-
-            #top-controls {
-                top:
-                    auto;
-
-                bottom:
-                    73px;
-
-                max-width:
-                    calc(
-                        100vw - 20px
-                    );
-            }
-
-
-            #model-timeline {
-                width:
-                    calc(
-                        100vw - 20px
-                    );
-
-                bottom:
-                    10px;
-            }
-
-
-            #model-valid-label {
-                bottom:
-                    116px;
-            }
-
-
-            #graphics-credit {
-                display:
-                    none;
-            }
-
-
-            #overlay-menu-content {
-                width:
-                    235px;
-            }
-
-        }
-
-    </style>
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
 
 </head>
 
@@ -1354,8 +51,17 @@
 
     <div id="map-area">
 
+
+        <!-- =================================================
+             SINGLE MAP
+        ================================================== -->
+
         <div id="single-map"></div>
 
+
+        <!-- =================================================
+             COMPARISON MAP
+        ================================================== -->
 
         <div
             id="comparison-container"
@@ -1368,6 +74,55 @@
 
         </div>
 
+
+        <!-- =================================================
+             MRMS PRECIPITATION COLORBAR
+        ================================================== -->
+
+        <div
+            id="mrms-colorbar"
+            class="mrms-colorbar"
+        >
+
+            <div class="mrms-colorbar-title">
+                MRMS QPE
+            </div>
+
+
+            <div class="mrms-colorbar-subtitle">
+                Precipitation (in)
+            </div>
+
+
+            <div class="mrms-colorbar-content">
+
+
+                <!-- =========================================
+                     COLOR SCALE
+                ========================================== -->
+
+                <canvas
+                    id="mrms-colorbar-canvas"
+                    width="28"
+                    height="430"
+                ></canvas>
+
+
+                <!-- =========================================
+                     COLORBAR LABELS
+                ========================================== -->
+
+                <div
+                    id="mrms-colorbar-labels"
+                    class="mrms-colorbar-labels"
+                ></div>
+
+
+            </div>
+
+        </div>
+
+
     </div>
 
 
@@ -1379,6 +134,7 @@
 
         <div id="branding-box">
 
+
             <img
                 id="branding-logo"
                 src="assets/NOAANWSLogos.png"
@@ -1389,14 +145,20 @@
             <div id="branding-text">
 
                 <div id="branding-title">
+
                     NWS North Platte, NE
+
                 </div>
 
+
                 <div id="branding-subtitle">
+
                     Weather Graphics Builder
+
                 </div>
 
             </div>
+
 
         </div>
 
@@ -1409,25 +171,42 @@
 
     <div id="top-controls">
 
+
+        <!-- =================================================
+             VIEWER MODE
+        ================================================== -->
+
         <select
             id="viewer-mode-select"
             class="top-select"
         >
 
             <option value="single">
+
                 Model
+
             </option>
+
 
             <option value="compare">
+
                 HRRR vs RRFS
+
             </option>
 
+
             <option value="overlays">
+
                 Overlays Only
+
             </option>
 
         </select>
 
+
+        <!-- =================================================
+             MODEL
+        ================================================== -->
 
         <select
             id="model-select"
@@ -1435,15 +214,24 @@
         >
 
             <option value="hrrr">
+
                 HRRR
+
             </option>
 
+
             <option value="rrfs">
+
                 RRFS
+
             </option>
 
         </select>
 
+
+        <!-- =================================================
+             PRODUCT
+        ================================================== -->
 
         <select
             id="product-select"
@@ -1451,10 +239,13 @@
         >
 
             <option value="reflUH">
+
                 Reflectivity + UH ≥ 75
+
             </option>
 
         </select>
+
 
     </div>
 
@@ -1465,8 +256,11 @@
 
     <div id="overlay-menu">
 
+
         <button id="overlay-menu-button">
+
             ☰ Map Overlays
+
         </button>
 
 
@@ -1479,10 +273,17 @@
 
             <div class="overlay-section">
 
+
                 <div class="overlay-section-title">
+
                     Observations
+
                 </div>
 
+
+                <!-- =========================================
+                     METAR
+                ========================================== -->
 
                 <label class="overlay-row">
 
@@ -1498,6 +299,10 @@
                 </label>
 
 
+                <!-- =========================================
+                     MESONET
+                ========================================== -->
+
                 <label class="overlay-row">
 
                     <input
@@ -1512,47 +317,74 @@
                 </label>
 
 
+                <!-- =========================================
+                     OBSERVATION PARAMETER
+                ========================================== -->
+
                 <div class="observation-parameter-container">
+
 
                     <label
                         class="observation-parameter-label"
                         for="observation-parameter-select"
                     >
+
                         Parameter
+
                     </label>
 
 
                     <select id="observation-parameter-select">
 
+
                         <option value="gust">
+
                             Wind Gust
+
                         </option>
+
 
                         <option value="wind">
+
                             Wind Speed
+
                         </option>
+
 
                         <option value="temp">
+
                             Temperature
+
                         </option>
+
 
                         <option value="dewpoint">
+
                             Dew Point
+
                         </option>
+
 
                         <option value="rh">
+
                             Relative Humidity
+
                         </option>
 
+
                     </select>
+
 
                 </div>
 
 
                 <div class="observation-note">
+
                     Wind arrows point in the direction
                     the wind is moving.
+
                 </div>
+
 
             </div>
 
@@ -1563,10 +395,17 @@
 
             <div class="overlay-section">
 
+
                 <div class="overlay-section-title">
+
                     MRMS Precipitation
+
                 </div>
 
+
+                <!-- =========================================
+                     MRMS TOGGLE
+                ========================================== -->
 
                 <label class="overlay-row">
 
@@ -1576,60 +415,86 @@
                     >
 
                     <span>
+
                         Show MRMS
+
                     </span>
 
                 </label>
 
 
+                <!-- =========================================
+                     MRMS ACCUMULATION
+                ========================================== -->
+
                 <div class="observation-parameter-container">
+
 
                     <label
                         class="observation-parameter-label"
                         for="mrms-period-select"
                     >
+
                         Accumulation
+
                     </label>
 
 
                     <select id="mrms-period-select">
 
+
                         <option
                             value="24h"
                             selected
                         >
+
                             24 Hour
+
                         </option>
+
 
                         <option value="48h">
+
                             48 Hour
+
                         </option>
+
 
                         <option value="72h">
+
                             72 Hour
+
                         </option>
 
+
                     </select>
+
 
                 </div>
 
 
                 <div class="observation-note">
+
                     Multi-Sensor QPE Pass 2.
                     Amounts are in inches.
+
                 </div>
+
 
             </div>
 
 
             <!-- =============================================
-                 SPC CONVECTIVE
+                 SPC CONVECTIVE OUTLOOKS
             ============================================== -->
 
             <div class="overlay-section">
 
+
                 <div class="overlay-section-title">
+
                     SPC Convective Outlooks
+
                 </div>
 
 
@@ -1642,7 +507,9 @@
                     >
 
                     <span>
+
                         Day 1
+
                     </span>
 
                 </label>
@@ -1656,7 +523,9 @@
                     >
 
                     <span>
+
                         Day 2
+
                     </span>
 
                 </label>
@@ -1670,10 +539,13 @@
                     >
 
                     <span>
+
                         Day 3
+
                     </span>
 
                 </label>
+
 
             </div>
 
@@ -1684,8 +556,11 @@
 
             <div class="overlay-section">
 
+
                 <div class="overlay-section-title">
+
                     SPC Fire Weather
+
                 </div>
 
 
@@ -1697,7 +572,9 @@
                     >
 
                     <span>
+
                         Day 1
+
                     </span>
 
                 </label>
@@ -1711,10 +588,13 @@
                     >
 
                     <span>
+
                         Day 2
+
                     </span>
 
                 </label>
+
 
             </div>
 
@@ -1725,8 +605,11 @@
 
             <div class="overlay-section">
 
+
                 <div class="overlay-section-title">
+
                     WPC Excessive Rainfall
+
                 </div>
 
 
@@ -1738,7 +621,9 @@
                     >
 
                     <span>
+
                         Day 1 ERO
+
                     </span>
 
                 </label>
@@ -1752,7 +637,9 @@
                     >
 
                     <span>
+
                         Day 2 ERO
+
                     </span>
 
                 </label>
@@ -1766,10 +653,13 @@
                     >
 
                     <span>
+
                         Day 3 ERO
+
                     </span>
 
                 </label>
+
 
             </div>
 
@@ -1780,8 +670,11 @@
 
             <div class="overlay-section">
 
+
                 <div class="overlay-section-title">
+
                     NWS Hazards
+
                 </div>
 
 
@@ -1793,7 +686,9 @@
                     >
 
                     <span>
+
                         All Hazards
+
                     </span>
 
                 </label>
@@ -1807,7 +702,9 @@
                     >
 
                     <span>
+
                         Severe Warnings
+
                     </span>
 
                 </label>
@@ -1821,7 +718,9 @@
                     >
 
                     <span>
+
                         Severe Watches
+
                     </span>
 
                 </label>
@@ -1835,7 +734,9 @@
                     >
 
                     <span>
+
                         Flood
+
                     </span>
 
                 </label>
@@ -1849,7 +750,9 @@
                     >
 
                     <span>
+
                         Fire Weather
+
                     </span>
 
                 </label>
@@ -1863,7 +766,9 @@
                     >
 
                     <span>
+
                         Heat
+
                     </span>
 
                 </label>
@@ -1877,10 +782,13 @@
                     >
 
                     <span>
+
                         Winter
+
                     </span>
 
                 </label>
+
 
             </div>
 
@@ -1891,8 +799,11 @@
 
             <div class="overlay-section">
 
+
                 <div class="overlay-section-title">
+
                     Boundaries
+
                 </div>
 
 
@@ -1905,7 +816,9 @@
                     >
 
                     <span>
+
                         LBF CWA
+
                     </span>
 
                 </label>
@@ -1920,7 +833,9 @@
                     >
 
                     <span>
+
                         Counties
+
                     </span>
 
                 </label>
@@ -1935,10 +850,13 @@
                     >
 
                     <span>
+
                         States
+
                     </span>
 
                 </label>
+
 
             </div>
 
@@ -1953,22 +871,27 @@
     ====================================================== -->
 
     <div id="model-valid-label">
+
         Loading model...
+
     </div>
 
 
     <!-- =====================================================
-         TIMELINE
+         MODEL TIMELINE
     ====================================================== -->
 
     <div id="model-timeline">
+
 
         <button
             id="model-prev-button"
             class="timeline-button"
             title="Previous hour"
         >
+
             ◀
+
         </button>
 
 
@@ -1977,7 +900,9 @@
             class="timeline-button"
             title="Play"
         >
+
             ▶
+
         </button>
 
 
@@ -1986,30 +911,27 @@
             class="timeline-button"
             title="Next hour"
         >
+
             ▶
+
         </button>
 
 
         <div id="model-hour-list"></div>
 
+
     </div>
 
 
     <!-- =====================================================
-         CREDIT
+         GRAPHICS CREDIT
     ====================================================== -->
 
     <div id="graphics-credit">
+
         Graphics created by: Matthew Labenz
+
     </div>
-
-
-    <!-- =====================================================
-         IMPORTANT
-         
-         Save PNG / Save GIF controls are created by
-         graphics.js. Do not duplicate them here.
-    ====================================================== -->
 
 
     <!-- =====================================================
