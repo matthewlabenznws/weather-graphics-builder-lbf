@@ -1815,7 +1815,43 @@ function addMetarObservations(
     );
 
 }
+// ============================================================
+// MOVE METAR OBSERVATIONS TO TOP
+// ============================================================
 
+function moveMetarObservationsToTop(
+    map
+) {
+
+    const layers = [
+
+        "metar-station-dot",
+        "metar-wind-arrow-layer",
+        "metar-value-label",
+        "metar-station-label"
+
+    ];
+
+
+    layers.forEach(
+        layerId => {
+
+            if (
+                map.getLayer(
+                    layerId
+                )
+            ) {
+
+                map.moveLayer(
+                    layerId
+                );
+
+            }
+
+        }
+    );
+
+}
 
 // ============================================================
 // OBSERVATION TEXT EXPRESSION
