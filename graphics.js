@@ -4063,39 +4063,7 @@ function updateMrmsProductOnMap(
 // UPDATE MRMS VISIBILITY
 // ============================================================
 
-function updateMrmsLayerState(
-    map
-) {
-
-    if (
-        !map
-    ) {
-
-        return;
-
-    }
-
-
-    const visible =
-        !!overlayState.mrms;
-
-
-    setLayerVisibility(
-
-        map,
-
-        [
-
-            "mrms-precip-layer",
-            "mrms-city-value-labels"
-
-        ],
-
-        visible
-
-    );
-
-}
+updateMrmsLayerState
 
 
 // ============================================================
