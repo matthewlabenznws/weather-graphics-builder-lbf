@@ -20,6 +20,8 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
 
       # ======================================================
@@ -94,7 +96,6 @@ jobs:
 
       - name: Verify drought outputs
         run: |
-
           test -f data/drought/current.geojson || {
             echo "ERROR: data/drought/current.geojson was not created."
             exit 1
@@ -107,32 +108,26 @@ jobs:
 
 
       # ======================================================
-      # COMMIT UPDATED DATA
+      # COMMIT AND PUSH UPDATED DATA
       # ======================================================
 
       - name: Commit drought update
         run: |
-
           git config user.name "github-actions[bot]"
-
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
-
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add \
             data/drought/current.geojson \
             data/drought/latest.json
 
-
           if git diff --cached --quiet; then
-
             echo "No drought data changes to commit."
-
           else
+            git commit -m "Update U.S. Drought Monitor"
 
-            git commit \
-              -m "Update U.S. Drought Monitor"
+            echo "Syncing with latest main branch..."
+            git pull --rebase origin main
 
-            git push
-
+            echo "Pushing drought update..."
+            git push origin main
           fi
