@@ -1,8 +1,9 @@
 {
-  "generated": "2026-08-14T18:18:04.949912Z",
+  "generated": "2026-08-14T18:35:00.370277Z",
   "source": "NOAA/NCEP MRMS MultiSensor QPE Pass 2",
   "units": "inches",
   "transparent_below_inches": 0.01,
+  "city_sample_radius_km": 5.0,
   "domain": {
     "west": -106.0,
     "east": -95.0,
@@ -22,125 +23,143 @@
       },
       "minimum_inches": 0.0,
       "maximum_inches": 7.465,
+      "city_sample_radius_km": 5.0,
       "city_values": [
         {
           "name": "Gordon",
           "lat": 42.8047,
           "lon": -102.2032,
-          "precip_inches": 0.1,
-          "label": "0.10\""
+          "precip_inches": 0.11,
+          "label": "0.11\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Valentine",
           "lat": 42.8728,
           "lon": -100.5509,
           "precip_inches": 0.0,
-          "label": "0.00\""
+          "label": "0.00\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Ainsworth",
           "lat": 42.5497,
           "lon": -99.8626,
           "precip_inches": 0.0,
-          "label": "0.00\""
+          "label": "0.00\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Butte",
           "lat": 42.9114,
           "lon": -98.8498,
           "precip_inches": 0.0,
-          "label": "0.00\""
+          "label": "0.00\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "O'Neill",
           "lat": 42.4578,
           "lon": -98.6476,
-          "precip_inches": 0.15,
-          "label": "0.15\""
+          "precip_inches": 0.1,
+          "label": "0.10\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Oshkosh",
           "lat": 41.4053,
           "lon": -102.3446,
           "precip_inches": 0.02,
-          "label": "0.02\""
+          "label": "0.02\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Chappell",
           "lat": 41.0925,
           "lon": -102.4707,
           "precip_inches": 0.04,
-          "label": "0.04\""
+          "label": "0.04\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Mullen",
           "lat": 42.0428,
           "lon": -101.0427,
           "precip_inches": 0.0,
-          "label": "0.00\""
+          "label": "0.00\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Thedford",
           "lat": 41.9783,
           "lon": -100.5762,
           "precip_inches": 0.0,
-          "label": "0.00\""
+          "label": "0.00\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Burwell",
           "lat": 41.7817,
           "lon": -99.1332,
-          "precip_inches": 0.07,
-          "label": "0.07\""
+          "precip_inches": 0.08,
+          "label": "0.08\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Ogallala",
           "lat": 41.1281,
           "lon": -101.7196,
           "precip_inches": 0.0,
-          "label": "0.00\""
+          "label": "0.00\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Stapleton",
           "lat": 41.4803,
           "lon": -100.5129,
           "precip_inches": 0.0,
-          "label": "0.00\""
+          "label": "0.00\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "North Platte",
           "lat": 41.1403,
           "lon": -100.7601,
           "precip_inches": 0.0,
-          "label": "0.00\""
+          "label": "0.00\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Broken Bow",
           "lat": 41.4019,
           "lon": -99.6393,
-          "precip_inches": 0.43,
-          "label": "0.43\""
+          "precip_inches": 0.39,
+          "label": "0.39\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Grant",
           "lat": 40.8414,
           "lon": -101.7252,
           "precip_inches": 0.0,
-          "label": "0.00\""
+          "label": "0.00\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Imperial",
           "lat": 40.5169,
           "lon": -101.6432,
-          "precip_inches": 0.0,
-          "label": "0.00\""
+          "precip_inches": 0.01,
+          "label": "0.01\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Curtis",
           "lat": 40.6308,
           "lon": -100.5107,
-          "precip_inches": 0.73,
-          "label": "0.73\""
+          "precip_inches": 0.49,
+          "label": "0.49\"",
+          "sample_radius_km": 5.0
         }
       ],
       "source_url": "https://mrms.ncep.noaa.gov/2D/MultiSensor_QPE_24H_Pass2/MRMS_MultiSensor_QPE_24H_Pass2.latest.grib2.gz"
@@ -157,125 +176,143 @@
       },
       "minimum_inches": 0.0,
       "maximum_inches": 17.406,
+      "city_sample_radius_km": 5.0,
       "city_values": [
         {
           "name": "Gordon",
           "lat": 42.8047,
           "lon": -102.2032,
-          "precip_inches": 1.33,
-          "label": "1.33\""
+          "precip_inches": 1.28,
+          "label": "1.28\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Valentine",
           "lat": 42.8728,
           "lon": -100.5509,
-          "precip_inches": 0.38,
-          "label": "0.38\""
+          "precip_inches": 0.35,
+          "label": "0.35\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Ainsworth",
           "lat": 42.5497,
           "lon": -99.8626,
-          "precip_inches": 1.98,
-          "label": "1.98\""
+          "precip_inches": 1.78,
+          "label": "1.78\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Butte",
           "lat": 42.9114,
           "lon": -98.8498,
-          "precip_inches": 0.46,
-          "label": "0.46\""
+          "precip_inches": 0.48,
+          "label": "0.48\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "O'Neill",
           "lat": 42.4578,
           "lon": -98.6476,
-          "precip_inches": 0.67,
-          "label": "0.67\""
+          "precip_inches": 0.64,
+          "label": "0.64\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Oshkosh",
           "lat": 41.4053,
           "lon": -102.3446,
-          "precip_inches": 0.38,
-          "label": "0.38\""
+          "precip_inches": 0.4,
+          "label": "0.40\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Chappell",
           "lat": 41.0925,
           "lon": -102.4707,
-          "precip_inches": 1.49,
-          "label": "1.49\""
+          "precip_inches": 1.36,
+          "label": "1.36\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Mullen",
           "lat": 42.0428,
           "lon": -101.0427,
-          "precip_inches": 0.93,
-          "label": "0.93\""
+          "precip_inches": 0.89,
+          "label": "0.89\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Thedford",
           "lat": 41.9783,
           "lon": -100.5762,
-          "precip_inches": 0.6,
-          "label": "0.60\""
+          "precip_inches": 0.61,
+          "label": "0.61\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Burwell",
           "lat": 41.7817,
           "lon": -99.1332,
-          "precip_inches": 0.93,
-          "label": "0.93\""
+          "precip_inches": 1.03,
+          "label": "1.03\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Ogallala",
           "lat": 41.1281,
           "lon": -101.7196,
-          "precip_inches": 0.13,
-          "label": "0.13\""
+          "precip_inches": 0.16,
+          "label": "0.16\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Stapleton",
           "lat": 41.4803,
           "lon": -100.5129,
-          "precip_inches": 0.47,
-          "label": "0.47\""
+          "precip_inches": 0.52,
+          "label": "0.52\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "North Platte",
           "lat": 41.1403,
           "lon": -100.7601,
           "precip_inches": 0.93,
-          "label": "0.93\""
+          "label": "0.93\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Broken Bow",
           "lat": 41.4019,
           "lon": -99.6393,
-          "precip_inches": 2.58,
-          "label": "2.58\""
+          "precip_inches": 2.41,
+          "label": "2.41\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Grant",
           "lat": 40.8414,
           "lon": -101.7252,
-          "precip_inches": 0.27,
-          "label": "0.27\""
+          "precip_inches": 0.21,
+          "label": "0.21\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Imperial",
           "lat": 40.5169,
           "lon": -101.6432,
-          "precip_inches": 0.16,
-          "label": "0.16\""
+          "precip_inches": 0.19,
+          "label": "0.19\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Curtis",
           "lat": 40.6308,
           "lon": -100.5107,
-          "precip_inches": 0.73,
-          "label": "0.73\""
+          "precip_inches": 0.49,
+          "label": "0.49\"",
+          "sample_radius_km": 5.0
         }
       ],
       "source_url": "https://mrms.ncep.noaa.gov/2D/MultiSensor_QPE_48H_Pass2/MRMS_MultiSensor_QPE_48H_Pass2.latest.grib2.gz"
@@ -292,125 +329,143 @@
       },
       "minimum_inches": 0.0,
       "maximum_inches": 25.358,
+      "city_sample_radius_km": 5.0,
       "city_values": [
         {
           "name": "Gordon",
           "lat": 42.8047,
           "lon": -102.2032,
-          "precip_inches": 2.0,
-          "label": "2.00\""
+          "precip_inches": 1.99,
+          "label": "1.99\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Valentine",
           "lat": 42.8728,
           "lon": -100.5509,
-          "precip_inches": 0.79,
-          "label": "0.79\""
+          "precip_inches": 0.89,
+          "label": "0.89\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Ainsworth",
           "lat": 42.5497,
           "lon": -99.8626,
-          "precip_inches": 2.64,
-          "label": "2.64\""
+          "precip_inches": 2.42,
+          "label": "2.42\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Butte",
           "lat": 42.9114,
           "lon": -98.8498,
-          "precip_inches": 0.7,
-          "label": "0.70\""
+          "precip_inches": 0.72,
+          "label": "0.72\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "O'Neill",
           "lat": 42.4578,
           "lon": -98.6476,
-          "precip_inches": 0.87,
-          "label": "0.87\""
+          "precip_inches": 0.91,
+          "label": "0.91\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Oshkosh",
           "lat": 41.4053,
           "lon": -102.3446,
-          "precip_inches": 0.38,
-          "label": "0.38\""
+          "precip_inches": 0.4,
+          "label": "0.40\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Chappell",
           "lat": 41.0925,
           "lon": -102.4707,
-          "precip_inches": 1.49,
-          "label": "1.49\""
+          "precip_inches": 1.36,
+          "label": "1.36\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Mullen",
           "lat": 42.0428,
           "lon": -101.0427,
-          "precip_inches": 0.93,
-          "label": "0.93\""
+          "precip_inches": 0.89,
+          "label": "0.89\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Thedford",
           "lat": 41.9783,
           "lon": -100.5762,
-          "precip_inches": 0.6,
-          "label": "0.60\""
+          "precip_inches": 0.61,
+          "label": "0.61\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Burwell",
           "lat": 41.7817,
           "lon": -99.1332,
-          "precip_inches": 1.11,
-          "label": "1.11\""
+          "precip_inches": 1.18,
+          "label": "1.18\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Ogallala",
           "lat": 41.1281,
           "lon": -101.7196,
-          "precip_inches": 0.21,
-          "label": "0.21\""
+          "precip_inches": 0.23,
+          "label": "0.23\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Stapleton",
           "lat": 41.4803,
           "lon": -100.5129,
-          "precip_inches": 0.48,
-          "label": "0.48\""
+          "precip_inches": 0.53,
+          "label": "0.53\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "North Platte",
           "lat": 41.1403,
           "lon": -100.7601,
-          "precip_inches": 1.0,
-          "label": "1.00\""
+          "precip_inches": 0.97,
+          "label": "0.97\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Broken Bow",
           "lat": 41.4019,
           "lon": -99.6393,
-          "precip_inches": 2.59,
-          "label": "2.59\""
+          "precip_inches": 2.41,
+          "label": "2.41\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Grant",
           "lat": 40.8414,
           "lon": -101.7252,
-          "precip_inches": 0.27,
-          "label": "0.27\""
+          "precip_inches": 0.21,
+          "label": "0.21\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Imperial",
           "lat": 40.5169,
           "lon": -101.6432,
-          "precip_inches": 0.17,
-          "label": "0.17\""
+          "precip_inches": 0.19,
+          "label": "0.19\"",
+          "sample_radius_km": 5.0
         },
         {
           "name": "Curtis",
           "lat": 40.6308,
           "lon": -100.5107,
-          "precip_inches": 0.76,
-          "label": "0.76\""
+          "precip_inches": 0.51,
+          "label": "0.51\"",
+          "sample_radius_km": 5.0
         }
       ],
       "source_url": "https://mrms.ncep.noaa.gov/2D/MultiSensor_QPE_72H_Pass2/MRMS_MultiSensor_QPE_72H_Pass2.latest.grib2.gz"
