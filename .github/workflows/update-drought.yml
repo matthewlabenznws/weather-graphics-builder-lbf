@@ -1,0 +1,138 @@
+name: Update U.S. Drought Monitor
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+
+  update-drought:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ======================================================
+      # CHECK OUT REPOSITORY
+      # ======================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      # ======================================================
+      # SET UP PYTHON
+      # ======================================================
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+
+      # ======================================================
+      # INSTALL SYSTEM DEPENDENCIES
+      # ======================================================
+
+      - name: Install geospatial system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gdal-bin \
+            libgdal-dev \
+            libproj-dev \
+            proj-data \
+            proj-bin \
+            libgeos-dev
+
+
+      # ======================================================
+      # INSTALL PYTHON PACKAGES
+      # ======================================================
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+
+          pip install \
+            requests \
+            geopandas \
+            shapely \
+            pyproj \
+            pyogrio \
+            fiona
+
+
+      # ======================================================
+      # RUN DROUGHT MONITOR UPDATE
+      # ======================================================
+
+      - name: Update U.S. Drought Monitor
+        run: |
+          python update_drought.py
+
+
+      # ======================================================
+      # SHOW GENERATED FILES
+      # ======================================================
+
+      - name: Show drought files
+        run: |
+          echo "Generated drought files:"
+          find data/drought -maxdepth 2 -type f -print
+
+          echo
+          echo "latest.json:"
+          cat data/drought/latest.json
+
+
+      # ======================================================
+      # VERIFY REQUIRED FILES EXIST
+      # ======================================================
+
+      - name: Verify drought outputs
+        run: |
+
+          test -f data/drought/current.geojson || {
+            echo "ERROR: data/drought/current.geojson was not created."
+            exit 1
+          }
+
+          test -f data/drought/latest.json || {
+            echo "ERROR: data/drought/latest.json was not created."
+            exit 1
+          }
+
+
+      # ======================================================
+      # COMMIT UPDATED DATA
+      # ======================================================
+
+      - name: Commit drought update
+        run: |
+
+          git config user.name "github-actions[bot]"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+
+          git add \
+            data/drought/current.geojson \
+            data/drought/latest.json
+
+
+          if git diff --cached --quiet; then
+
+            echo "No drought data changes to commit."
+
+          else
+
+            git commit \
+              -m "Update U.S. Drought Monitor"
+
+            git push
+
+          fi
