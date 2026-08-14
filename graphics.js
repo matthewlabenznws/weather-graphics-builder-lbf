@@ -5214,6 +5214,26 @@ async function setupMapLayers(
             map
         );
 
+    // ========================================================
+    // MRMS PRECIPITATION
+    // ========================================================
+
+    if (
+        !mrmsManifest
+    ) {
+
+        await loadMrmsManifest();
+
+    }
+
+
+    addMrmsPrecipitation(
+
+        map,
+        roadLayer
+
+    );
+
 
     // ========================================================
     // METAR OBSERVATIONS
