@@ -1,0 +1,36 @@
+{
+  "generated": "2026-08-14T21:25:30.406196Z",
+  "valid_date": "2026-08-11",
+  "source": "U.S. Drought Monitor",
+  "source_url": "https://droughtmonitor.unl.edu/data/shapefiles_m/USDM_current_M.zip",
+  "attribution": "National Drought Mitigation Center (NDMC), U.S. Department of Agriculture (USDA), National Oceanic and Atmospheric Administration (NOAA)",
+  "geojson": "data/drought/current.geojson",
+  "feature_count": 5,
+  "categories": {
+    "D0": 1,
+    "D1": 1,
+    "D2": 1,
+    "D3": 1,
+    "D4": 1
+  },
+  "colors": {
+    "D0": "#FFFF00",
+    "D1": "#FCD37F",
+    "D2": "#FFAA00",
+    "D3": "#E60000",
+    "D4": "#730000"
+  },
+  "category_names": {
+    "D0": "Abnormally Dry",
+    "D1": "Moderate Drought",
+    "D2": "Severe Drought",
+    "D3": "Extreme Drought",
+    "D4": "Exceptional Drought"
+  },
+  "extent": {
+    "west": -159.78097439346686,
+    "south": 17.88419233736859,
+    "east": -65.22281900284906,
+    "north": 65.10798491683991
+  }
+}
