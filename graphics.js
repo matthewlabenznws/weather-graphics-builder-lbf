@@ -251,6 +251,20 @@ const METAR_GEOJSON_URL =
 const OBSERVATION_REFRESH_MS =
     60 * 1000;
 
+// ============================================================
+// MRMS PRECIPITATION CONFIG
+// ============================================================
+
+const MRMS_MANIFEST_URL =
+    "data/mrms/latest.json";
+
+
+const MRMS_REFRESH_MS =
+    5 * 60 * 1000;
+
+
+const MRMS_LABEL_MINIMUM_INCHES =
+    0.01;
 
 // ============================================================
 // STATE
