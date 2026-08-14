@@ -6,6 +6,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: weather-graphics-builder-updates
+  cancel-in-progress: false
+
 jobs:
   update-metar:
     runs-on: ubuntu-latest
@@ -18,6 +22,8 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
 
       # ======================================================
@@ -78,7 +84,7 @@ jobs:
 
 
       # ======================================================
-      # COMMIT / PUSH
+      # COMMIT / REBASE / PUSH
       # ======================================================
 
       - name: Commit updated METAR observations
@@ -87,6 +93,16 @@ jobs:
           git config user.name "METAR Bot"
           git config user.email "actions@github.com"
 
+          echo "Creating METAR update commit..."
           git commit -m "Update METAR observations"
 
-          git push
+          echo "Fetching latest main branch..."
+          git fetch origin main
+
+          echo "Rebasing METAR update onto latest main..."
+          git rebase origin/main
+
+          echo "Pushing updated METAR observations..."
+          git push origin HEAD:main
+
+          echo "METAR update complete."
