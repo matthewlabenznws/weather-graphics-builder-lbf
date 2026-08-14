@@ -1,0 +1,120 @@
+name: Update MRMS Precipitation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-mrms:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ======================================================
+      # CHECKOUT
+      # ======================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      # ======================================================
+      # PYTHON
+      # ======================================================
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+
+      # ======================================================
+      # SYSTEM DEPENDENCIES
+      #
+      # GDAL / GRIB support for rasterio
+      # ======================================================
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gdal-bin \
+            libgdal-dev
+
+
+      # ======================================================
+      # PYTHON DEPENDENCIES
+      # ======================================================
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install \
+            requests \
+            numpy \
+            matplotlib \
+            rasterio
+
+
+      # ======================================================
+      # RUN MRMS UPDATE
+      # ======================================================
+
+      - name: Update MRMS precipitation
+        run: |
+          python update_mrms.py
+
+
+      # ======================================================
+      # VERIFY OUTPUT
+      # ======================================================
+
+      - name: Verify MRMS output
+        run: |
+          echo "MRMS files:"
+          ls -lh data/mrms
+
+          echo ""
+          echo "Manifest:"
+          cat data/mrms/latest.json
+
+
+      # ======================================================
+      # CHECK FOR CHANGES
+      # ======================================================
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add \
+            data/mrms/qpe_24h.png \
+            data/mrms/qpe_48h.png \
+            data/mrms/qpe_72h.png \
+            data/mrms/latest.json
+
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No MRMS changes detected."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "MRMS files changed."
+          fi
+
+
+      # ======================================================
+      # COMMIT AND PUSH
+      # ======================================================
+
+      - name: Commit updated MRMS precipitation
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git commit -m "Update MRMS precipitation"
+
+          git pull --rebase origin main
+
+          git push origin main
