@@ -2844,6 +2844,490 @@ function connectMetarPopups(
 // MRMS PRECIPITATION
 // ============================================================
 
+// ============================================================
+// MRMS PRECIPITATION COLORBAR
+// ============================================================
+
+const MRMS_COLORBAR_COLORS = [
+
+    "#dcdcdc",
+    "#bebebe",
+    "#a0a0a0",
+    "#828282",
+
+    "#b7f0be",
+    "#9fdbb3",
+    "#87c7a7",
+    "#6fb29c",
+    "#579d90",
+    "#3f8885",
+    "#277479",
+    "#146473",
+
+    "#1450b4",
+    "#2a61bb",
+    "#3f73c2",
+    "#5584c9",
+    "#6b96d0",
+    "#80a7d6",
+    "#96b9dd",
+    "#accae4",
+    "#c1dceb",
+    "#d7edf2",
+
+    "#cebce0",
+    "#c9addb",
+    "#c49ed5",
+    "#bf90d0",
+    "#ba81ca",
+    "#b472c5",
+    "#af63bf",
+    "#aa55ba",
+    "#a546b4",
+    "#a037af",
+
+    "#a53a34",
+    "#ad4842",
+    "#b5554f",
+    "#bd635d",
+    "#c6716b",
+    "#ce7f79",
+    "#d68c86",
+    "#de9a94",
+
+    "#f8eea2",
+    "#eed68c",
+    "#e5bd76",
+    "#dba560",
+    "#d28c4a",
+    "#c87434",
+    "#ac632d",
+    "#965727",
+    "#814a21",
+    "#6b3e1b",
+    "#553115"
+
+];
+
+
+const MRMS_COLORBAR_BOUNDS = [
+
+    0.01,
+    0.03,
+    0.05,
+    0.075,
+
+    0.10,
+    0.15,
+    0.20,
+    0.25,
+    0.30,
+    0.35,
+    0.40,
+    0.45,
+    0.50,
+    0.55,
+    0.60,
+    0.65,
+    0.70,
+    0.75,
+    0.80,
+    0.85,
+    0.90,
+    0.95,
+
+    1.00,
+    1.10,
+    1.20,
+    1.30,
+    1.40,
+    1.50,
+    1.60,
+    1.70,
+    1.80,
+    1.90,
+
+    2.00,
+    2.25,
+    2.50,
+    2.75,
+    3.00,
+    3.25,
+    3.50,
+    3.75,
+
+    4.00,
+    4.50,
+    5.00,
+    5.50,
+
+    6.00,
+    7.00,
+    8.00,
+    9.00,
+
+    10.00,
+    12.50,
+    15.00,
+    17.50
+
+];
+
+
+const MRMS_COLORBAR_LABEL_VALUES = [
+
+    0.01,
+    0.10,
+    0.25,
+    0.50,
+    0.75,
+
+    1.00,
+    1.50,
+    2.00,
+    2.50,
+    3.00,
+
+    4.00,
+    5.00,
+    6.00,
+    8.00,
+
+    10.00,
+    12.50,
+    15.00,
+    17.50
+
+];
+
+
+// ============================================================
+// GET COLORBAR POSITION
+// ============================================================
+
+function getMrmsColorbarPosition(
+    value
+) {
+
+    const minimum =
+        0.01;
+
+    const maximum =
+        17.5;
+
+
+    const clipped =
+        Math.max(
+            minimum,
+            Math.min(
+                maximum,
+                value
+            )
+        );
+
+
+    const minimumLog =
+        Math.log10(
+            minimum
+        );
+
+    const maximumLog =
+        Math.log10(
+            maximum
+        );
+
+    const valueLog =
+        Math.log10(
+            clipped
+        );
+
+
+    return (
+
+        (valueLog - minimumLog)
+
+        /
+
+        (maximumLog - minimumLog)
+
+    );
+
+}
+
+
+// ============================================================
+// DRAW MRMS COLORBAR
+// ============================================================
+
+function drawMrmsColorbar() {
+
+    const canvas =
+        document.getElementById(
+            "mrms-colorbar-canvas"
+        );
+
+
+    const labelsContainer =
+        document.getElementById(
+            "mrms-colorbar-labels"
+        );
+
+
+    if (
+        !canvas
+        ||
+        !labelsContainer
+    ) {
+
+        return;
+
+    }
+
+
+    const context =
+        canvas.getContext(
+            "2d"
+        );
+
+
+    if (
+        !context
+    ) {
+
+        return;
+
+    }
+
+
+    const width =
+        canvas.width;
+
+    const height =
+        canvas.height;
+
+
+    context.clearRect(
+        0,
+        0,
+        width,
+        height
+    );
+
+
+    // ========================================================
+    // DRAW DISCRETE COLOR BINS
+    // ========================================================
+
+    for (
+        let index = 0;
+        index < MRMS_COLORBAR_BOUNDS.length - 1;
+        index++
+    ) {
+
+        const lowerValue =
+            MRMS_COLORBAR_BOUNDS[
+                index
+            ];
+
+        const upperValue =
+            MRMS_COLORBAR_BOUNDS[
+                index + 1
+            ];
+
+
+        const color =
+            MRMS_COLORBAR_COLORS[
+                index
+            ];
+
+
+        if (
+            !color
+        ) {
+
+            continue;
+
+        }
+
+
+        const lowerFraction =
+            getMrmsColorbarPosition(
+                lowerValue
+            );
+
+        const upperFraction =
+            getMrmsColorbarPosition(
+                upperValue
+            );
+
+
+        const yTop =
+
+            height
+
+            -
+
+            (
+                upperFraction
+                *
+                height
+            );
+
+
+        const yBottom =
+
+            height
+
+            -
+
+            (
+                lowerFraction
+                *
+                height
+            );
+
+
+        context.fillStyle =
+            color;
+
+
+        context.fillRect(
+
+            0,
+
+            yTop,
+
+            width,
+
+            Math.max(
+                1,
+                yBottom - yTop
+            )
+
+        );
+
+    }
+
+
+    // ========================================================
+    // LABELS
+    // ========================================================
+
+    labelsContainer.innerHTML =
+        "";
+
+
+    MRMS_COLORBAR_LABEL_VALUES.forEach(
+
+        value => {
+
+            const fraction =
+                getMrmsColorbarPosition(
+                    value
+                );
+
+
+            const y =
+
+                100
+
+                -
+
+                (
+                    fraction
+                    *
+                    100
+                );
+
+
+            const label =
+                document.createElement(
+                    "div"
+                );
+
+
+            label.className =
+                "mrms-colorbar-label";
+
+
+            label.style.top =
+                `${y}%`;
+
+
+            if (
+                value < 1
+            ) {
+
+                label.textContent =
+                    value.toFixed(
+                        2
+                    );
+
+            }
+
+            else {
+
+                label.textContent =
+                    value.toFixed(
+                        1
+                    );
+
+            }
+
+
+            labelsContainer.appendChild(
+                label
+            );
+
+        }
+
+    );
+
+}
+
+
+// ============================================================
+// UPDATE MRMS COLORBAR
+// ============================================================
+
+function updateMrmsColorbar() {
+
+    const colorbar =
+        document.getElementById(
+            "mrms-colorbar"
+        );
+
+
+    if (
+        !colorbar
+    ) {
+
+        return;
+
+    }
+
+
+    const visible =
+        Boolean(
+            overlayState.mrms
+        );
+
+
+    colorbar.style.display =
+        visible
+            ? "block"
+            : "none";
+
+
+    if (
+        visible
+    ) {
+
+        drawMrmsColorbar();
+
+    }
+
+}
 
 // ============================================================
 // LOAD MRMS MANIFEST
