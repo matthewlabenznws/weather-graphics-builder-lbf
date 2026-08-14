@@ -10092,7 +10092,6 @@ async function createExportCanvas(
             2,
 
             logoWidth,
-
             logoHeight
 
         );
@@ -10275,6 +10274,523 @@ async function createExportCanvas(
         }
 
     }
+
+
+    // ========================================================
+    // MRMS COLORBAR
+    //
+    // Drawn directly onto export canvas so it appears in
+    // BOTH saved PNGs and GIF frames.
+    // ========================================================
+
+    if (
+        overlayState.mrms
+    ) {
+
+        // ====================================================
+        // COLORBAR BOX DIMENSIONS
+        // ====================================================
+
+        const boxWidth =
+            Math.max(
+                92,
+                Math.round(
+                    width * 0.075
+                )
+            );
+
+
+        const boxHeight =
+            Math.min(
+
+                Math.round(
+                    height * 0.64
+                ),
+
+                height
+                -
+                headerHeight
+                -
+                40
+
+            );
+
+
+        const boxX =
+            width
+            -
+            boxWidth
+            -
+            18;
+
+
+        const boxY =
+            headerHeight
+            +
+            18;
+
+
+        const padding =
+            Math.max(
+                8,
+                Math.round(
+                    boxWidth * 0.10
+                )
+            );
+
+
+        // ====================================================
+        // BACKGROUND
+        // ====================================================
+
+        ctx.save();
+
+
+        ctx.fillStyle =
+            "rgba(15,22,30,0.90)";
+
+
+        ctx.strokeStyle =
+            "rgba(255,255,255,0.35)";
+
+
+        ctx.lineWidth =
+            1;
+
+
+        ctx.beginPath();
+
+
+        if (
+            typeof ctx.roundRect
+            ===
+            "function"
+        ) {
+
+            ctx.roundRect(
+
+                boxX,
+                boxY,
+
+                boxWidth,
+                boxHeight,
+
+                7
+
+            );
+
+        }
+
+        else {
+
+            ctx.rect(
+
+                boxX,
+                boxY,
+
+                boxWidth,
+                boxHeight
+
+            );
+
+        }
+
+
+        ctx.fill();
+
+
+        ctx.stroke();
+
+
+        // ====================================================
+        // TITLE
+        // ====================================================
+
+        const titleY =
+            boxY
+            +
+            padding
+            +
+            4;
+
+
+        ctx.textAlign =
+            "center";
+
+
+        ctx.textBaseline =
+            "top";
+
+
+        ctx.fillStyle =
+            "#ffffff";
+
+
+        ctx.font =
+            `bold ${Math.max(
+                11,
+                Math.round(
+                    boxWidth * 0.13
+                )
+            )}px Arial`;
+
+
+        ctx.fillText(
+
+            `MRMS ${activeMrmsPeriod.toUpperCase()} QPE`,
+
+            boxX
+            +
+            boxWidth / 2,
+
+            titleY
+
+        );
+
+
+        // ====================================================
+        // UNITS
+        // ====================================================
+
+        ctx.font =
+            `${Math.max(
+                9,
+                Math.round(
+                    boxWidth * 0.095
+                )
+            )}px Arial`;
+
+
+        ctx.fillStyle =
+            "rgba(255,255,255,0.82)";
+
+
+        ctx.fillText(
+
+            "Precipitation (in)",
+
+            boxX
+            +
+            boxWidth / 2,
+
+            titleY
+            +
+            Math.max(
+                15,
+                Math.round(
+                    boxWidth * 0.17
+                )
+            )
+
+        );
+
+
+        // ====================================================
+        // BAR GEOMETRY
+        // ====================================================
+
+        const barTop =
+            boxY
+            +
+            Math.max(
+                50,
+                Math.round(
+                    boxWidth * 0.52
+                )
+            );
+
+
+        const barBottom =
+            boxY
+            +
+            boxHeight
+            -
+            padding;
+
+
+        const barHeight =
+            barBottom
+            -
+            barTop;
+
+
+        const barWidth =
+            Math.max(
+                18,
+                Math.round(
+                    boxWidth * 0.24
+                )
+            );
+
+
+        const barX =
+            boxX
+            +
+            padding;
+
+
+        // ====================================================
+        // DRAW DISCRETE MRMS COLORS
+        // ====================================================
+
+        for (
+            let index = 0;
+            index < MRMS_COLORBAR_BOUNDS.length - 1;
+            index++
+        ) {
+
+            const lowerValue =
+                MRMS_COLORBAR_BOUNDS[
+                    index
+                ];
+
+
+            const upperValue =
+                MRMS_COLORBAR_BOUNDS[
+                    index + 1
+                ];
+
+
+            const color =
+                MRMS_COLORBAR_COLORS[
+                    index
+                ];
+
+
+            if (
+                !color
+            ) {
+
+                continue;
+
+            }
+
+
+            const lowerFraction =
+                getMrmsColorbarPosition(
+                    lowerValue
+                );
+
+
+            const upperFraction =
+                getMrmsColorbarPosition(
+                    upperValue
+                );
+
+
+            const yTop =
+
+                barBottom
+
+                -
+
+                (
+                    upperFraction
+                    *
+                    barHeight
+                );
+
+
+            const yBottom =
+
+                barBottom
+
+                -
+
+                (
+                    lowerFraction
+                    *
+                    barHeight
+                );
+
+
+            ctx.fillStyle =
+                color;
+
+
+            ctx.fillRect(
+
+                barX,
+
+                yTop,
+
+                barWidth,
+
+                Math.max(
+                    1,
+                    yBottom - yTop
+                )
+
+            );
+
+        }
+
+
+        // ====================================================
+        // BAR OUTLINE
+        // ====================================================
+
+        ctx.strokeStyle =
+            "rgba(255,255,255,0.85)";
+
+
+        ctx.lineWidth =
+            1;
+
+
+        ctx.strokeRect(
+
+            barX,
+            barTop,
+
+            barWidth,
+            barHeight
+
+        );
+
+
+        // ====================================================
+        // COLORBAR LABELS
+        // ====================================================
+
+        const labelX =
+            barX
+            +
+            barWidth
+            +
+            Math.max(
+                6,
+                Math.round(
+                    boxWidth * 0.07
+                )
+            );
+
+
+        ctx.textAlign =
+            "left";
+
+
+        ctx.textBaseline =
+            "middle";
+
+
+        ctx.font =
+            `bold ${Math.max(
+                9,
+                Math.round(
+                    boxWidth * 0.095
+                )
+            )}px Arial`;
+
+
+        ctx.fillStyle =
+            "#ffffff";
+
+
+        ctx.strokeStyle =
+            "#000000";
+
+
+        ctx.lineWidth =
+            3;
+
+
+        MRMS_COLORBAR_LABEL_VALUES.forEach(
+
+            value => {
+
+                const fraction =
+                    getMrmsColorbarPosition(
+                        value
+                    );
+
+
+                const y =
+
+                    barBottom
+
+                    -
+
+                    (
+                        fraction
+                        *
+                        barHeight
+                    );
+
+
+                let text;
+
+
+                if (
+                    value < 1
+                ) {
+
+                    text =
+                        value.toFixed(
+                            2
+                        );
+
+                }
+
+                else {
+
+                    text =
+                        value.toFixed(
+                            1
+                        );
+
+                }
+
+
+                // =============================================
+                // BLACK HALO
+                // =============================================
+
+                ctx.strokeText(
+
+                    text,
+
+                    labelX,
+
+                    y
+
+                );
+
+
+                // =============================================
+                // WHITE TEXT
+                // =============================================
+
+                ctx.fillText(
+
+                    text,
+
+                    labelX,
+
+                    y
+
+                );
+
+            }
+
+        );
+
+
+        ctx.restore();
+
+    }
+
+
+    // ========================================================
+    // RESET TEXT SETTINGS
+    // ========================================================
+
+    ctx.textAlign =
+        "left";
+
+
+    ctx.textBaseline =
+        "alphabetic";
 
 
     return canvas;
