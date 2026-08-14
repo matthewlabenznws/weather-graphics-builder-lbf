@@ -1,29 +1,34 @@
 #!/usr/bin/env python3
 
 # ============================================================
-# NWS LBF WEATHER GRAPHICS BUILDER
+# NWS NORTH PLATTE WEATHER GRAPHICS BUILDER
 # MRMS MULTISENSOR QPE PASS 2
 #
 # Products:
-#   24-hour QPE
-#   48-hour QPE
-#   72-hour QPE
+#   24-hour precipitation
+#   48-hour precipitation
+#   72-hour precipitation
 #
-# Output:
+# MRMS source units:
+#   millimeters
+#
+# Display units:
+#   inches
+#
+# Outputs:
+#
 #   data/mrms/qpe_24h.png
 #   data/mrms/qpe_48h.png
 #   data/mrms/qpe_72h.png
 #   data/mrms/latest.json
 #
-# Source:
-#   NOAA / NCEP MRMS
-#
-# Units:
-#   Source = millimeters
-#   Output/display = inches
+# latest.json also contains precipitation sampled at
+# selected cities inside the NWS North Platte CWA.
 # ============================================================
 
+
 from __future__ import annotations
+
 
 import gzip
 import json
@@ -31,25 +36,40 @@ import os
 import sys
 import tempfile
 import time
+
 from datetime import datetime, timezone
 from pathlib import Path
 
+
 import matplotlib
-matplotlib.use("Agg")
+
+matplotlib.use(
+    "Agg"
+)
+
 
 import matplotlib.pyplot as plt
 import numpy as np
 import requests
 import rasterio
-from matplotlib.colors import ListedColormap, BoundaryNorm
+
+from matplotlib.colors import (
+    ListedColormap,
+    BoundaryNorm
+)
+
+from rasterio.transform import rowcol
 from rasterio.windows import from_bounds
 
 
 # ============================================================
-# OUTPUT
+# OUTPUT DIRECTORY
 # ============================================================
 
-OUTPUT_DIR = Path("data/mrms")
+OUTPUT_DIR = Path(
+    "data/mrms"
+)
+
 
 OUTPUT_DIR.mkdir(
     parents=True,
@@ -58,26 +78,233 @@ OUTPUT_DIR.mkdir(
 
 
 # ============================================================
-# DOMAIN
+# MAP DOMAIN
 #
-# Same broad Central Plains region you've been using.
+# Keep this larger than the LBF CWA so the precipitation
+# overlay works across the broader graphics-builder map.
 # ============================================================
 
 WEST = -106.0
+
 EAST = -95.0
 
 SOUTH = 36.5
+
 NORTH = 46.5
 
 
 # ============================================================
-# MRMS PRODUCTS
+# LBF CWA CITY SAMPLE LOCATIONS
+#
+# Only cities inside the white NWS North Platte CWA outline.
+#
+# These locations will be written to latest.json so that
+# graphics.js can place precipitation values above the cities.
+# ============================================================
+
+CITIES = {
+
+    "Gordon": {
+
+        "lat":
+            42.8047,
+
+        "lon":
+            -102.2032
+
+    },
+
+
+    "Valentine": {
+
+        "lat":
+            42.8728,
+
+        "lon":
+            -100.5509
+
+    },
+
+
+    "Ainsworth": {
+
+        "lat":
+            42.5497,
+
+        "lon":
+            -99.8626
+
+    },
+
+
+    "Butte": {
+
+        "lat":
+            42.9114,
+
+        "lon":
+            -98.8498
+
+    },
+
+
+    "O'Neill": {
+
+        "lat":
+            42.4578,
+
+        "lon":
+            -98.6476
+
+    },
+
+
+    "Oshkosh": {
+
+        "lat":
+            41.4053,
+
+        "lon":
+            -102.3446
+
+    },
+
+
+    "Chappell": {
+
+        "lat":
+            41.0925,
+
+        "lon":
+            -102.4707
+
+    },
+
+
+    "Mullen": {
+
+        "lat":
+            42.0428,
+
+        "lon":
+            -101.0427
+
+    },
+
+
+    "Thedford": {
+
+        "lat":
+            41.9783,
+
+        "lon":
+            -100.5762
+
+    },
+
+
+    "Burwell": {
+
+        "lat":
+            41.7817,
+
+        "lon":
+            -99.1332
+
+    },
+
+
+    "Ogallala": {
+
+        "lat":
+            41.1281,
+
+        "lon":
+            -101.7196
+
+    },
+
+
+    "Stapleton": {
+
+        "lat":
+            41.4803,
+
+        "lon":
+            -100.5129
+
+    },
+
+
+    "North Platte": {
+
+        "lat":
+            41.1403,
+
+        "lon":
+            -100.7601
+
+    },
+
+
+    "Broken Bow": {
+
+        "lat":
+            41.4019,
+
+        "lon":
+            -99.6393
+
+    },
+
+
+    "Grant": {
+
+        "lat":
+            40.8414,
+
+        "lon":
+            -101.7252
+
+    },
+
+
+    "Imperial": {
+
+        "lat":
+            40.5169,
+
+        "lon":
+            -101.6432
+
+    },
+
+
+    "Curtis": {
+
+        "lat":
+            40.6308,
+
+        "lon":
+            -100.5107
+
+    }
+
+}
+
+
+# ============================================================
+# MRMS SERVER
 # ============================================================
 
 MRMS_BASE_URL = (
     "https://mrms.ncep.noaa.gov/2D"
 )
 
+
+# ============================================================
+# PRODUCTS
+# ============================================================
 
 PRODUCTS = {
 
@@ -90,10 +317,12 @@ PRODUCTS = {
             "MRMS_MultiSensor_QPE_24H_Pass2.latest.grib2.gz",
 
         "output":
-            OUTPUT_DIR / "qpe_24h.png",
+            OUTPUT_DIR
+            /
+            "qpe_24h.png",
 
         "label":
-            "24-Hour MRMS QPE"
+            "24-Hour MRMS Precipitation"
 
     },
 
@@ -107,10 +336,12 @@ PRODUCTS = {
             "MRMS_MultiSensor_QPE_48H_Pass2.latest.grib2.gz",
 
         "output":
-            OUTPUT_DIR / "qpe_48h.png",
+            OUTPUT_DIR
+            /
+            "qpe_48h.png",
 
         "label":
-            "48-Hour MRMS QPE"
+            "48-Hour MRMS Precipitation"
 
     },
 
@@ -124,10 +355,12 @@ PRODUCTS = {
             "MRMS_MultiSensor_QPE_72H_Pass2.latest.grib2.gz",
 
         "output":
-            OUTPUT_DIR / "qpe_72h.png",
+            OUTPUT_DIR
+            /
+            "qpe_72h.png",
 
         "label":
-            "72-Hour MRMS QPE"
+            "72-Hour MRMS Precipitation"
 
     }
 
@@ -140,12 +373,12 @@ PRODUCTS = {
 
 REQUEST_TIMEOUT_SECONDS = 120
 
-MAX_ATTEMPTS = 4
+MAX_DOWNLOAD_ATTEMPTS = 4
 
 RETRY_WAIT_SECONDS = 10
 
 
-HEADERS = {
+REQUEST_HEADERS = {
 
     "User-Agent":
         "NWS-LBF-Weather-Graphics-Builder/1.0",
@@ -159,19 +392,38 @@ HEADERS = {
 # ============================================================
 # PRECIPITATION COLORMAP
 #
-# First bin is transparent.
+# Units = inches
 #
-# Everything below 0.01 inch is masked entirely.
+# 0.00 - 0.01 is transparent.
 # ============================================================
 
-colors = [
+COLORS = [
 
-    (1.0, 1.0, 1.0, 0.0),
+    # --------------------------------------------------------
+    # TRACE / ZERO
+    # --------------------------------------------------------
+
+    (
+        1.0,
+        1.0,
+        1.0,
+        0.0
+    ),
+
+
+    # --------------------------------------------------------
+    # VERY LIGHT PRECIP
+    # --------------------------------------------------------
 
     "#dcdcdc",
     "#bebebe",
     "#a0a0a0",
     "#828282",
+
+
+    # --------------------------------------------------------
+    # GREENS
+    # --------------------------------------------------------
 
     "#b7f0be",
     "#9fdbb3",
@@ -181,6 +433,11 @@ colors = [
     "#3f8885",
     "#277479",
     "#146473",
+
+
+    # --------------------------------------------------------
+    # BLUES
+    # --------------------------------------------------------
 
     "#1450b4",
     "#2a61bb",
@@ -193,6 +450,11 @@ colors = [
     "#c1dceb",
     "#d7edf2",
 
+
+    # --------------------------------------------------------
+    # PURPLES
+    # --------------------------------------------------------
+
     "#cebce0",
     "#c9addb",
     "#c49ed5",
@@ -204,6 +466,11 @@ colors = [
     "#a546b4",
     "#a037af",
 
+
+    # --------------------------------------------------------
+    # REDS
+    # --------------------------------------------------------
+
     "#a53a34",
     "#ad4842",
     "#b5554f",
@@ -212,6 +479,11 @@ colors = [
     "#ce7f79",
     "#d68c86",
     "#de9a94",
+
+
+    # --------------------------------------------------------
+    # YELLOW / ORANGE / BROWN
+    # --------------------------------------------------------
 
     "#f8eea2",
     "#eed68c",
@@ -228,121 +500,154 @@ colors = [
 ]
 
 
-bounds = np.concatenate([
+# ============================================================
+# COLOR BOUNDS
+#
+# Exactly your precipitation scale.
+# ============================================================
 
-    np.arange(
-        0.00,
-        0.01,
-        0.01
-    ),
+BOUNDS = np.concatenate(
 
-    np.arange(
-        0.01,
-        0.05,
-        0.02
-    ),
+    [
 
-    np.arange(
-        0.05,
-        0.10,
-        0.025
-    ),
+        np.arange(
+            0.00,
+            0.01,
+            0.01
+        ),
 
-    np.arange(
-        0.10,
-        1.00,
-        0.05
-    ),
+        np.arange(
+            0.01,
+            0.05,
+            0.02
+        ),
 
-    np.arange(
-        1.00,
-        2.00,
-        0.10
-    ),
+        np.arange(
+            0.05,
+            0.10,
+            0.025
+        ),
 
-    np.arange(
-        2.00,
-        4.00,
-        0.25
-    ),
+        np.arange(
+            0.10,
+            1.00,
+            0.05
+        ),
 
-    np.arange(
-        4.00,
-        6.00,
-        0.50
-    ),
+        np.arange(
+            1.00,
+            2.00,
+            0.10
+        ),
 
-    np.arange(
-        6.00,
-        10.00,
-        1.00
-    ),
+        np.arange(
+            2.00,
+            4.00,
+            0.25
+        ),
 
-    np.arange(
-        10.00,
-        17.50,
-        2.50
-    )
+        np.arange(
+            4.00,
+            6.00,
+            0.50
+        ),
 
-])
+        np.arange(
+            6.00,
+            10.00,
+            1.00
+        ),
+
+        np.arange(
+            10.00,
+            17.50,
+            2.50
+        )
+
+    ]
+
+)
 
 
-if bounds[-1] < 17.5:
+# ============================================================
+# FINAL COLORBAR ENDPOINT
+# ============================================================
 
-    bounds = np.append(
-        bounds,
+if (
+    BOUNDS[-1]
+    <
+    17.5
+):
+
+    BOUNDS = np.append(
+
+        BOUNDS,
+
         17.5
+
     )
 
 
 # ============================================================
-# MAKE SURE NUMBER OF COLORS MATCHES NUMBER OF INTERVALS
+# VERIFY COLOR COUNT
 # ============================================================
 
-required_colors = (
-    len(bounds)
+NUMBER_OF_INTERVALS = (
+    len(BOUNDS)
     -
     1
 )
 
 
-if len(colors) < required_colors:
+if (
+    len(COLORS)
+    !=
+    NUMBER_OF_INTERVALS
+):
 
     raise RuntimeError(
 
-        "Not enough colors for precipitation bounds.\n"
-        f"Colors: {len(colors)}\n"
-        f"Intervals: {required_colors}"
+        "\n"
+        "Precipitation color configuration mismatch.\n"
+        "\n"
+        f"Colors: {len(COLORS)}\n"
+        f"Intervals: {NUMBER_OF_INTERVALS}\n"
 
     )
 
 
-if len(colors) > required_colors:
+# ============================================================
+# BUILD COLORMAP
+# ============================================================
 
-    colors = colors[
-        :required_colors
-    ]
+CMAP = ListedColormap(
 
+    COLORS,
 
-cmap = ListedColormap(
-
-    colors,
-
-    name="precip_bins"
+    name=
+        "mrms_precip_bins"
 
 )
 
 
-cmap.set_bad(
-    (0, 0, 0, 0)
+# Invalid / missing values become transparent.
+CMAP.set_bad(
+
+    (
+        0.0,
+        0.0,
+        0.0,
+        0.0
+    )
+
 )
 
 
-norm = BoundaryNorm(
+NORM = BoundaryNorm(
 
-    bounds,
+    BOUNDS,
 
-    cmap.N,
+    CMAP.N,
 
     clip=True
 
@@ -350,32 +655,47 @@ norm = BoundaryNorm(
 
 
 # ============================================================
-# DOWNLOAD FILE
+# DOWNLOAD MRMS FILE
 # ============================================================
 
 def download_file(
-    url
-):
+    url: str
+) -> bytes:
 
     last_error = None
 
 
     for attempt in range(
+
         1,
-        MAX_ATTEMPTS + 1
+
+        MAX_DOWNLOAD_ATTEMPTS
+        +
+        1
+
     ):
 
         print()
         print(
-            f"Downloading:"
+            "=" * 70
         )
 
         print(
-            f"  {url}"
+            "DOWNLOADING MRMS DATA"
         )
 
         print(
-            f"Attempt {attempt}/{MAX_ATTEMPTS}"
+            "=" * 70
+        )
+
+        print(
+            f"Attempt "
+            f"{attempt}/"
+            f"{MAX_DOWNLOAD_ATTEMPTS}"
+        )
+
+        print(
+            url
         )
 
 
@@ -385,9 +705,11 @@ def download_file(
 
                 url,
 
-                headers=HEADERS,
+                headers=
+                    REQUEST_HEADERS,
 
-                timeout=REQUEST_TIMEOUT_SECONDS
+                timeout=
+                    REQUEST_TIMEOUT_SECONDS
 
             )
 
@@ -395,39 +717,53 @@ def download_file(
             response.raise_for_status()
 
 
-            if not response.content:
+            content = (
+                response.content
+            )
+
+
+            if (
+                not content
+            ):
 
                 raise RuntimeError(
-                    "Downloaded file was empty."
+                    "Downloaded MRMS file was empty."
                 )
 
 
             print(
-
-                "Downloaded "
-                f"{len(response.content):,} bytes."
-
+                f"Downloaded: "
+                f"{len(content):,} bytes"
             )
 
 
-            return response.content
+            return content
 
 
-        except Exception as exc:
+        except Exception as error:
 
-            last_error = exc
+            last_error = (
+                error
+            )
 
 
             print(
-                f"Download failed: {exc}"
+                f"Download failed: "
+                f"{error}"
             )
 
 
-            if attempt < MAX_ATTEMPTS:
+            if (
+                attempt
+                <
+                MAX_DOWNLOAD_ATTEMPTS
+            ):
 
                 print(
-                    f"Waiting {RETRY_WAIT_SECONDS} seconds..."
+                    f"Waiting "
+                    f"{RETRY_WAIT_SECONDS} seconds..."
                 )
+
 
                 time.sleep(
                     RETRY_WAIT_SECONDS
@@ -436,43 +772,59 @@ def download_file(
 
     raise RuntimeError(
 
-        "MRMS download failed after "
-        f"{MAX_ATTEMPTS} attempts.\n"
+        "Unable to download MRMS data "
+        f"after {MAX_DOWNLOAD_ATTEMPTS} attempts.\n"
         f"Last error: {last_error}"
 
     )
 
 
 # ============================================================
-# DECOMPRESS GZIP
+# UNZIP MRMS
 # ============================================================
 
-def decompress_gzip(
-    compressed_bytes
-):
+def decompress_mrms(
+    compressed_data: bytes
+) -> bytes:
+
+    print()
+    print(
+        "Decompressing MRMS GRIB2..."
+    )
+
 
     try:
 
-        return gzip.decompress(
-            compressed_bytes
+        grib_data = gzip.decompress(
+            compressed_data
         )
 
 
-    except Exception as exc:
+    except Exception as error:
 
         raise RuntimeError(
 
-            f"Could not decompress MRMS gzip file: {exc}"
+            "Unable to decompress MRMS file: "
+            f"{error}"
 
-        ) from exc
+        ) from error
+
+
+    print(
+        f"Decompressed size: "
+        f"{len(grib_data):,} bytes"
+    )
+
+
+    return grib_data
 
 
 # ============================================================
-# READ / CROP MRMS GRIB
+# READ AND CROP MRMS GRIB2
 # ============================================================
 
 def read_mrms_grib(
-    grib_bytes
+    grib_data: bytes
 ):
 
     temporary_path = None
@@ -480,71 +832,74 @@ def read_mrms_grib(
 
     try:
 
+        # ====================================================
+        # SAVE TEMPORARY GRIB2
+        # ====================================================
+
         with tempfile.NamedTemporaryFile(
 
-            suffix=".grib2",
+            suffix=
+                ".grib2",
 
-            delete=False
+            delete=
+                False
 
-        ) as temp_file:
+        ) as temporary_file:
 
-            temp_file.write(
-                grib_bytes
+            temporary_file.write(
+                grib_data
             )
 
+
             temporary_path = (
-                temp_file.name
+                temporary_file.name
             )
 
 
         # ====================================================
-        # OPEN GRIB
+        # OPEN WITH RASTERIO
         # ====================================================
 
         with rasterio.open(
             temporary_path
-        ) as src:
+        ) as source:
 
             print()
             print(
-                "MRMS GRIB metadata:"
+                "=" * 70
             )
 
             print(
-                f"  CRS: {src.crs}"
+                "MRMS GRID INFORMATION"
             )
 
             print(
-                f"  Width: {src.width}"
+                "=" * 70
             )
 
             print(
-                f"  Height: {src.height}"
+                f"CRS: "
+                f"{source.crs}"
             )
 
             print(
-                f"  Bounds: {src.bounds}"
+                f"Grid size: "
+                f"{source.width} x {source.height}"
             )
 
             print(
-                f"  Transform: {src.transform}"
+                f"Bounds: "
+                f"{source.bounds}"
+            )
+
+            print(
+                f"Transform: "
+                f"{source.transform}"
             )
 
 
             # =================================================
-            # EXPECT GEOGRAPHIC LAT/LON GRID
-            # =================================================
-
-            if src.crs is None:
-
-                print(
-                    "Warning: GRIB CRS missing. "
-                    "Assuming geographic lat/lon."
-                )
-
-
-            # =================================================
-            # CREATE CROP WINDOW
+            # CROP WINDOW
             # =================================================
 
             window = from_bounds(
@@ -554,127 +909,176 @@ def read_mrms_grib(
                 EAST,
                 NORTH,
 
-                transform=src.transform
+                transform=
+                    source.transform
 
             )
 
 
-            window = window.round_offsets().round_lengths()
+            window = (
+                window
+                .round_offsets()
+                .round_lengths()
+            )
 
 
             # =================================================
-            # READ DATA
+            # READ PRECIPITATION GRID
             # =================================================
 
-            data = src.read(
+            precipitation_mm = source.read(
 
                 1,
 
-                window=window,
+                window=
+                    window,
 
-                boundless=False
+                boundless=
+                    False
 
             ).astype(
                 np.float32
             )
 
 
-            cropped_transform = (
-                src.window_transform(
+            crop_transform = (
+                source.window_transform(
                     window
                 )
             )
 
 
             # =================================================
-            # ACTUAL CROP BOUNDS
+            # DETERMINE ACTUAL IMAGE EXTENT
             # =================================================
 
-            left =
-                cropped_transform.c
+            left = (
+                crop_transform.c
+            )
 
 
-            top =
-                cropped_transform.f
+            top = (
+                crop_transform.f
+            )
 
 
             right = (
+
                 left
+
                 +
-                cropped_transform.a
+
+                crop_transform.a
                 *
-                data.shape[1]
+                precipitation_mm.shape[1]
+
             )
 
 
             bottom = (
+
                 top
+
                 +
-                cropped_transform.e
+
+                crop_transform.e
                 *
-                data.shape[0]
+                precipitation_mm.shape[0]
+
             )
 
 
             extent = {
 
                 "west":
-                    min(
-                        left,
-                        right
+                    float(
+                        min(
+                            left,
+                            right
+                        )
                     ),
 
                 "east":
-                    max(
-                        left,
-                        right
+                    float(
+                        max(
+                            left,
+                            right
+                        )
                     ),
 
                 "south":
-                    min(
-                        bottom,
-                        top
+                    float(
+                        min(
+                            bottom,
+                            top
+                        )
                     ),
 
                 "north":
-                    max(
-                        bottom,
-                        top
+                    float(
+                        max(
+                            bottom,
+                            top
+                        )
                     )
 
             }
 
 
             # =================================================
-            # REMOVE FILL / INVALID VALUES
+            # REMOVE INVALID MRMS VALUES
             #
-            # MRMS uses negative values for missing / coverage
-            # flags. Precipitation itself cannot be negative.
+            # Negative values are missing/coverage flags.
             # =================================================
 
-            data[
+            precipitation_mm[
 
                 ~np.isfinite(
-                    data
+                    precipitation_mm
                 )
 
             ] = np.nan
 
 
-            data[
+            precipitation_mm[
 
-                data < 0
+                precipitation_mm
+                <
+                0.0
 
             ] = np.nan
 
 
+            print()
+            print(
+                "Cropped grid:"
+            )
+
+            print(
+                f"Shape: "
+                f"{precipitation_mm.shape}"
+            )
+
+            print(
+                f"Extent: "
+                f"{extent}"
+            )
+
+
             return (
-                data,
-                extent
+
+                precipitation_mm,
+                extent,
+                crop_transform
+
             )
 
 
     finally:
+
+        # ====================================================
+        # DELETE TEMPORARY GRIB
+        # ====================================================
 
         if (
             temporary_path
@@ -690,177 +1094,468 @@ def read_mrms_grib(
 
 
 # ============================================================
-# MM -> INCHES
+# CONVERT MM TO INCHES
 # ============================================================
 
-def mm_to_inches(
-    precip_mm
+def millimeters_to_inches(
+    precipitation_mm
 ):
 
     return (
-        precip_mm
+
+        precipitation_mm
         /
         25.4
+
     )
 
 
 # ============================================================
-# RENDER TRANSPARENT PNG
+# SAMPLE ONE CITY
 # ============================================================
 
-def render_precip_png(
-    precip_inches,
+def sample_city_precipitation(
+    precipitation_inches,
+    crop_transform,
+    latitude,
+    longitude
+):
+
+    try:
+
+        sample_row, sample_column = rowcol(
+
+            crop_transform,
+
+            longitude,
+
+            latitude
+
+        )
+
+
+        sample_row = int(
+            sample_row
+        )
+
+
+        sample_column = int(
+            sample_column
+        )
+
+
+        # ====================================================
+        # OUTSIDE ARRAY
+        # ====================================================
+
+        if (
+
+            sample_row
+            <
+            0
+
+            or
+
+            sample_column
+            <
+            0
+
+            or
+
+            sample_row
+            >=
+            precipitation_inches.shape[0]
+
+            or
+
+            sample_column
+            >=
+            precipitation_inches.shape[1]
+
+        ):
+
+            return None
+
+
+        value = precipitation_inches[
+
+            sample_row,
+            sample_column
+
+        ]
+
+
+        if (
+            not np.isfinite(
+                value
+            )
+        ):
+
+            return None
+
+
+        return float(
+            value
+        )
+
+
+    except Exception:
+
+        return None
+
+
+# ============================================================
+# SAMPLE ALL LBF CITIES
+# ============================================================
+
+def sample_city_values(
+    precipitation_inches,
+    crop_transform
+):
+
+    city_values = []
+
+
+    print()
+    print(
+        "=" * 70
+    )
+
+    print(
+        "LBF CWA CITY PRECIPITATION"
+    )
+
+    print(
+        "=" * 70
+    )
+
+
+    for (
+        city_name,
+        location
+    ) in CITIES.items():
+
+        latitude = (
+            location[
+                "lat"
+            ]
+        )
+
+
+        longitude = (
+            location[
+                "lon"
+            ]
+        )
+
+
+        precipitation = (
+            sample_city_precipitation(
+
+                precipitation_inches,
+
+                crop_transform,
+
+                latitude,
+
+                longitude
+
+            )
+        )
+
+
+        # ====================================================
+        # MISSING
+        # ====================================================
+
+        if (
+            precipitation
+            is
+            None
+        ):
+
+            print(
+                f"{city_name:<15} "
+                f"missing"
+            )
+
+
+            continue
+
+
+        # ====================================================
+        # ROUND FOR LABEL DISPLAY
+        # ====================================================
+
+        rounded_precipitation = round(
+
+            precipitation,
+
+            2
+
+        )
+
+
+        label = (
+
+            f"{rounded_precipitation:.2f}\""
+
+        )
+
+
+        city_values.append(
+
+            {
+
+                "name":
+                    city_name,
+
+                "lat":
+                    latitude,
+
+                "lon":
+                    longitude,
+
+                "precip_inches":
+                    rounded_precipitation,
+
+                "label":
+                    label
+
+            }
+
+        )
+
+
+        print(
+
+            f"{city_name:<15} "
+            f"{rounded_precipitation:.2f} in"
+
+        )
+
+
+    return city_values
+
+
+# ============================================================
+# RENDER TRANSPARENT PRECIPITATION PNG
+# ============================================================
+
+def render_precipitation_png(
+    precipitation_inches,
     output_path
 ):
 
     print()
     print(
-        f"Rendering {output_path}"
+        "=" * 70
+    )
+
+    print(
+        "RENDERING PRECIPITATION IMAGE"
+    )
+
+    print(
+        "=" * 70
+    )
+
+    print(
+        output_path
     )
 
 
     # ========================================================
-    # MASK TRACE / ZERO VALUES
+    # MASK ZERO / TRACE PRECIPITATION
+    #
+    # Less than 0.01 inch will be completely transparent.
     # ========================================================
 
     plot_data = np.ma.masked_where(
 
         (
+
             ~np.isfinite(
-                precip_inches
+                precipitation_inches
             )
-        )
 
-        |
+            |
 
-        (
-            precip_inches
-            <
-            0.01
+            (
+                precipitation_inches
+                <
+                0.01
+            )
+
         ),
 
-        precip_inches
+        precipitation_inches
 
     )
 
 
     # ========================================================
-    # CREATE EXACT-SIZE IMAGE
-    #
-    # No axes.
-    # No borders.
-    # Transparent background.
+    # PRESERVE ORIGINAL GRID SIZE
     # ========================================================
 
-    height,
-    width = plot_data.shape
+    image_height = (
+        plot_data.shape[0]
+    )
 
 
-    dpi =
-        100
+    image_width = (
+        plot_data.shape[1]
+    )
 
 
-    figure_width =
-        width / dpi
+    dpi = 100
 
 
-    figure_height =
-        height / dpi
+    figure_width = (
+        image_width
+        /
+        dpi
+    )
 
 
-    fig = plt.figure(
+    figure_height = (
+        image_height
+        /
+        dpi
+    )
+
+
+    # ========================================================
+    # CREATE FIGURE
+    # ========================================================
+
+    figure = plt.figure(
 
         figsize=(
+
             figure_width,
             figure_height
+
         ),
 
-        dpi=dpi,
+        dpi=
+            dpi,
 
-        frameon=False
+        frameon=
+            False
 
     )
 
 
-    ax = fig.add_axes(
+    axis = figure.add_axes(
+
         [
-            0,
-            0,
-            1,
-            1
+            0.0,
+            0.0,
+            1.0,
+            1.0
         ]
+
     )
 
 
-    ax.set_axis_off()
+    axis.set_axis_off()
 
 
-    ax.imshow(
+    # ========================================================
+    # DRAW DATA
+    # ========================================================
+
+    axis.imshow(
 
         plot_data,
 
-        cmap=cmap,
+        cmap=
+            CMAP,
 
-        norm=norm,
+        norm=
+            NORM,
 
-        interpolation="nearest",
+        origin=
+            "upper",
 
-        origin="upper",
+        interpolation=
+            "nearest",
 
-        aspect="auto"
+        aspect=
+            "auto"
 
     )
 
 
-    fig.savefig(
+    # ========================================================
+    # SAVE TRANSPARENT PNG
+    # ========================================================
+
+    figure.savefig(
 
         output_path,
 
-        dpi=dpi,
+        dpi=
+            dpi,
 
-        transparent=True,
+        transparent=
+            True,
 
-        bbox_inches=None,
+        bbox_inches=
+            None,
 
-        pad_inches=0
+        pad_inches=
+            0
 
     )
 
 
     plt.close(
-        fig
+        figure
     )
 
 
     print(
-        f"Saved {output_path}"
+        "Saved precipitation PNG."
     )
 
 
 # ============================================================
-# PROCESS ONE PRODUCT
+# PROCESS ONE MRMS ACCUMULATION PERIOD
 # ============================================================
 
 def process_product(
-    key,
-    config
+    product_key,
+    configuration
 ):
 
     print()
-    print("=" * 70)
-
+    print()
     print(
-        f"PROCESSING MRMS {key.upper()} QPE"
+        "#" * 70
     )
 
-    print("=" * 70)
+    print(
+        f"MRMS "
+        f"{product_key.upper()} "
+        f"PRECIPITATION"
+    )
 
+    print(
+        "#" * 70
+    )
+
+
+    # ========================================================
+    # BUILD URL
+    # ========================================================
 
     url = (
 
         f"{MRMS_BASE_URL}/"
-        f"{config['directory']}/"
-        f"{config['filename']}"
+        f"{configuration['directory']}/"
+        f"{configuration['filename']}"
 
     )
 
@@ -877,122 +1572,150 @@ def process_product(
 
 
     # ========================================================
-    # UNZIP
+    # DECOMPRESS
     # ========================================================
 
     grib_data = (
-        decompress_gzip(
+        decompress_mrms(
             compressed_data
         )
     )
 
 
-    print(
-        f"Decompressed size: "
-        f"{len(grib_data):,} bytes"
+    # ========================================================
+    # READ GRIB
+    # ========================================================
+
+    (
+
+        precipitation_mm,
+        extent,
+        crop_transform
+
+    ) = read_mrms_grib(
+        grib_data
     )
 
 
     # ========================================================
-    # READ
+    # CONVERT TO INCHES
     # ========================================================
 
-    precip_mm, extent = (
-        read_mrms_grib(
-            grib_data
+    precipitation_inches = (
+        millimeters_to_inches(
+            precipitation_mm
         )
     )
 
 
     # ========================================================
-    # CONVERT
+    # PRECIPITATION STATS
     # ========================================================
 
-    precip_inches = (
-        mm_to_inches(
-            precip_mm
-        )
-    )
-
-
-    # ========================================================
-    # STATS
-    # ========================================================
-
-    valid = precip_inches[
+    valid_values = precipitation_inches[
 
         np.isfinite(
-            precip_inches
+            precipitation_inches
         )
 
     ]
 
 
-    if valid.size > 0:
+    if (
+        valid_values.size
+        >
+        0
+    ):
 
-        minimum =
-            float(
-                np.nanmin(
-                    valid
-                )
+        minimum_inches = float(
+
+            np.nanmin(
+                valid_values
             )
 
+        )
 
-        maximum =
-            float(
-                np.nanmax(
-                    valid
-                )
+
+        maximum_inches = float(
+
+            np.nanmax(
+                valid_values
             )
 
+        )
 
+
+        print()
         print(
-            f"Minimum precip: {minimum:.3f} in"
+            f"Minimum precipitation: "
+            f"{minimum_inches:.3f} in"
         )
 
         print(
-            f"Maximum precip: {maximum:.3f} in"
+            f"Maximum precipitation: "
+            f"{maximum_inches:.3f} in"
         )
 
 
     else:
 
-        minimum =
+        minimum_inches = (
             None
+        )
 
 
-        maximum =
+        maximum_inches = (
             None
+        )
 
 
     # ========================================================
-    # RENDER
+    # SAMPLE LBF CWA CITIES
     # ========================================================
 
-    render_precip_png(
+    city_values = (
+        sample_city_values(
 
-        precip_inches,
+            precipitation_inches,
 
-        config[
+            crop_transform
+
+        )
+    )
+
+
+    # ========================================================
+    # RENDER PNG
+    # ========================================================
+
+    render_precipitation_png(
+
+        precipitation_inches,
+
+        configuration[
             "output"
         ]
 
     )
 
 
+    # ========================================================
+    # PRODUCT MANIFEST
+    # ========================================================
+
     return {
 
         "key":
-            key,
+            product_key,
 
         "label":
-            config[
+            configuration[
                 "label"
             ],
 
         "image":
             str(
-                config[
+                configuration[
                     "output"
                 ]
             ).replace(
@@ -1004,10 +1727,37 @@ def process_product(
             extent,
 
         "minimum_inches":
-            minimum,
+            (
+                round(
+                    minimum_inches,
+                    3
+                )
+
+                if
+                minimum_inches
+                is not None
+
+                else
+                None
+            ),
 
         "maximum_inches":
-            maximum,
+            (
+                round(
+                    maximum_inches,
+                    3
+                )
+
+                if
+                maximum_inches
+                is not None
+
+                else
+                None
+            ),
+
+        "city_values":
+            city_values,
 
         "source_url":
             url
@@ -1016,24 +1766,33 @@ def process_product(
 
 
 # ============================================================
-# WRITE MANIFEST
+# WRITE LATEST.JSON
 # ============================================================
 
 def write_manifest(
-    products
+    completed_products
 ):
+
+    generated_time = (
+
+        datetime.now(
+            timezone.utc
+        )
+
+        .isoformat()
+
+        .replace(
+            "+00:00",
+            "Z"
+        )
+
+    )
+
 
     manifest = {
 
         "generated":
-            datetime.now(
-                timezone.utc
-            )
-            .isoformat()
-            .replace(
-                "+00:00",
-                "Z"
-            ),
+            generated_time,
 
         "source":
             "NOAA/NCEP MRMS MultiSensor QPE Pass 2",
@@ -1041,28 +1800,52 @@ def write_manifest(
         "units":
             "inches",
 
-        "minimum_display_inches":
+        "transparent_below_inches":
             0.01,
 
+        "domain": {
+
+            "west":
+                WEST,
+
+            "east":
+                EAST,
+
+            "south":
+                SOUTH,
+
+            "north":
+                NORTH
+
+        },
+
         "products":
-            products
+            completed_products
 
     }
 
 
     output_path = (
+
         OUTPUT_DIR
         /
         "latest.json"
+
     )
 
 
     temporary_path = (
+
         OUTPUT_DIR
         /
         "latest.json.tmp"
+
     )
 
+
+    # ========================================================
+    # WRITE TEMP FILE FIRST
+    # ========================================================
 
     with open(
 
@@ -1070,7 +1853,8 @@ def write_manifest(
 
         "w",
 
-        encoding="utf-8"
+        encoding=
+            "utf-8"
 
     ) as file:
 
@@ -1080,12 +1864,18 @@ def write_manifest(
 
             file,
 
-            indent=2,
+            indent=
+                2,
 
-            allow_nan=False
+            allow_nan=
+                False
 
         )
 
+
+    # ========================================================
+    # ATOMIC REPLACE
+    # ========================================================
 
     os.replace(
 
@@ -1098,7 +1888,19 @@ def write_manifest(
 
     print()
     print(
-        f"Saved manifest: {output_path}"
+        "=" * 70
+    )
+
+    print(
+        "MRMS MANIFEST SAVED"
+    )
+
+    print(
+        "=" * 70
+    )
+
+    print(
+        output_path
     )
 
 
@@ -1109,63 +1911,86 @@ def write_manifest(
 def main():
 
     print()
-    print("=" * 70)
-    print("NWS LBF MRMS QPE UPDATE")
-    print("=" * 70)
-
     print(
-        "Domain:"
+        "=" * 70
     )
 
     print(
-        f"  West:  {WEST}"
+        "NWS NORTH PLATTE MRMS UPDATE"
     )
 
     print(
-        f"  East:  {EAST}"
+        "=" * 70
+    )
+
+
+    print()
+    print(
+        "Map domain:"
     )
 
     print(
-        f"  South: {SOUTH}"
+        f"West:  {WEST}"
     )
 
     print(
-        f"  North: {NORTH}"
+        f"East:  {EAST}"
     )
+
+    print(
+        f"South: {SOUTH}"
+    )
+
+    print(
+        f"North: {NORTH}"
+    )
+
+
+    print()
+    print(
+        "LBF city labels:"
+    )
+
+
+    for city_name in (
+        CITIES.keys()
+    ):
+
+        print(
+            f"  {city_name}"
+        )
 
 
     completed_products = {}
 
 
-    for key, config in PRODUCTS.items():
+    # ========================================================
+    # PROCESS 24 / 48 / 72 HOURS
+    # ========================================================
 
-        try:
+    for (
+        product_key,
+        configuration
+    ) in PRODUCTS.items():
 
-            result = process_product(
+        result = process_product(
 
-                key,
-                config
+            product_key,
 
-            )
+            configuration
 
-
-            completed_products[
-                key
-            ] = result
+        )
 
 
-        except Exception as exc:
-
-            print()
-            print(
-                f"FAILED MRMS {key}: {exc}"
-            )
-
-            raise
+        completed_products[
+            product_key
+        ] = (
+            result
+        )
 
 
     # ========================================================
-    # MANIFEST
+    # WRITE MANIFEST
     # ========================================================
 
     write_manifest(
@@ -1173,21 +1998,47 @@ def main():
     )
 
 
+    # ========================================================
+    # COMPLETE
+    # ========================================================
+
     print()
-    print("=" * 70)
-    print("MRMS UPDATE COMPLETE")
-    print("=" * 70)
-
     print(
-        f"24-hour: {PRODUCTS['24h']['output']}"
+        "=" * 70
     )
 
     print(
-        f"48-hour: {PRODUCTS['48h']['output']}"
+        "MRMS UPDATE COMPLETE"
     )
 
     print(
-        f"72-hour: {PRODUCTS['72h']['output']}"
+        "=" * 70
+    )
+
+
+    print()
+    print(
+        "Generated files:"
+    )
+
+    print(
+        f"  "
+        f"{PRODUCTS['24h']['output']}"
+    )
+
+    print(
+        f"  "
+        f"{PRODUCTS['48h']['output']}"
+    )
+
+    print(
+        f"  "
+        f"{PRODUCTS['72h']['output']}"
+    )
+
+    print(
+        f"  "
+        f"{OUTPUT_DIR / 'latest.json'}"
     )
 
 
@@ -1195,22 +2046,36 @@ def main():
 # RUN
 # ============================================================
 
-if __name__ == "__main__":
+if (
+    __name__
+    ==
+    "__main__"
+):
 
     try:
 
         main()
 
-    except Exception as exc:
+
+    except Exception as error:
 
         print()
-        print("=" * 70)
-        print("MRMS UPDATE FAILED")
-        print("=" * 70)
+        print(
+            "=" * 70
+        )
 
         print(
-            str(exc)
+            "MRMS UPDATE FAILED"
         )
+
+        print(
+            "=" * 70
+        )
+
+        print(
+            error
+        )
+
 
         sys.exit(
             1
