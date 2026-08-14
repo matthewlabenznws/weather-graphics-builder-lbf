@@ -10904,6 +10904,44 @@ function setupUiEvents() {
 
     connectObservationControls();
 
+    // ========================================================
+    // MRMS PRECIPITATION
+    // ========================================================
+
+    connectOverlayToggle(
+
+        "mrms-toggle",
+
+        "mrms"
+
+    );
+
+
+    const mrmsPeriodSelect =
+        getElement(
+            "mrms-period-select"
+        );
+
+
+    if (
+        mrmsPeriodSelect
+    ) {
+
+        mrmsPeriodSelect.value =
+            activeMrmsPeriod;
+
+
+        mrmsPeriodSelect.onchange =
+            event => {
+
+                setMrmsPeriod(
+                    event.target.value
+                );
+
+            };
+
+    }
+
 
     // ========================================================
     // SPC OUTLOOKS
@@ -11713,6 +11751,18 @@ singleMap.on(
                 refreshObservations,
 
                 OBSERVATION_REFRESH_MS
+
+            );
+
+            // =================================================
+            // MRMS REFRESH
+            // =================================================
+
+            setInterval(
+
+                refreshMrmsData,
+
+                MRMS_REFRESH_MS
 
             );
 
