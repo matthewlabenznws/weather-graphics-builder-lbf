@@ -931,9 +931,8 @@ function getObservationLabel(
 // ============================================================
 // WIND ARROW ROTATION
 //
-// GeoJSON wind_direction tells where the wind is FROM.
-//
-// Add 180 degrees so our arrow points toward where
+// wind_direction tells where the wind is FROM.
+// Add 180 degrees so the arrow points toward where
 // the wind is moving.
 // ============================================================
 
@@ -1149,7 +1148,7 @@ async function refreshMetarData() {
 function createWindArrowImage() {
 
     const size =
-        64;
+        72;
 
 
     const canvas =
@@ -1190,15 +1189,15 @@ function createWindArrowImage() {
 
 
     // ========================================================
-    // ARROW SHAFT
+    // BLACK OUTLINE SHAFT
     // ========================================================
 
     ctx.strokeStyle =
-        "#ffffff";
+        "#000000";
 
 
     ctx.lineWidth =
-        5;
+        8;
 
 
     ctx.lineCap =
@@ -1210,13 +1209,13 @@ function createWindArrowImage() {
 
     ctx.moveTo(
         0,
-        18
+        22
     );
 
 
     ctx.lineTo(
         0,
-        -17
+        -18
     );
 
 
@@ -1224,7 +1223,72 @@ function createWindArrowImage() {
 
 
     // ========================================================
-    // ARROW HEAD
+    // WHITE SHAFT
+    // ========================================================
+
+    ctx.strokeStyle =
+        "#ffffff";
+
+
+    ctx.lineWidth =
+        5;
+
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+        0,
+        22
+    );
+
+
+    ctx.lineTo(
+        0,
+        -18
+    );
+
+
+    ctx.stroke();
+
+
+    // ========================================================
+    // BLACK ARROW HEAD
+    // ========================================================
+
+    ctx.fillStyle =
+        "#000000";
+
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+        0,
+        -31
+    );
+
+
+    ctx.lineTo(
+        -14,
+        -10
+    );
+
+
+    ctx.lineTo(
+        14,
+        -10
+    );
+
+
+    ctx.closePath();
+
+
+    ctx.fill();
+
+
+    // ========================================================
+    // WHITE ARROW HEAD
     // ========================================================
 
     ctx.fillStyle =
@@ -1241,14 +1305,14 @@ function createWindArrowImage() {
 
 
     ctx.lineTo(
-        -10,
-        -10
+        -9,
+        -12
     );
 
 
     ctx.lineTo(
-        10,
-        -10
+        9,
+        -12
     );
 
 
@@ -1256,63 +1320,6 @@ function createWindArrowImage() {
 
 
     ctx.fill();
-
-
-    // ========================================================
-    // DARK OUTLINE
-    // ========================================================
-
-    ctx.strokeStyle =
-        "#000000";
-
-
-    ctx.lineWidth =
-        2;
-
-
-    ctx.beginPath();
-
-
-    ctx.moveTo(
-        0,
-        18
-    );
-
-
-    ctx.lineTo(
-        0,
-        -17
-    );
-
-
-    ctx.stroke();
-
-
-    ctx.beginPath();
-
-
-    ctx.moveTo(
-        0,
-        -26
-    );
-
-
-    ctx.lineTo(
-        -10,
-        -10
-    );
-
-
-    ctx.lineTo(
-        10,
-        -10
-    );
-
-
-    ctx.closePath();
-
-
-    ctx.stroke();
 
 
     ctx.restore();
@@ -1524,16 +1531,16 @@ function addMetarObservations(
                         ],
 
                         4,
-                        0.55,
+                        0.90,
 
                         6,
-                        0.70,
+                        1.15,
 
                         8,
-                        0.85,
+                        1.35,
 
                         10,
-                        1.0
+                        1.55
 
                     ],
 
@@ -1570,7 +1577,9 @@ function addMetarObservations(
                                 ],
 
                                 null
+
                             ]
+
                         ],
 
                         [
@@ -1586,12 +1595,15 @@ function addMetarObservations(
                                         "get",
                                         "wind_direction"
                                     ]
+
                                 ],
 
                                 180
+
                             ],
 
                             360
+
                         ],
 
                         0
@@ -1600,7 +1612,7 @@ function addMetarObservations(
 
                     "icon-offset": [
                         0,
-                        -28
+                        -32
                     ]
 
                 }
@@ -1655,16 +1667,16 @@ function addMetarObservations(
                         ],
 
                         4,
-                        11,
+                        12,
 
                         6,
-                        13,
+                        14,
 
                         8,
-                        15,
+                        16,
 
                         10,
-                        17
+                        18
 
                     ],
 
@@ -1678,7 +1690,7 @@ function addMetarObservations(
 
                     "text-offset": [
                         0,
-                        1.4
+                        1.65
                     ],
 
                     "text-allow-overlap":
@@ -1698,7 +1710,7 @@ function addMetarObservations(
                         "#000000",
 
                     "text-halo-width":
-                        2
+                        2.5
 
                 }
 
@@ -1765,7 +1777,7 @@ function addMetarObservations(
 
                     "text-offset": [
                         0,
-                        2.8
+                        3.15
                     ],
 
                     "text-allow-overlap":
@@ -2031,6 +2043,139 @@ function buildObservationTextExpression() {
 
 
 // ============================================================
+// OBSERVATION VALUE COLOR
+// ============================================================
+
+function buildObservationColorExpression() {
+
+    // ========================================================
+    // WIND GUST
+    // ========================================================
+
+    if (
+        observationParameter === "gust"
+    ) {
+
+        return [
+
+            "case",
+
+            [
+                "!",
+                [
+                    "has",
+                    "wind_gust_mph"
+                ]
+            ],
+
+            "#ffffff",
+
+            [
+                "step",
+
+                [
+                    "to-number",
+
+                    [
+                        "get",
+                        "wind_gust_mph"
+                    ]
+
+                ],
+
+                "#ffffff",
+
+                20,
+                "#ffff00",
+
+                30,
+                "#ff9900",
+
+                40,
+                "#ff3333",
+
+                50,
+                "#ff00ff",
+
+                60,
+                "#cc66ff"
+
+            ]
+
+        ];
+
+    }
+
+
+    // ========================================================
+    // SUSTAINED WIND
+    // ========================================================
+
+    if (
+        observationParameter === "wind"
+    ) {
+
+        return [
+
+            "case",
+
+            [
+                "!",
+                [
+                    "has",
+                    "wind_speed_mph"
+                ]
+            ],
+
+            "#ffffff",
+
+            [
+                "step",
+
+                [
+                    "to-number",
+
+                    [
+                        "get",
+                        "wind_speed_mph"
+                    ]
+
+                ],
+
+                "#ffffff",
+
+                20,
+                "#ffff00",
+
+                30,
+                "#ff9900",
+
+                40,
+                "#ff3333",
+
+                50,
+                "#ff00ff",
+
+                60,
+                "#cc66ff"
+
+            ]
+
+        ];
+
+    }
+
+
+    // ========================================================
+    // OTHER PARAMETERS
+    // ========================================================
+
+    return "#ffffff";
+
+}
+
+
+// ============================================================
 // UPDATE OBSERVATION LAYER STATE
 // ============================================================
 
@@ -2106,6 +2251,17 @@ function updateObservationLayerState(
             "text-field",
 
             buildObservationTextExpression()
+
+        );
+
+
+        map.setPaintProperty(
+
+            "metar-value-label",
+
+            "text-color",
+
+            buildObservationColorExpression()
 
         );
 
@@ -2272,9 +2428,18 @@ function makeMetarPopupHtml(
                 <br>
 
                 <b>Visibility:</b>
-                ${Number.isFinite(visibility)
-                    ? visibility.toFixed(1)
-                    : "N/A"} mi
+                ${
+                    Number.isFinite(
+                        visibility
+                    )
+
+                        ? visibility.toFixed(
+                            1
+                        )
+
+                        : "N/A"
+                }
+                mi
 
             </div>
 
@@ -2319,7 +2484,10 @@ function connectMetarPopups(
 
 
             const coordinates =
-                feature.geometry.coordinates.slice();
+                feature
+                    .geometry
+                    .coordinates
+                    .slice();
 
 
             new mapboxgl.Popup({
