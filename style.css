@@ -1,9 +1,15 @@
-/* =========================================================
-   PAGE
-   ========================================================= */
+/* ============================================================
+   GLOBAL
+   ============================================================ */
+
+* {
+    box-sizing: border-box;
+}
+
 
 html,
 body {
+
     margin: 0;
     padding: 0;
 
@@ -11,875 +17,1704 @@ body {
     height: 100%;
 
     overflow: hidden;
-}
-
-
-body {
-    background: #111;
 
     font-family:
         Arial,
         Helvetica,
         sans-serif;
+
+    background:
+        #10151c;
+
 }
 
 
-/* =========================================================
-   MAPS
-   ========================================================= */
+button,
+select,
+input {
 
-.map-panel {
-    position: absolute;
+    font-family:
+        inherit;
 
-    top: 0;
-    left: 0;
+}
 
-    width: 100%;
-    height: 100%;
+
+.hidden {
+
+    display:
+        none !important;
+
+}
+
+
+/* ============================================================
+   MAP AREA
+   ============================================================ */
+
+#map-area {
+
+    position:
+        absolute;
+
+    inset:
+        0;
+
+    background:
+        #111820;
+
 }
 
 
 #single-map {
-    z-index: 1;
+
+    position:
+        absolute;
+
+    inset:
+        0;
+
 }
 
 
 #comparison-container {
-    position: absolute;
 
-    top: 0;
-    left: 0;
+    position:
+        absolute;
 
-    width: 100%;
-    height: 100%;
+    inset:
+        0;
 
-    display: flex;
+    display:
+        flex;
 
-    z-index: 1;
 }
 
 
-.compare-panel {
-    position: relative;
+#left-map,
+#right-map {
 
-    flex: 1;
+    position:
+        relative;
 
-    min-width: 0;
-    height: 100%;
+    width:
+        50%;
+
+    height:
+        100%;
+
 }
 
 
-.compare-map {
-    position: absolute;
+#left-map {
 
-    inset: 0;
+    border-right:
+        2px solid white;
+
 }
 
 
-.compare-divider {
-    width: 3px;
+/* ============================================================
+   TOP HEADER
+   ============================================================ */
 
-    flex-shrink: 0;
+#top-header {
+
+    position:
+        absolute;
+
+    top:
+        12px;
+
+    left:
+        12px;
+
+    z-index:
+        20;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        10px;
+
+    pointer-events:
+        none;
+
+}
+
+
+#branding-box {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        10px;
+
+    padding:
+        7px 11px;
+
+    border-radius:
+        7px;
 
     background:
-        rgba(255, 255, 255, 0.85);
+        rgba(
+            18,
+            24,
+            32,
+            0.90
+        );
 
-    z-index: 10;
+    box-shadow:
+        0 2px 8px
+        rgba(
+            0,
+            0,
+            0,
+            0.35
+        );
+
+    color:
+        white;
+
+    pointer-events:
+        auto;
+
 }
 
 
-.compare-panel-label {
-    position: absolute;
+#branding-logo {
 
-    top: 14px;
-    left: 50%;
+    width:
+        66px;
+
+    height:
+        auto;
+
+    display:
+        block;
+
+}
+
+
+#branding-text {
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    line-height:
+        1.1;
+
+}
+
+
+#branding-title {
+
+    font-size:
+        17px;
+
+    font-weight:
+        800;
+
+}
+
+
+#branding-subtitle {
+
+    margin-top:
+        3px;
+
+    font-size:
+        11px;
+
+    opacity:
+        0.78;
+
+}
+
+
+/* ============================================================
+   TOP CONTROLS
+   ============================================================ */
+
+#top-controls {
+
+    position:
+        absolute;
+
+    top:
+        12px;
+
+    left:
+        50%;
 
     transform:
         translateX(-50%);
 
-    z-index: 25;
+    z-index:
+        30;
 
-    min-width: 190px;
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        7px;
 
     padding:
-        7px 12px;
+        7px;
+
+    border-radius:
+        8px;
 
     background:
-        rgba(20, 24, 32, 0.90);
-
-    color: white;
-
-    border-radius: 6px;
-
-    text-align: center;
-
-    pointer-events: none;
+        rgba(
+            18,
+            24,
+            32,
+            0.92
+        );
 
     box-shadow:
-        0 2px 6px
-        rgba(0, 0, 0, 0.35);
+        0 2px 8px
+        rgba(
+            0,
+            0,
+            0,
+            0.40
+        );
+
 }
 
 
-.compare-model-name {
-    font-size: 17px;
+.top-select {
 
-    font-weight: 800;
+    height:
+        34px;
+
+    padding:
+        0 9px;
+
+    border:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            0.20
+        );
+
+    border-radius:
+        5px;
+
+    background:
+        #202a36;
+
+    color:
+        white;
+
+    font-size:
+        13px;
+
+    font-weight:
+        700;
+
+    outline:
+        none;
+
 }
 
 
-.compare-product-name {
-    margin-top: 2px;
+.top-select:hover {
 
-    color: #c4ccd6;
+    background:
+        #293646;
 
-    font-size: 11px;
-
-    font-weight: 600;
 }
 
 
-/* =========================================================
-   HIDDEN
-   ========================================================= */
-
-.hidden {
-    display: none !important;
-}
-
-
-/* =========================================================
-   OVERLAYS MENU
-   ========================================================= */
+/* ============================================================
+   OVERLAY MENU
+   ============================================================ */
 
 #overlay-menu {
-    position: absolute;
 
-    top: 15px;
-    left: 15px;
+    position:
+        absolute;
 
-    z-index: 50;
+    top:
+        74px;
+
+    left:
+        12px;
+
+    z-index:
+        40;
+
 }
 
 
 #overlay-menu-button {
-    background:
-        rgba(20, 24, 32, 0.94);
 
-    color: #ffffff;
+    min-width:
+        145px;
 
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.18);
-
-    border-radius: 6px;
-
-    padding:
-        9px 13px;
-
-    font-size: 14px;
-
-    font-weight: 700;
-
-    cursor: pointer;
-
-    box-shadow:
-        0 2px 6px
-        rgba(0, 0, 0, 0.35);
-}
-
-
-#overlay-menu-button:hover {
-    background:
-        rgba(35, 40, 50, 0.96);
-}
-
-
-#overlay-menu-content {
-    display: none;
-
-    margin-top: 6px;
-
-    min-width: 190px;
-
-    padding: 10px 12px;
-
-    background:
-        rgba(20, 24, 32, 0.96);
-
-    color: #ffffff;
-
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.12);
-
-    border-radius: 6px;
-
-    box-shadow:
-        0 3px 10px
-        rgba(0, 0, 0, 0.40);
-}
-
-
-#overlay-menu-content.open {
-    display: block;
-}
-
-
-.overlay-section-title {
-    margin-top: 8px;
-    margin-bottom: 4px;
-
-    padding-bottom: 3px;
-
-    color: #aeb7c2;
-
-    font-size: 11px;
-
-    font-weight: 700;
-
-    text-transform: uppercase;
-
-    letter-spacing: 0.6px;
-
-    border-bottom:
-        1px solid
-        rgba(255, 255, 255, 0.10);
-}
-
-
-.overlay-section-title:first-child {
-    margin-top: 0;
-}
-
-
-.overlay-row {
-    display: flex;
-
-    align-items: center;
-
-    gap: 8px;
-
-    padding: 5px 0;
-
-    font-size: 14px;
-
-    cursor: pointer;
-}
-
-
-.overlay-row input {
-    width: 16px;
-    height: 16px;
-}
-
-
-/* =========================================================
-   VALID TIME
-   ========================================================= */
-
-#model-valid-label {
-    position: absolute;
-
-    top: 62px;
-    left: 15px;
-
-    z-index: 45;
-
-    padding:
-        8px 12px;
-
-    background:
-        rgba(20, 24, 32, 0.92);
-
-    color: #ffffff;
-
-    border-radius: 5px;
-
-    font-size: 18px;
-
-    font-weight: 700;
-
-    white-space: nowrap;
-
-    box-shadow:
-        0 2px 6px
-        rgba(0, 0, 0, 0.35);
-}
-
-
-/* =========================================================
-   OFFICE BRANDING
-   ========================================================= */
-
-#office-branding {
-    position: absolute;
-
-    top: 12px;
-    right: 62px;
-
-    z-index: 45;
-
-    display: flex;
-
-    flex-direction: column;
-
-    align-items: center;
-
-    pointer-events: none;
-}
-
-
-#office-logo {
-    width: 150px;
-
-    height: auto;
-}
-
-
-#office-name {
-    margin-top: 3px;
-
-    color: #ffffff;
-
-    font-size: 20px;
-
-    font-weight: 700;
-
-    white-space: nowrap;
-
-    text-shadow:
-        -2px -2px 2px #000000,
-         2px -2px 2px #000000,
-        -2px  2px 2px #000000,
-         2px  2px 2px #000000;
-}
-
-
-/* =========================================================
-   VIEWER CONTROLS
-   ========================================================= */
-
-#viewer-controls {
-    margin-top: 8px;
-
-    display: flex;
-
-    gap: 6px;
-
-    pointer-events: auto;
-}
-
-
-#viewer-controls select {
-    height: 36px;
-
-    padding:
-        0 31px
-        0 10px;
-
-    background:
-        rgba(20, 24, 32, 0.94);
-
-    color: #ffffff;
-
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.18);
-
-    border-radius: 6px;
-
-    font-size: 13px;
-
-    font-weight: 700;
-
-    cursor: pointer;
-
-    outline: none;
-}
-
-
-#viewer-mode-select {
-    min-width: 145px;
-}
-
-
-#model-select {
-    min-width: 100px;
-}
-
-
-#product-select {
-    min-width: 205px;
-}
-
-
-/* =========================================================
-   GRAPHICS CREDIT
-   ========================================================= */
-
-#graphics-credit {
-    position: absolute;
-
-    left: 10px;
-    bottom: 72px;
-
-    z-index: 45;
-
-    padding:
-        5px 8px;
-
-    background:
-        rgba(20, 24, 32, 0.70);
-
-    color:
-        rgba(255, 255, 255, 0.90);
-
-    border-radius: 4px;
-
-    font-size: 12px;
-
-    font-weight: 600;
-
-    white-space: nowrap;
-
-    pointer-events: none;
-}
-
-
-#graphics-credit.no-timeline {
-    bottom: 10px;
-}
-
-
-/* =========================================================
-   EXPORT CONTROLS
-   ========================================================= */
-
-#export-controls {
-    position: absolute;
-
-    right: 12px;
-    bottom: 76px;
-
-    z-index: 50;
-
-    display: flex;
-
-    gap: 7px;
-}
-
-
-.export-button {
-    height: 36px;
+    height:
+        38px;
 
     padding:
         0 13px;
 
-    background:
-        rgba(20, 24, 32, 0.94);
-
-    color: white;
-
     border:
         1px solid
-        rgba(255, 255, 255, 0.18);
+        rgba(
+            255,
+            255,
+            255,
+            0.22
+        );
 
-    border-radius: 6px;
-
-    font-size: 13px;
-
-    font-weight: 700;
-
-    cursor: pointer;
-}
-
-
-.export-button:hover {
-    background:
-        rgba(45, 52, 64, 0.97);
-}
-
-
-.export-button:disabled {
-    opacity: 0.45;
-
-    cursor: default;
-}
-
-
-/* =========================================================
-   GIF PANEL
-   ========================================================= */
-
-#gif-panel {
-    position: absolute;
-
-    right: 12px;
-    bottom: 120px;
-
-    z-index: 55;
-
-    display: none;
-
-    width: 270px;
-
-    padding: 12px;
-
-    box-sizing: border-box;
+    border-radius:
+        6px;
 
     background:
-        rgba(20, 24, 32, 0.97);
+        rgba(
+            18,
+            24,
+            32,
+            0.94
+        );
 
-    color: #ffffff;
+    color:
+        white;
 
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.15);
+    font-size:
+        13px;
 
-    border-radius: 7px;
+    font-weight:
+        800;
+
+    cursor:
+        pointer;
+
+    box-shadow:
+        0 2px 7px
+        rgba(
+            0,
+            0,
+            0,
+            0.35
+        );
+
 }
 
 
-#gif-panel.open {
-    display: block;
-}
-
-
-#gif-panel-title {
-    margin-bottom: 10px;
-
-    font-size: 14px;
-
-    font-weight: 700;
-}
-
-
-.gif-select-row {
-    display: grid;
-
-    grid-template-columns:
-        1fr 1fr;
-
-    gap: 8px;
-
-    margin-bottom: 10px;
-}
-
-
-.gif-select-box label {
-    display: block;
-
-    margin-bottom: 4px;
-
-    color: #abb4bf;
-
-    font-size: 11px;
-
-    font-weight: 700;
-}
-
-
-.gif-select-box select {
-    width: 100%;
-    height: 34px;
+#overlay-menu-button:hover {
 
     background:
-        rgba(255, 255, 255, 0.07);
+        rgba(
+            34,
+            44,
+            57,
+            0.97
+        );
 
-    color: white;
-
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.15);
-
-    border-radius: 5px;
 }
 
 
-#gif-panel-actions {
-    display: flex;
+#overlay-menu-content {
 
-    gap: 7px;
-}
+    display:
+        none;
 
+    width:
+        260px;
 
-#gif-panel-actions button {
-    flex: 1;
+    max-height:
+        calc(
+            100vh - 135px
+        );
 
-    height: 34px;
-
-    background:
-        rgba(255, 255, 255, 0.07);
-
-    color: white;
-
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.15);
-
-    border-radius: 5px;
-
-    font-weight: 700;
-
-    cursor: pointer;
-}
-
-
-#gif-status {
-    margin-top: 9px;
-
-    min-height: 15px;
-
-    color: #c4ccd6;
-
-    font-size: 11px;
-}
-
-
-/* =========================================================
-   BOTTOM TIMELINE
-   ========================================================= */
-
-#model-timeline {
-    position: absolute;
-
-    left: 0;
-    right: 0;
-    bottom: 0;
-
-    z-index: 50;
-
-    height: 64px;
-
-    display: flex;
-
-    align-items: center;
-
-    gap: 8px;
+    margin-top:
+        6px;
 
     padding:
-        0 10px;
+        8px;
 
-    box-sizing: border-box;
+    overflow-y:
+        auto;
+
+    border:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            0.18
+        );
+
+    border-radius:
+        7px;
 
     background:
-        rgba(20, 24, 32, 0.96);
+        rgba(
+            18,
+            24,
+            32,
+            0.96
+        );
+
+    color:
+        white;
+
+    box-shadow:
+        0 4px 14px
+        rgba(
+            0,
+            0,
+            0,
+            0.45
+        );
+
+}
+
+
+#overlay-menu-content.open {
+
+    display:
+        block;
+
+}
+
+
+.overlay-section {
+
+    padding:
+        5px 2px 9px;
+
+}
+
+
+.overlay-section +
+.overlay-section {
 
     border-top:
         1px solid
-        rgba(255, 255, 255, 0.12);
+        rgba(
+            255,
+            255,
+            255,
+            0.13
+        );
+
 }
 
 
-.timeline-control-button {
-    width: 44px;
-    height: 44px;
+.overlay-section-title {
 
-    flex-shrink: 0;
+    padding:
+        5px 7px 6px;
+
+    color:
+        #aebdcc;
+
+    font-size:
+        10px;
+
+    font-weight:
+        800;
+
+    letter-spacing:
+        0.9px;
+
+    text-transform:
+        uppercase;
+
+}
+
+
+.overlay-row {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        8px;
+
+    min-height:
+        31px;
+
+    padding:
+        5px 7px;
+
+    border-radius:
+        4px;
+
+    font-size:
+        13px;
+
+    cursor:
+        pointer;
+
+}
+
+
+.overlay-row:hover {
 
     background:
-        rgba(255, 255, 255, 0.06);
+        rgba(
+            255,
+            255,
+            255,
+            0.08
+        );
 
-    color: white;
+}
+
+
+.overlay-row input[type="checkbox"] {
+
+    width:
+        15px;
+
+    height:
+        15px;
+
+    margin:
+        0;
+
+    accent-color:
+        #4ea3ff;
+
+    cursor:
+        pointer;
+
+}
+
+
+/* ============================================================
+   OBSERVATION / MRMS CONTROLS
+   ============================================================ */
+
+.observation-parameter-container {
+
+    padding:
+        7px;
+
+}
+
+
+.observation-parameter-label {
+
+    display:
+        block;
+
+    margin-bottom:
+        5px;
+
+    color:
+        #aebdcc;
+
+    font-size:
+        11px;
+
+    font-weight:
+        700;
+
+}
+
+
+#observation-parameter-select,
+#mrms-period-select {
+
+    width:
+        100%;
+
+    height:
+        33px;
+
+    padding:
+        0 7px;
 
     border:
         1px solid
-        rgba(255, 255, 255, 0.18);
+        rgba(
+            255,
+            255,
+            255,
+            0.20
+        );
 
-    border-radius: 7px;
+    border-radius:
+        5px;
 
-    font-size: 20px;
+    background:
+        #202a36;
 
-    cursor: pointer;
+    color:
+        white;
+
+    font-size:
+        12px;
+
+    font-weight:
+        700;
+
+    outline:
+        none;
+
+}
+
+
+#observation-parameter-select:hover,
+#mrms-period-select:hover {
+
+    background:
+        #293646;
+
+}
+
+
+.observation-note {
+
+    padding:
+        2px 7px 7px;
+
+    color:
+        rgba(
+            255,
+            255,
+            255,
+            0.55
+        );
+
+    font-size:
+        10px;
+
+    line-height:
+        1.35;
+
+}
+
+
+/* ============================================================
+   MRMS COLORBAR
+   ============================================================ */
+
+.mrms-colorbar {
+
+    position:
+        absolute;
+
+    top:
+        110px;
+
+    right:
+        18px;
+
+    z-index:
+        55;
+
+    display:
+        none;
+
+    padding:
+        10px 12px 12px 12px;
+
+    background:
+        rgba(
+            15,
+            22,
+            30,
+            0.90
+        );
+
+    border:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            0.25
+        );
+
+    border-radius:
+        7px;
+
+    box-shadow:
+        0 2px 10px
+        rgba(
+            0,
+            0,
+            0,
+            0.45
+        );
+
+    color:
+        white;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+    pointer-events:
+        none;
+
+}
+
+
+.mrms-colorbar-title {
+
+    text-align:
+        center;
+
+    font-size:
+        13px;
+
+    font-weight:
+        800;
+
+    line-height:
+        1.1;
+
+    margin-bottom:
+        2px;
+
+}
+
+
+.mrms-colorbar-subtitle {
+
+    text-align:
+        center;
+
+    font-size:
+        10px;
+
+    font-weight:
+        600;
+
+    color:
+        #d6d6d6;
+
+    margin-bottom:
+        8px;
+
+}
+
+
+.mrms-colorbar-content {
+
+    display:
+        flex;
+
+    align-items:
+        stretch;
+
+    height:
+        430px;
+
+}
+
+
+#mrms-colorbar-canvas {
+
+    display:
+        block;
+
+    width:
+        28px;
+
+    height:
+        430px;
+
+    border:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            0.80
+        );
+
+    background:
+        transparent;
+
+}
+
+
+.mrms-colorbar-labels {
+
+    position:
+        relative;
+
+    width:
+        46px;
+
+    height:
+        430px;
+
+    margin-left:
+        7px;
+
+}
+
+
+.mrms-colorbar-label {
+
+    position:
+        absolute;
+
+    left:
+        0;
+
+    transform:
+        translateY(-50%);
+
+    color:
+        white;
+
+    font-size:
+        10px;
+
+    font-weight:
+        700;
+
+    line-height:
+        1;
+
+    white-space:
+        nowrap;
+
+    text-shadow:
+        -1px -1px 0 #000000,
+         1px -1px 0 #000000,
+        -1px  1px 0 #000000,
+         1px  1px 0 #000000;
+
+}
+
+
+/* ============================================================
+   MODEL TIMELINE
+   ============================================================ */
+
+#model-timeline {
+
+    position:
+        absolute;
+
+    left:
+        50%;
+
+    bottom:
+        18px;
+
+    transform:
+        translateX(-50%);
+
+    z-index:
+        25;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        6px;
+
+    width:
+        min(
+            920px,
+            calc(
+                100vw - 170px
+            )
+        );
+
+    padding:
+        7px;
+
+    border-radius:
+        8px;
+
+    background:
+        rgba(
+            18,
+            24,
+            32,
+            0.93
+        );
+
+    box-shadow:
+        0 2px 10px
+        rgba(
+            0,
+            0,
+            0,
+            0.45
+        );
+
+}
+
+
+.timeline-button {
+
+    flex:
+        0 0 auto;
+
+    width:
+        35px;
+
+    height:
+        32px;
+
+    border:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            0.18
+        );
+
+    border-radius:
+        5px;
+
+    background:
+        #202a36;
+
+    color:
+        white;
+
+    font-size:
+        13px;
+
+    font-weight:
+        800;
+
+    cursor:
+        pointer;
+
+}
+
+
+.timeline-button:hover {
+
+    background:
+        #304154;
+
 }
 
 
 #model-hour-list {
-    flex: 1;
 
-    height: 100%;
+    display:
+        flex;
 
-    display: flex;
+    align-items:
+        center;
 
-    align-items: center;
+    gap:
+        4px;
 
-    gap: 6px;
+    flex:
+        1;
 
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow-x:
+        auto;
 
-    white-space: nowrap;
+    overflow-y:
+        hidden;
 
-    scrollbar-width: thin;
+    scrollbar-width:
+        thin;
+
 }
 
-
-/* =========================================================
-   FORECAST HOURS
-   ========================================================= */
 
 .model-hour-button {
-    flex-shrink: 0;
 
-    height: 36px;
+    flex:
+        0 0 auto;
+
+    min-width:
+        48px;
+
+    height:
+        30px;
 
     padding:
-        0 10px;
-
-    border-radius: 5px;
-
-    font-size: 13px;
-
-    font-weight: 700;
-}
-
-
-/* available */
-
-.model-hour-button.available {
-    background:
-        #315f96;
-
-    color:
-        #ffffff;
+        0 6px;
 
     border:
-        1px solid #4f8fd8;
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            0.16
+        );
+
+    border-radius:
+        4px;
+
+    background:
+        #202a36;
+
+    color:
+        white;
+
+    font-size:
+        11px;
+
+    font-weight:
+        700;
 
     cursor:
         pointer;
+
 }
 
 
 .model-hour-button.available:hover {
+
     background:
-        #447fbd;
+        #33465a;
+
 }
 
 
-/* selected */
+.model-hour-button.selected {
 
-.model-hour-button.available.selected {
     background:
-        #4f8fd8;
-
-    border-color:
-        #91c2f7;
-
-    box-shadow:
-        0 0 0 1px
-        rgba(255,255,255,0.18)
-        inset;
-}
-
-
-/* unavailable */
-
-.model-hour-button.unavailable {
-    background:
-        rgba(0, 0, 0, 0.75);
+        #ffffff;
 
     color:
-        rgba(255, 255, 255, 0.28);
+        #111820;
 
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.08);
+    border-color:
+        white;
+
+}
+
+
+.model-hour-button.unavailable {
+
+    opacity:
+        0.25;
 
     cursor:
         default;
+
 }
 
 
-.model-hour-button:disabled {
-    opacity: 1;
+/* ============================================================
+   VALID TIME
+   ============================================================ */
+
+#model-valid-label {
+
+    position:
+        absolute;
+
+    bottom:
+        74px;
+
+    left:
+        50%;
+
+    transform:
+        translateX(-50%);
+
+    z-index:
+        24;
+
+    padding:
+        7px 11px;
+
+    border-radius:
+        5px;
+
+    background:
+        rgba(
+            18,
+            24,
+            32,
+            0.90
+        );
+
+    color:
+        white;
+
+    font-size:
+        13px;
+
+    font-weight:
+        800;
+
+    box-shadow:
+        0 2px 7px
+        rgba(
+            0,
+            0,
+            0,
+            0.35
+        );
+
 }
 
 
-/* =========================================================
+/* ============================================================
+   GRAPHICS CREDIT
+   ============================================================ */
+
+#graphics-credit {
+
+    position:
+        absolute;
+
+    left:
+        8px;
+
+    bottom:
+        77px;
+
+    z-index:
+        20;
+
+    padding:
+        4px 7px;
+
+    border-radius:
+        4px;
+
+    background:
+        rgba(
+            20,
+            24,
+            32,
+            0.75
+        );
+
+    color:
+        white;
+
+    font-size:
+        11px;
+
+    font-weight:
+        600;
+
+    pointer-events:
+        none;
+
+}
+
+
+#graphics-credit.no-timeline {
+
+    bottom:
+        8px;
+
+}
+
+
+/* ============================================================
+   EXPORT CONTROLS
+   ============================================================ */
+
+#export-controls {
+
+    position:
+        absolute;
+
+    right:
+        12px;
+
+    bottom:
+        18px;
+
+    z-index:
+        60;
+
+    display:
+        flex;
+
+    gap:
+        6px;
+
+}
+
+
+.export-button {
+
+    height:
+        34px;
+
+    padding:
+        0 11px;
+
+    border:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            0.20
+        );
+
+    border-radius:
+        5px;
+
+    background:
+        rgba(
+            18,
+            24,
+            32,
+            0.94
+        );
+
+    color:
+        white;
+
+    font-size:
+        12px;
+
+    font-weight:
+        800;
+
+    cursor:
+        pointer;
+
+}
+
+
+.export-button:hover {
+
+    background:
+        #2c3b4d;
+
+}
+
+
+/* ============================================================
+   GIF PANEL
+   ============================================================ */
+
+#gif-panel {
+
+    display:
+        none;
+
+    position:
+        absolute;
+
+    right:
+        12px;
+
+    bottom:
+        62px;
+
+    z-index:
+        70;
+
+    width:
+        280px;
+
+    padding:
+        12px;
+
+    border:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            0.20
+        );
+
+    border-radius:
+        7px;
+
+    background:
+        rgba(
+            18,
+            24,
+            32,
+            0.97
+        );
+
+    color:
+        white;
+
+    box-shadow:
+        0 4px 14px
+        rgba(
+            0,
+            0,
+            0,
+            0.50
+        );
+
+}
+
+
+#gif-panel.open {
+
+    display:
+        block;
+
+}
+
+
+#gif-panel-title {
+
+    margin-bottom:
+        10px;
+
+    font-size:
+        14px;
+
+    font-weight:
+        800;
+
+}
+
+
+.gif-select-row {
+
+    display:
+        flex;
+
+    gap:
+        8px;
+
+}
+
+
+.gif-select-box {
+
+    flex:
+        1;
+
+}
+
+
+.gif-select-box label {
+
+    display:
+        block;
+
+    margin-bottom:
+        4px;
+
+    color:
+        #aebdcc;
+
+    font-size:
+        10px;
+
+    font-weight:
+        700;
+
+}
+
+
+.gif-select-box select {
+
+    width:
+        100%;
+
+    height:
+        32px;
+
+    border:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            0.20
+        );
+
+    border-radius:
+        4px;
+
+    background:
+        #202a36;
+
+    color:
+        white;
+
+}
+
+
+#gif-panel-actions {
+
+    display:
+        flex;
+
+    gap:
+        7px;
+
+    margin-top:
+        10px;
+
+}
+
+
+#gif-panel-actions button {
+
+    flex:
+        1;
+
+    height:
+        32px;
+
+    border:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            0.20
+        );
+
+    border-radius:
+        4px;
+
+    background:
+        #28384a;
+
+    color:
+        white;
+
+    font-weight:
+        700;
+
+    cursor:
+        pointer;
+
+}
+
+
+#gif-panel-actions button:hover {
+
+    background:
+        #354b63;
+
+}
+
+
+#gif-status {
+
+    margin-top:
+        8px;
+
+    color:
+        #cbd6e1;
+
+    font-size:
+        11px;
+
+}
+
+
+/* ============================================================
    MAPBOX
-   ========================================================= */
+   ============================================================ */
 
 .mapboxgl-ctrl-top-right {
-    top: 5px;
-    right: 5px;
+
+    top:
+        65px;
+
 }
 
 
-/* =========================================================
+.mapboxgl-popup-content {
+
+    border-radius:
+        6px;
+
+}
+
+
+/* ============================================================
    MOBILE
-   ========================================================= */
+   ============================================================ */
 
-@media (max-width: 850px) {
+@media (
+    max-width: 800px
+) {
 
-    #office-logo {
-        width: 105px;
+    #branding-subtitle {
+
+        display:
+            none;
+
     }
 
 
-    #office-name {
-        font-size: 14px;
+    #branding-title {
+
+        font-size:
+            13px;
+
     }
 
 
-    #viewer-controls {
-        flex-direction: column;
+    #branding-logo {
 
-        width: 180px;
+        width:
+            50px;
+
     }
 
 
-    #viewer-controls select {
-        width: 180px;
+    #top-controls {
 
-        min-width: 0;
-    }
+        top:
+            auto;
 
+        bottom:
+            73px;
 
-    #model-valid-label {
-        font-size: 14px;
+        max-width:
+            calc(
+                100vw - 20px
+            );
+
     }
 
 
     #model-timeline {
-        height: 58px;
+
+        width:
+            calc(
+                100vw - 20px
+            );
+
+        bottom:
+            10px;
+
+    }
+
+
+    #model-valid-label {
+
+        bottom:
+            116px;
+
     }
 
 
     #graphics-credit {
-        bottom: 66px;
 
-        font-size: 10px;
+        display:
+            none;
+
     }
 
 
-    .timeline-control-button {
-        width: 38px;
-        height: 38px;
+    #overlay-menu-content {
+
+        width:
+            235px;
+
     }
 
 
-    .model-hour-button {
-        font-size: 11px;
+    /* ========================================================
+       SHRINK MRMS COLORBAR ON MOBILE
+       ======================================================== */
+
+    .mrms-colorbar {
+
+        top:
+            82px;
+
+        right:
+            8px;
 
         padding:
-            0 7px;
+            7px 8px 8px 8px;
+
     }
 
 
-    .compare-panel-label {
-        min-width: 125px;
+    .mrms-colorbar-content {
+
+        height:
+            300px;
+
     }
 
 
-    .compare-model-name {
-        font-size: 14px;
+    #mrms-colorbar-canvas {
+
+        width:
+            22px;
+
+        height:
+            300px;
+
     }
 
 
-    .compare-product-name {
-        font-size: 9px;
+    .mrms-colorbar-labels {
+
+        height:
+            300px;
+
+        width:
+            38px;
+
+        margin-left:
+            5px;
+
+    }
+
+
+    .mrms-colorbar-label {
+
+        font-size:
+            8px;
+
+    }
+
+
+    .mrms-colorbar-title {
+
+        font-size:
+            11px;
+
+    }
+
+
+    .mrms-colorbar-subtitle {
+
+        font-size:
+            8px;
+
     }
 
 }
