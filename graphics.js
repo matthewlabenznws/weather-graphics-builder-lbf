@@ -3937,6 +3937,47 @@ function addMrmsPrecipitation(
 
 }
 
+// ============================================================
+// UPDATE MRMS LAYER STATE
+// ============================================================
+
+function updateMrmsLayerState(
+    map
+) {
+
+    if (
+        !map
+    ) {
+
+        return;
+
+    }
+
+
+    const visible =
+        !!overlayState.mrms;
+
+
+    setLayerVisibility(
+
+        map,
+
+        [
+            "mrms-precip-layer"
+        ],
+
+        visible
+
+    );
+
+
+    // ========================================================
+    // SHOW / HIDE MRMS COLORBAR
+    // ========================================================
+
+    updateMrmsColorbar();
+
+}
 
 // ============================================================
 // UPDATE MRMS PRODUCT ON ONE MAP
