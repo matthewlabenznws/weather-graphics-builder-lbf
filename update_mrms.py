@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#!/usr/bin/env python3
 
 # ============================================================
 # NWS NORTH PLATTE WEATHER GRAPHICS BUILDER
@@ -16,14 +17,15 @@
 #   inches
 #
 # Outputs:
-#
 #   data/mrms/qpe_24h.png
 #   data/mrms/qpe_48h.png
 #   data/mrms/qpe_72h.png
 #   data/mrms/latest.json
 #
-# latest.json also contains precipitation sampled at
-# selected cities inside the NWS North Platte CWA.
+# City labels:
+#   5-km neighborhood mean precipitation
+#
+# The raster itself is NOT smoothed.
 # ============================================================
 
 
@@ -32,6 +34,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import math
 import os
 import sys
 import tempfile
@@ -58,7 +61,6 @@ from matplotlib.colors import (
     BoundaryNorm
 )
 
-from rasterio.transform import rowcol
 from rasterio.windows import from_bounds
 
 
@@ -79,9 +81,6 @@ OUTPUT_DIR.mkdir(
 
 # ============================================================
 # MAP DOMAIN
-#
-# Keep this larger than the LBF CWA so the precipitation
-# overlay works across the broader graphics-builder map.
 # ============================================================
 
 WEST = -106.0
@@ -94,200 +93,105 @@ NORTH = 46.5
 
 
 # ============================================================
+# CITY LABEL SAMPLING
+#
+# The raster remains full-resolution MRMS.
+#
+# Only the displayed city values use a neighborhood mean.
+# ============================================================
+
+CITY_SAMPLE_RADIUS_KM = 5.0
+
+
+# ============================================================
 # LBF CWA CITY SAMPLE LOCATIONS
-#
-# Only cities inside the white NWS North Platte CWA outline.
-#
-# These locations will be written to latest.json so that
-# graphics.js can place precipitation values above the cities.
 # ============================================================
 
 CITIES = {
 
     "Gordon": {
-
-        "lat":
-            42.8047,
-
-        "lon":
-            -102.2032
-
+        "lat": 42.8047,
+        "lon": -102.2032
     },
-
 
     "Valentine": {
-
-        "lat":
-            42.8728,
-
-        "lon":
-            -100.5509
-
+        "lat": 42.8728,
+        "lon": -100.5509
     },
-
 
     "Ainsworth": {
-
-        "lat":
-            42.5497,
-
-        "lon":
-            -99.8626
-
+        "lat": 42.5497,
+        "lon": -99.8626
     },
-
 
     "Butte": {
-
-        "lat":
-            42.9114,
-
-        "lon":
-            -98.8498
-
+        "lat": 42.9114,
+        "lon": -98.8498
     },
-
 
     "O'Neill": {
-
-        "lat":
-            42.4578,
-
-        "lon":
-            -98.6476
-
+        "lat": 42.4578,
+        "lon": -98.6476
     },
-
 
     "Oshkosh": {
-
-        "lat":
-            41.4053,
-
-        "lon":
-            -102.3446
-
+        "lat": 41.4053,
+        "lon": -102.3446
     },
-
 
     "Chappell": {
-
-        "lat":
-            41.0925,
-
-        "lon":
-            -102.4707
-
+        "lat": 41.0925,
+        "lon": -102.4707
     },
-
 
     "Mullen": {
-
-        "lat":
-            42.0428,
-
-        "lon":
-            -101.0427
-
+        "lat": 42.0428,
+        "lon": -101.0427
     },
-
 
     "Thedford": {
-
-        "lat":
-            41.9783,
-
-        "lon":
-            -100.5762
-
+        "lat": 41.9783,
+        "lon": -100.5762
     },
-
 
     "Burwell": {
-
-        "lat":
-            41.7817,
-
-        "lon":
-            -99.1332
-
+        "lat": 41.7817,
+        "lon": -99.1332
     },
-
 
     "Ogallala": {
-
-        "lat":
-            41.1281,
-
-        "lon":
-            -101.7196
-
+        "lat": 41.1281,
+        "lon": -101.7196
     },
-
 
     "Stapleton": {
-
-        "lat":
-            41.4803,
-
-        "lon":
-            -100.5129
-
+        "lat": 41.4803,
+        "lon": -100.5129
     },
-
 
     "North Platte": {
-
-        "lat":
-            41.1403,
-
-        "lon":
-            -100.7601
-
+        "lat": 41.1403,
+        "lon": -100.7601
     },
-
 
     "Broken Bow": {
-
-        "lat":
-            41.4019,
-
-        "lon":
-            -99.6393
-
+        "lat": 41.4019,
+        "lon": -99.6393
     },
-
 
     "Grant": {
-
-        "lat":
-            40.8414,
-
-        "lon":
-            -101.7252
-
+        "lat": 40.8414,
+        "lon": -101.7252
     },
-
 
     "Imperial": {
-
-        "lat":
-            40.5169,
-
-        "lon":
-            -101.6432
-
+        "lat": 40.5169,
+        "lon": -101.6432
     },
 
-
     "Curtis": {
-
-        "lat":
-            40.6308,
-
-        "lon":
-            -100.5107
-
+        "lat": 40.6308,
+        "lon": -100.5107
     }
 
 }
@@ -317,9 +221,7 @@ PRODUCTS = {
             "MRMS_MultiSensor_QPE_24H_Pass2.latest.grib2.gz",
 
         "output":
-            OUTPUT_DIR
-            /
-            "qpe_24h.png",
+            OUTPUT_DIR / "qpe_24h.png",
 
         "label":
             "24-Hour MRMS Precipitation"
@@ -336,9 +238,7 @@ PRODUCTS = {
             "MRMS_MultiSensor_QPE_48H_Pass2.latest.grib2.gz",
 
         "output":
-            OUTPUT_DIR
-            /
-            "qpe_48h.png",
+            OUTPUT_DIR / "qpe_48h.png",
 
         "label":
             "48-Hour MRMS Precipitation"
@@ -355,9 +255,7 @@ PRODUCTS = {
             "MRMS_MultiSensor_QPE_72H_Pass2.latest.grib2.gz",
 
         "output":
-            OUTPUT_DIR
-            /
-            "qpe_72h.png",
+            OUTPUT_DIR / "qpe_72h.png",
 
         "label":
             "72-Hour MRMS Precipitation"
@@ -390,18 +288,17 @@ REQUEST_HEADERS = {
 
 
 # ============================================================
-# PRECIPITATION COLORMAP
+# PIVOTAL-STYLE PRECIPITATION COLORMAP
 #
-# Units = inches
+# KEEPING YOUR ORIGINAL SCALE.
 #
-# 0.00 - 0.01 is transparent.
+# Units = inches.
+#
+# Values below 0.01 inch are explicitly masked before
+# rendering so the Mapbox basemap remains visible.
 # ============================================================
 
 COLORS = [
-
-    # --------------------------------------------------------
-    # TRACE / ZERO
-    # --------------------------------------------------------
 
     (
         1.0,
@@ -410,20 +307,10 @@ COLORS = [
         0.0
     ),
 
-
-    # --------------------------------------------------------
-    # VERY LIGHT PRECIP
-    # --------------------------------------------------------
-
     "#dcdcdc",
     "#bebebe",
     "#a0a0a0",
     "#828282",
-
-
-    # --------------------------------------------------------
-    # GREENS
-    # --------------------------------------------------------
 
     "#b7f0be",
     "#9fdbb3",
@@ -433,11 +320,6 @@ COLORS = [
     "#3f8885",
     "#277479",
     "#146473",
-
-
-    # --------------------------------------------------------
-    # BLUES
-    # --------------------------------------------------------
 
     "#1450b4",
     "#2a61bb",
@@ -450,11 +332,6 @@ COLORS = [
     "#c1dceb",
     "#d7edf2",
 
-
-    # --------------------------------------------------------
-    # PURPLES
-    # --------------------------------------------------------
-
     "#cebce0",
     "#c9addb",
     "#c49ed5",
@@ -466,11 +343,6 @@ COLORS = [
     "#a546b4",
     "#a037af",
 
-
-    # --------------------------------------------------------
-    # REDS
-    # --------------------------------------------------------
-
     "#a53a34",
     "#ad4842",
     "#b5554f",
@@ -479,11 +351,6 @@ COLORS = [
     "#ce7f79",
     "#d68c86",
     "#de9a94",
-
-
-    # --------------------------------------------------------
-    # YELLOW / ORANGE / BROWN
-    # --------------------------------------------------------
 
     "#f8eea2",
     "#eed68c",
@@ -501,9 +368,7 @@ COLORS = [
 
 
 # ============================================================
-# COLOR BOUNDS
-#
-# Exactly your precipitation scale.
+# ORIGINAL PRECIPITATION BOUNDS
 # ============================================================
 
 BOUNDS = np.concatenate(
@@ -569,10 +434,6 @@ BOUNDS = np.concatenate(
 )
 
 
-# ============================================================
-# FINAL COLORBAR ENDPOINT
-# ============================================================
-
 if (
     BOUNDS[-1]
     <
@@ -589,7 +450,7 @@ if (
 
 
 # ============================================================
-# VERIFY COLOR COUNT
+# VERIFY COLORMAP
 # ============================================================
 
 NUMBER_OF_INTERVALS = (
@@ -630,7 +491,6 @@ CMAP = ListedColormap(
 )
 
 
-# Invalid / missing values become transparent.
 CMAP.set_bad(
 
     (
@@ -666,27 +526,14 @@ def download_file(
 
 
     for attempt in range(
-
         1,
-
-        MAX_DOWNLOAD_ATTEMPTS
-        +
-        1
-
+        MAX_DOWNLOAD_ATTEMPTS + 1
     ):
 
         print()
-        print(
-            "=" * 70
-        )
-
-        print(
-            "DOWNLOADING MRMS DATA"
-        )
-
-        print(
-            "=" * 70
-        )
+        print("=" * 70)
+        print("DOWNLOADING MRMS DATA")
+        print("=" * 70)
 
         print(
             f"Attempt "
@@ -764,7 +611,6 @@ def download_file(
                     f"{RETRY_WAIT_SECONDS} seconds..."
                 )
 
-
                 time.sleep(
                     RETRY_WAIT_SECONDS
                 )
@@ -780,7 +626,7 @@ def download_file(
 
 
 # ============================================================
-# UNZIP MRMS
+# DECOMPRESS MRMS
 # ============================================================
 
 def decompress_mrms(
@@ -832,17 +678,11 @@ def read_mrms_grib(
 
     try:
 
-        # ====================================================
-        # SAVE TEMPORARY GRIB2
-        # ====================================================
-
         with tempfile.NamedTemporaryFile(
 
-            suffix=
-                ".grib2",
+            suffix=".grib2",
 
-            delete=
-                False
+            delete=False
 
         ) as temporary_file:
 
@@ -856,26 +696,14 @@ def read_mrms_grib(
             )
 
 
-        # ====================================================
-        # OPEN WITH RASTERIO
-        # ====================================================
-
         with rasterio.open(
             temporary_path
         ) as source:
 
             print()
-            print(
-                "=" * 70
-            )
-
-            print(
-                "MRMS GRID INFORMATION"
-            )
-
-            print(
-                "=" * 70
-            )
+            print("=" * 70)
+            print("MRMS GRID INFORMATION")
+            print("=" * 70)
 
             print(
                 f"CRS: "
@@ -923,7 +751,7 @@ def read_mrms_grib(
 
 
             # =================================================
-            # READ PRECIPITATION GRID
+            # READ PRECIPITATION
             # =================================================
 
             precipitation_mm = source.read(
@@ -949,7 +777,7 @@ def read_mrms_grib(
 
 
             # =================================================
-            # DETERMINE ACTUAL IMAGE EXTENT
+            # ACTUAL IMAGE EXTENT
             # =================================================
 
             left = (
@@ -1026,9 +854,7 @@ def read_mrms_grib(
 
 
             # =================================================
-            # REMOVE INVALID MRMS VALUES
-            #
-            # Negative values are missing/coverage flags.
+            # INVALID / MISSING VALUES
             # =================================================
 
             precipitation_mm[
@@ -1076,10 +902,6 @@ def read_mrms_grib(
 
     finally:
 
-        # ====================================================
-        # DELETE TEMPORARY GRIB
-        # ====================================================
-
         if (
             temporary_path
             and
@@ -1094,7 +916,7 @@ def read_mrms_grib(
 
 
 # ============================================================
-# CONVERT MM TO INCHES
+# MILLIMETERS -> INCHES
 # ============================================================
 
 def millimeters_to_inches(
@@ -1111,97 +933,444 @@ def millimeters_to_inches(
 
 
 # ============================================================
-# SAMPLE ONE CITY
+# CALCULATE DISTANCE FROM CITY
+#
+# Small-distance approximation is more than adequate for a
+# 5-km sampling radius.
+# ============================================================
+
+def calculate_distance_km(
+    grid_latitudes,
+    grid_longitudes,
+    city_latitude,
+    city_longitude
+):
+
+    latitude_scale_km = (
+        111.32
+    )
+
+
+    longitude_scale_km = (
+
+        111.32
+
+        *
+
+        math.cos(
+            math.radians(
+                city_latitude
+            )
+        )
+
+    )
+
+
+    delta_y = (
+
+        grid_latitudes
+        -
+        city_latitude
+
+    ) * latitude_scale_km
+
+
+    delta_x = (
+
+        grid_longitudes
+        -
+        city_longitude
+
+    ) * longitude_scale_km
+
+
+    return np.sqrt(
+
+        delta_x ** 2
+
+        +
+
+        delta_y ** 2
+
+    )
+
+
+# ============================================================
+# SAMPLE 5-KM NEIGHBORHOOD MEAN
 # ============================================================
 
 def sample_city_precipitation(
     precipitation_inches,
     crop_transform,
     latitude,
-    longitude
+    longitude,
+    radius_km=
+        CITY_SAMPLE_RADIUS_KM
 ):
 
-    try:
+    height, width = (
+        precipitation_inches.shape
+    )
 
-        sample_row, sample_column = rowcol(
 
-            crop_transform,
+    # ========================================================
+    # APPROXIMATE LAT/LON SEARCH WINDOW
+    # ========================================================
 
-            longitude,
+    latitude_radius_degrees = (
 
+        radius_km
+        /
+        111.32
+
+    )
+
+
+    cosine_latitude = math.cos(
+        math.radians(
             latitude
-
         )
+    )
 
 
-        sample_row = int(
-            sample_row
+    if (
+        abs(
+            cosine_latitude
         )
-
-
-        sample_column = int(
-            sample_column
-        )
-
-
-        # ====================================================
-        # OUTSIDE ARRAY
-        # ====================================================
-
-        if (
-
-            sample_row
-            <
-            0
-
-            or
-
-            sample_column
-            <
-            0
-
-            or
-
-            sample_row
-            >=
-            precipitation_inches.shape[0]
-
-            or
-
-            sample_column
-            >=
-            precipitation_inches.shape[1]
-
-        ):
-
-            return None
-
-
-        value = precipitation_inches[
-
-            sample_row,
-            sample_column
-
-        ]
-
-
-        if (
-            not np.isfinite(
-                value
-            )
-        ):
-
-            return None
-
-
-        return float(
-            value
-        )
-
-
-    except Exception:
+        <
+        0.01
+    ):
 
         return None
+
+
+    longitude_radius_degrees = (
+
+        radius_km
+
+        /
+
+        (
+            111.32
+            *
+            cosine_latitude
+        )
+
+    )
+
+
+    west = (
+        longitude
+        -
+        longitude_radius_degrees
+    )
+
+
+    east = (
+        longitude
+        +
+        longitude_radius_degrees
+    )
+
+
+    south = (
+        latitude
+        -
+        latitude_radius_degrees
+    )
+
+
+    north = (
+        latitude
+        +
+        latitude_radius_degrees
+    )
+
+
+    # ========================================================
+    # CONVERT SEARCH BOX TO PIXEL BOUNDS
+    # ========================================================
+
+    inverse_transform = (
+        ~crop_transform
+    )
+
+
+    corner_pixels = [
+
+        inverse_transform
+        *
+        (
+            west,
+            north
+        ),
+
+        inverse_transform
+        *
+        (
+            east,
+            north
+        ),
+
+        inverse_transform
+        *
+        (
+            west,
+            south
+        ),
+
+        inverse_transform
+        *
+        (
+            east,
+            south
+        )
+
+    ]
+
+
+    columns = [
+        point[0]
+        for point in corner_pixels
+    ]
+
+
+    rows = [
+        point[1]
+        for point in corner_pixels
+    ]
+
+
+    column_min = max(
+
+        0,
+
+        int(
+            math.floor(
+                min(
+                    columns
+                )
+            )
+        )
+
+    )
+
+
+    column_max = min(
+
+        width - 1,
+
+        int(
+            math.ceil(
+                max(
+                    columns
+                )
+            )
+        )
+
+    )
+
+
+    row_min = max(
+
+        0,
+
+        int(
+            math.floor(
+                min(
+                    rows
+                )
+            )
+        )
+
+    )
+
+
+    row_max = min(
+
+        height - 1,
+
+        int(
+            math.ceil(
+                max(
+                    rows
+                )
+            )
+        )
+
+    )
+
+
+    if (
+        row_min
+        >
+        row_max
+
+        or
+
+        column_min
+        >
+        column_max
+    ):
+
+        return None
+
+
+    # ========================================================
+    # SUBSET
+    # ========================================================
+
+    subset = precipitation_inches[
+
+        row_min:
+        row_max + 1,
+
+        column_min:
+        column_max + 1
+
+    ]
+
+
+    # ========================================================
+    # GRID CELL CENTER COORDINATES
+    # ========================================================
+
+    row_indices = np.arange(
+
+        row_min,
+        row_max + 1,
+
+        dtype=np.float64
+
+    )
+
+
+    column_indices = np.arange(
+
+        column_min,
+        column_max + 1,
+
+        dtype=np.float64
+
+    )
+
+
+    column_grid, row_grid = np.meshgrid(
+
+        column_indices,
+        row_indices
+
+    )
+
+
+    grid_longitudes = (
+
+        crop_transform.c
+
+        +
+
+        (
+            column_grid
+            +
+            0.5
+        )
+        *
+        crop_transform.a
+
+        +
+
+        (
+            row_grid
+            +
+            0.5
+        )
+        *
+        crop_transform.b
+
+    )
+
+
+    grid_latitudes = (
+
+        crop_transform.f
+
+        +
+
+        (
+            column_grid
+            +
+            0.5
+        )
+        *
+        crop_transform.d
+
+        +
+
+        (
+            row_grid
+            +
+            0.5
+        )
+        *
+        crop_transform.e
+
+    )
+
+
+    # ========================================================
+    # TRUE 5-KM CIRCLE
+    # ========================================================
+
+    distances = calculate_distance_km(
+
+        grid_latitudes,
+        grid_longitudes,
+
+        latitude,
+        longitude
+
+    )
+
+
+    valid_mask = (
+
+        distances
+        <=
+        radius_km
+
+    ) & np.isfinite(
+        subset
+    )
+
+
+    values = subset[
+        valid_mask
+    ]
+
+
+    if (
+        values.size
+        ==
+        0
+    ):
+
+        return None
+
+
+    # ========================================================
+    # NEIGHBORHOOD MEAN
+    # ========================================================
+
+    mean_value = float(
+
+        np.nanmean(
+            values
+        )
+
+    )
+
+
+    return mean_value
 
 
 # ============================================================
@@ -1217,17 +1386,14 @@ def sample_city_values(
 
 
     print()
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
 
     print(
-        "LBF CWA CITY PRECIPITATION"
+        f"LBF CWA CITY PRECIPITATION "
+        f"({CITY_SAMPLE_RADIUS_KM:.0f}-KM MEAN)"
     )
 
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
 
 
     for (
@@ -1258,15 +1424,14 @@ def sample_city_values(
 
                 latitude,
 
-                longitude
+                longitude,
+
+                radius_km=
+                    CITY_SAMPLE_RADIUS_KM
 
             )
         )
 
-
-        # ====================================================
-        # MISSING
-        # ====================================================
 
         if (
             precipitation
@@ -1275,17 +1440,12 @@ def sample_city_values(
         ):
 
             print(
-                f"{city_name:<15} "
-                f"missing"
+                f"{city_name:<15} missing"
             )
 
 
             continue
 
-
-        # ====================================================
-        # ROUND FOR LABEL DISPLAY
-        # ====================================================
 
         rounded_precipitation = round(
 
@@ -1320,7 +1480,10 @@ def sample_city_values(
                     rounded_precipitation,
 
                 "label":
-                    label
+                    label,
+
+                "sample_radius_km":
+                    CITY_SAMPLE_RADIUS_KM
 
             }
 
@@ -1340,6 +1503,10 @@ def sample_city_values(
 
 # ============================================================
 # RENDER TRANSPARENT PRECIPITATION PNG
+#
+# IMPORTANT:
+# THIS USES THE RAW FULL-RESOLUTION precipitation_inches
+# ARRAY. THE RASTER IS NOT A 5-km AVERAGE.
 # ============================================================
 
 def render_precipitation_png(
@@ -1348,17 +1515,9 @@ def render_precipitation_png(
 ):
 
     print()
-    print(
-        "=" * 70
-    )
-
-    print(
-        "RENDERING PRECIPITATION IMAGE"
-    )
-
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("RENDERING PRECIPITATION IMAGE")
+    print("=" * 70)
 
     print(
         output_path
@@ -1366,9 +1525,7 @@ def render_precipitation_png(
 
 
     # ========================================================
-    # MASK ZERO / TRACE PRECIPITATION
-    #
-    # Less than 0.01 inch will be completely transparent.
+    # MASK ZERO / TRACE VALUES
     # ========================================================
 
     plot_data = np.ma.masked_where(
@@ -1395,7 +1552,7 @@ def render_precipitation_png(
 
 
     # ========================================================
-    # PRESERVE ORIGINAL GRID SIZE
+    # PRESERVE GRID DIMENSIONS
     # ========================================================
 
     image_height = (
@@ -1426,7 +1583,7 @@ def render_precipitation_png(
 
 
     # ========================================================
-    # CREATE FIGURE
+    # FIGURE
     # ========================================================
 
     figure = plt.figure(
@@ -1438,11 +1595,9 @@ def render_precipitation_png(
 
         ),
 
-        dpi=
-            dpi,
+        dpi=dpi,
 
-        frameon=
-            False
+        frameon=False
 
     )
 
@@ -1463,7 +1618,7 @@ def render_precipitation_png(
 
 
     # ========================================================
-    # DRAW DATA
+    # RENDER
     # ========================================================
 
     axis.imshow(
@@ -1489,24 +1644,20 @@ def render_precipitation_png(
 
 
     # ========================================================
-    # SAVE TRANSPARENT PNG
+    # SAVE
     # ========================================================
 
     figure.savefig(
 
         output_path,
 
-        dpi=
-            dpi,
+        dpi=dpi,
 
-        transparent=
-            True,
+        transparent=True,
 
-        bbox_inches=
-            None,
+        bbox_inches=None,
 
-        pad_inches=
-            0
+        pad_inches=0
 
     )
 
@@ -1522,7 +1673,7 @@ def render_precipitation_png(
 
 
 # ============================================================
-# PROCESS ONE MRMS ACCUMULATION PERIOD
+# PROCESS ONE PRODUCT
 # ============================================================
 
 def process_product(
@@ -1532,9 +1683,7 @@ def process_product(
 
     print()
     print()
-    print(
-        "#" * 70
-    )
+    print("#" * 70)
 
     print(
         f"MRMS "
@@ -1542,13 +1691,11 @@ def process_product(
         f"PRECIPITATION"
     )
 
-    print(
-        "#" * 70
-    )
+    print("#" * 70)
 
 
     # ========================================================
-    # BUILD URL
+    # URL
     # ========================================================
 
     url = (
@@ -1583,11 +1730,10 @@ def process_product(
 
 
     # ========================================================
-    # READ GRIB
+    # READ
     # ========================================================
 
     (
-
         precipitation_mm,
         extent,
         crop_transform
@@ -1598,7 +1744,13 @@ def process_product(
 
 
     # ========================================================
-    # CONVERT TO INCHES
+    # MM -> INCHES
+    #
+    # THIS ARRAY IS USED FOR BOTH:
+    #
+    # 1. raster coloring
+    # 2. city sampling
+    #
     # ========================================================
 
     precipitation_inches = (
@@ -1609,7 +1761,7 @@ def process_product(
 
 
     # ========================================================
-    # PRECIPITATION STATS
+    # STATS
     # ========================================================
 
     valid_values = precipitation_inches[
@@ -1659,18 +1811,15 @@ def process_product(
 
     else:
 
-        minimum_inches = (
-            None
-        )
+        minimum_inches = None
 
-
-        maximum_inches = (
-            None
-        )
+        maximum_inches = None
 
 
     # ========================================================
-    # SAMPLE LBF CWA CITIES
+    # CITY VALUES
+    #
+    # Uses 5-km means.
     # ========================================================
 
     city_values = (
@@ -1685,7 +1834,9 @@ def process_product(
 
 
     # ========================================================
-    # RENDER PNG
+    # RENDER
+    #
+    # Uses full-resolution field.
     # ========================================================
 
     render_precipitation_png(
@@ -1700,7 +1851,7 @@ def process_product(
 
 
     # ========================================================
-    # PRODUCT MANIFEST
+    # MANIFEST
     # ========================================================
 
     return {
@@ -1756,6 +1907,9 @@ def process_product(
                 None
             ),
 
+        "city_sample_radius_km":
+            CITY_SAMPLE_RADIUS_KM,
+
         "city_values":
             city_values,
 
@@ -1803,6 +1957,9 @@ def write_manifest(
         "transparent_below_inches":
             0.01,
 
+        "city_sample_radius_km":
+            CITY_SAMPLE_RADIUS_KM,
+
         "domain": {
 
             "west":
@@ -1843,18 +2000,13 @@ def write_manifest(
     )
 
 
-    # ========================================================
-    # WRITE TEMP FILE FIRST
-    # ========================================================
-
     with open(
 
         temporary_path,
 
         "w",
 
-        encoding=
-            "utf-8"
+        encoding="utf-8"
 
     ) as file:
 
@@ -1864,18 +2016,12 @@ def write_manifest(
 
             file,
 
-            indent=
-                2,
+            indent=2,
 
-            allow_nan=
-                False
+            allow_nan=False
 
         )
 
-
-    # ========================================================
-    # ATOMIC REPLACE
-    # ========================================================
 
     os.replace(
 
@@ -1887,17 +2033,9 @@ def write_manifest(
 
 
     print()
-    print(
-        "=" * 70
-    )
-
-    print(
-        "MRMS MANIFEST SAVED"
-    )
-
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("MRMS MANIFEST SAVED")
+    print("=" * 70)
 
     print(
         output_path
@@ -1911,17 +2049,9 @@ def write_manifest(
 def main():
 
     print()
-    print(
-        "=" * 70
-    )
-
-    print(
-        "NWS NORTH PLATTE MRMS UPDATE"
-    )
-
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("NWS NORTH PLATTE MRMS UPDATE")
+    print("=" * 70)
 
 
     print()
@@ -1943,6 +2073,13 @@ def main():
 
     print(
         f"North: {NORTH}"
+    )
+
+
+    print()
+    print(
+        f"City sampling: "
+        f"{CITY_SAMPLE_RADIUS_KM:.0f}-km mean"
     )
 
 
@@ -1984,13 +2121,11 @@ def main():
 
         completed_products[
             product_key
-        ] = (
-            result
-        )
+        ] = result
 
 
     # ========================================================
-    # WRITE MANIFEST
+    # MANIFEST
     # ========================================================
 
     write_manifest(
@@ -1999,21 +2134,13 @@ def main():
 
 
     # ========================================================
-    # COMPLETE
+    # FINISHED
     # ========================================================
 
     print()
-    print(
-        "=" * 70
-    )
-
-    print(
-        "MRMS UPDATE COMPLETE"
-    )
-
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
+    print("MRMS UPDATE COMPLETE")
+    print("=" * 70)
 
 
     print()
@@ -2022,23 +2149,19 @@ def main():
     )
 
     print(
-        f"  "
-        f"{PRODUCTS['24h']['output']}"
+        f"  {PRODUCTS['24h']['output']}"
     )
 
     print(
-        f"  "
-        f"{PRODUCTS['48h']['output']}"
+        f"  {PRODUCTS['48h']['output']}"
     )
 
     print(
-        f"  "
-        f"{PRODUCTS['72h']['output']}"
+        f"  {PRODUCTS['72h']['output']}"
     )
 
     print(
-        f"  "
-        f"{OUTPUT_DIR / 'latest.json'}"
+        f"  {OUTPUT_DIR / 'latest.json'}"
     )
 
 
@@ -2060,17 +2183,9 @@ if (
     except Exception as error:
 
         print()
-        print(
-            "=" * 70
-        )
-
-        print(
-            "MRMS UPDATE FAILED"
-        )
-
-        print(
-            "=" * 70
-        )
+        print("=" * 70)
+        print("MRMS UPDATE FAILED")
+        print("=" * 70)
 
         print(
             error
