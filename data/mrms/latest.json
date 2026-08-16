@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-15T13:43:46.899615Z",
+  "generated": "2026-08-16T13:24:42.916089Z",
   "source": "NOAA/NCEP MRMS MultiSensor QPE Pass 2",
   "units": "inches",
   "rendering": "contourf",
@@ -22,7 +22,7 @@
         "north": 46.500000242783656
       },
       "minimum_inches": 0.0,
-      "maximum_inches": 7.776,
+      "maximum_inches": 11.583,
       "source_url": "https://mrms.ncep.noaa.gov/2D/MultiSensor_QPE_24H_Pass2/MRMS_MultiSensor_QPE_24H_Pass2.latest.grib2.gz"
     },
     "48h": {
@@ -36,7 +36,7 @@
         "north": 46.500000242783656
       },
       "minimum_inches": 0.0,
-      "maximum_inches": 16.146,
+      "maximum_inches": 18.449,
       "source_url": "https://mrms.ncep.noaa.gov/2D/MultiSensor_QPE_48H_Pass2/MRMS_MultiSensor_QPE_48H_Pass2.latest.grib2.gz"
     },
     "72h": {
@@ -50,7 +50,7 @@
         "north": 46.500000242783656
       },
       "minimum_inches": 0.0,
-      "maximum_inches": 27.11,
+      "maximum_inches": 27.728,
       "source_url": "https://mrms.ncep.noaa.gov/2D/MultiSensor_QPE_72H_Pass2/MRMS_MultiSensor_QPE_72H_Pass2.latest.grib2.gz"
     }
   }
