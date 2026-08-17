@@ -1,23 +1,11 @@
 # ============================================================
 # RRFS COMPOSITE REFLECTIVITY + 2-5 KM UH >= 75
 #
-# Progressive publishing to AWS S3
+# RRFS INPUT:
+# NOAA/NCEP RRFS Parallel NOMADS
 #
-# Output:
-#
-# s3://mtl-nwslbf-model-data/
-# weather-graphics/rrfs/reflUH/latest/
-#
-#     manifest.json
-#     f000.png
-#     f001.png
-#     ...
-#
-# ============================================================
-
-
-# ============================================================
-# IMPORTS
+# OUTPUT:
+# Your existing AWS S3 bucket
 # ============================================================
 
 import gzip
@@ -49,9 +37,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 
-from botocore import UNSIGNED
-from botocore.config import Config
-
 from matplotlib.colors import (
     LinearSegmentedColormap,
     Normalize
@@ -61,6 +46,7 @@ from scipy.ndimage import (
     zoom,
     gaussian_filter
 )
+
 from scipy.spatial import cKDTree
 
 
@@ -69,6 +55,9 @@ warnings.filterwarnings("ignore")
 
 # ============================================================
 # AWS OUTPUT SETTINGS
+#
+# THIS IS YOUR OUTPUT BUCKET.
+# KEEP THIS.
 # ============================================================
 
 OUTPUT_AWS_REGION = "us-east-2"
@@ -92,55 +81,31 @@ output_s3 = boto3.client(
 
 
 # ============================================================
-# NOAA RRFS PUBLIC S3
+# NOAA RRFS PARALLEL NOMADS INPUT
 # ============================================================
 
-RRFS_BUCKET = (
-    "noaa-rrfs-pds"
-)
-
-RRFS_REGION = (
-    "us-east-1"
-)
-
-
-# Anonymous client.
-#
-# NOAA NODD bucket does not require credentials.
-
-rrfs_s3 = boto3.client(
-    "s3",
-    region_name=RRFS_REGION,
-    config=Config(
-        signature_version=UNSIGNED
-    )
+RRFS_NOMADS_BASE = (
+    "https://nomads.ncep.noaa.gov/"
+    "pub/data/nccf/com/rrfs/para"
 )
 
 
 # ============================================================
-# RRFS DIRECTORY ROOTS
-#
-# rrfs_public = current public/operational-style feed
-#
-# rrfs_a = older prototype feed fallback
-#
-# The script tries rrfs_public FIRST.
+# HTTP SESSION
 # ============================================================
 
-RRFS_ROOTS = [
+RRFS_SESSION = requests.Session()
 
-    "rrfs_public",
+RRFS_SESSION.headers.update({
 
-    "rrfs_a"
+    "User-Agent":
+        "NWS-LBF-RRFS-Graphics/1.0"
 
-]
+})
 
 
 # ============================================================
 # MAP DOMAIN
-#
-# Same geographic bounds as HRRR PNG so switching models
-# does not move/resize the image overlay in Mapbox.
 # ============================================================
 
 WEST = -105.5
@@ -149,23 +114,16 @@ SOUTH = 38.5
 NORTH = 44.5
 
 
-
 # ============================================================
 # SAMPLING GRID SETTINGS
-#
-# The browser samples a lightweight regular lat/lon grid
-# generated from the native model fields.
-#
-# 0.03 degree spacing is roughly 2-3 km across this domain.
 # ============================================================
 
 SAMPLE_DX = 0.03
 SAMPLE_DY = 0.03
 SAMPLE_BUFFER_DEG = 0.25
 
-# Cache the nearest-native-point mapping because the RRFS grid
-# geometry is unchanged from one forecast hour to the next.
 SAMPLE_MAPPING_CACHE = None
+
 
 # ============================================================
 # REFLECTIVITY
@@ -202,36 +160,24 @@ DPI = 150
 # RUN SETTINGS
 # ============================================================
 
-# RRFS extended cycles
-
-EXTENDED_CYCLES = [
-    0,
-    6,
-    12,
-    18
-]
-
-
-# Extended RRFS forecast
-
-EXTENDED_MAX_FHR = 60
-
-
-# Other deterministic cycles
-
-STANDARD_MAX_FHR = 18
-
-
-# Search backward this many hours for a valid run.
-
 MAX_RUN_LOOKBACK = 12
-
-
-# Retries per forecast hour
 
 DOWNLOAD_ATTEMPTS = 3
 
 RETRY_SLEEP_SECONDS = 10
+
+
+# ============================================================
+# NOMADS REQUEST SETTINGS
+#
+# NCEP asks automated users to pause between repeated requests.
+# ============================================================
+
+NOMADS_REQUEST_SLEEP_SECONDS = 1.0
+
+HTTP_CONNECT_TIMEOUT = 20
+
+HTTP_READ_TIMEOUT = 120
 
 
 # ============================================================
@@ -447,11 +393,14 @@ def build_refl_colormap():
 
 
 # ============================================================
-# RRFS PREFIX
+# BUILD RRFS RUN DIRECTORY URL
+#
+# Example:
+#
+# .../para/rrfs.20260817/12/
 # ============================================================
 
-def make_run_prefix(
-    root,
+def make_run_url(
     run_time
 ):
 
@@ -471,7 +420,7 @@ def make_run_prefix(
 
     return (
 
-        f"{root}/"
+        f"{RRFS_NOMADS_BASE}/"
 
         f"rrfs.{date_string}/"
 
@@ -481,65 +430,14 @@ def make_run_prefix(
 
 
 # ============================================================
-# LIST RRFS FILES FOR RUN
+# RRFS 2-D FILENAME
+#
+# Current parallel naming:
+#
+# rrfs.t12z.2dfld.2p5km.f000.pr.grib2
 # ============================================================
 
-def list_run_objects(
-    root,
-    run_time
-):
-
-    prefix = make_run_prefix(
-        root,
-        run_time
-    )
-
-
-    paginator = (
-        rrfs_s3
-        .get_paginator(
-            "list_objects_v2"
-        )
-    )
-
-
-    keys = []
-
-
-    for page in paginator.paginate(
-
-        Bucket=RRFS_BUCKET,
-
-        Prefix=prefix
-
-    ):
-
-        for obj in page.get(
-            "Contents",
-            []
-        ):
-
-            keys.append(
-                obj["Key"]
-            )
-
-
-    return keys
-
-
-# ============================================================
-# FIND RRFS 2-D CONUS FILE
-#
-# Official filename pattern:
-#
-# rrfs.tCCz.2dfld.3km.fFFF.conus.grib2
-#
-# NOAA currently describes this as the operational-style
-# 3-km CONUS 2-D product.
-# ============================================================
-
-def find_2dfld_key(
-    keys,
+def make_2dfld_filename(
     run_time,
     fhr
 ):
@@ -551,67 +449,147 @@ def find_2dfld_key(
     )
 
 
-    filename = (
+    return (
 
         f"rrfs.t{cycle}z."
 
-        f"2dfld.3km."
+        f"2dfld.2p5km."
 
         f"f{fhr:03d}."
 
-        f"conus.grib2"
+        f"pr.grib2"
 
     )
 
 
-    # Exact match first
+# ============================================================
+# RRFS GRIB URL
+# ============================================================
 
-    for key in keys:
+def make_grib_url(
+    run_time,
+    fhr
+):
 
-        if key.endswith(
-            filename
-        ):
+    return (
 
-            return key
+        make_run_url(
+            run_time
+        )
 
+        +
 
-    # --------------------------------------------------------
-    # Flexible fallback
-    #
-    # Handles prototype/transition naming differences.
-    # --------------------------------------------------------
-
-    pattern = re.compile(
-
-        rf"rrfs\.t{cycle}z\."
-
-        rf".*2dfld.*"
-
-        rf"f{fhr:03d}\."
-
-        rf".*conus.*"
-
-        rf"\.grib2$",
-
-        re.IGNORECASE
+        make_2dfld_filename(
+            run_time,
+            fhr
+        )
 
     )
 
 
-    for key in keys:
+# ============================================================
+# HTTP REQUEST
+# ============================================================
 
-        if pattern.search(
-            key
-        ):
+def http_get(
+    url,
+    *,
+    headers=None,
+    stream=False
+):
 
-            return key
+    response = RRFS_SESSION.get(
+
+        url,
+
+        headers=headers,
+
+        stream=stream,
+
+        timeout=(
+            HTTP_CONNECT_TIMEOUT,
+            HTTP_READ_TIMEOUT
+        )
+
+    )
 
 
-    return None
+    response.raise_for_status()
+
+
+    return response
+
+
+# ============================================================
+# CHECK URL
+# ============================================================
+
+def url_exists(
+    url
+):
+
+    try:
+
+        response = RRFS_SESSION.head(
+
+            url,
+
+            allow_redirects=True,
+
+            timeout=(
+                HTTP_CONNECT_TIMEOUT,
+                30
+            )
+
+        )
+
+
+        if response.status_code == 200:
+
+            return True
+
+
+        # ----------------------------------------------------
+        # Some HTTP servers do not handle HEAD exactly like GET.
+        # Fall back to a one-byte GET.
+        # ----------------------------------------------------
+
+        response = RRFS_SESSION.get(
+
+            url,
+
+            headers={
+                "Range":
+                    "bytes=0-0"
+            },
+
+            timeout=(
+                HTTP_CONNECT_TIMEOUT,
+                30
+            )
+
+        )
+
+
+        return (
+            response.status_code
+            in
+            (
+                200,
+                206
+            )
+        )
+
+
+    except requests.RequestException:
+
+        return False
 
 
 # ============================================================
 # FIND LATEST RRFS RUN
+#
+# We require F000 + F000.idx to exist.
 # ============================================================
 
 def find_latest_rrfs():
@@ -636,7 +614,7 @@ def find_latest_rrfs():
     print("=" * 70)
 
     print(
-        "SEARCHING FOR LATEST RRFS"
+        "SEARCHING FOR LATEST RRFS PARALLEL CYCLE"
     )
 
     print("=" * 70)
@@ -659,127 +637,166 @@ def find_latest_rrfs():
         )
 
 
+        grib_url = (
+            make_grib_url(
+                run_time,
+                0
+            )
+        )
+
+
+        idx_url = (
+            grib_url
+            +
+            ".idx"
+        )
+
+
+        print(
+
+            f"Checking RRFS "
+
+            f"{run_time:%Y%m%d %HZ}..."
+
+        )
+
+
+        if not url_exists(
+            idx_url
+        ):
+
+            continue
+
+
+        if not url_exists(
+            grib_url
+        ):
+
+            continue
+
+
         print()
 
         print(
-            f"Checking "
+            "FOUND RRFS:"
+        )
+
+
+        print(
+            f"Run:  "
             f"{run_time:%Y-%m-%d %HZ}"
         )
 
 
-        for root in RRFS_ROOTS:
-
-            try:
-
-                keys = (
-                    list_run_objects(
-                        root,
-                        run_time
-                    )
-                )
-
-
-                if not keys:
-
-                    continue
-
-
-                # Require at least F000 2-D file
-
-                f000_key = (
-                    find_2dfld_key(
-                        keys,
-                        run_time,
-                        0
-                    )
-                )
-
-
-                if f000_key:
-
-                    print()
-
-                    print(
-                        "FOUND RRFS:"
-                    )
-
-                    print(
-                        f"Run:  "
-                        f"{run_time:%Y-%m-%d %HZ}"
-                    )
-
-                    print(
-                        f"Root: {root}"
-                    )
-
-                    print(
-                        f"File: {f000_key}"
-                    )
-
-
-                    return (
-                        run_time,
-                        root,
-                        keys
-                    )
-
-
-            except Exception as error:
-
-                print(
-                    f"  {root} error: "
-                    f"{error}"
-                )
-
-
-    raise RuntimeError(
-        "Could not find a recent RRFS run."
-    )
-
-
-# ============================================================
-# FORECAST LENGTH
-# ============================================================
-
-def get_max_fhr(
-    run_time
-):
-
-    if (
-        run_time.hour
-        in
-        EXTENDED_CYCLES
-    ):
-
-        return (
-            EXTENDED_MAX_FHR
+        print(
+            f"URL:  "
+            f"{make_run_url(run_time)}"
         )
 
 
-    return (
-        STANDARD_MAX_FHR
+        return run_time
+
+
+    raise RuntimeError(
+
+        "Could not find a recent RRFS "
+        "parallel run on NOMADS."
+
     )
 
 
 # ============================================================
-# PUBLIC S3 HTTPS URL
+# DISCOVER AVAILABLE FORECAST HOURS
+#
+# Instead of assuming F018/F060/etc., inspect the directory
+# listing and use what NOMADS actually has.
 # ============================================================
 
-def s3_https_url(
-    key
+def discover_forecast_hours(
+    run_time
 ):
 
-    return (
+    run_url = (
+        make_run_url(
+            run_time
+        )
+    )
 
-        "https://"
 
-        f"{RRFS_BUCKET}."
+    print()
 
-        "s3.amazonaws.com/"
+    print(
+        "Discovering available RRFS forecast hours..."
+    )
 
-        f"{key}"
+
+    response = http_get(
+        run_url
+    )
+
+
+    html = (
+        response.text
+    )
+
+
+    cycle = (
+        run_time.strftime(
+            "%H"
+        )
+    )
+
+
+    pattern = re.compile(
+
+        rf"rrfs\.t{cycle}z\."
+        rf"2dfld\.2p5km\."
+        rf"f(\d{{3}})\."
+        rf"pr\.grib2"
 
     )
+
+
+    hours = sorted({
+
+        int(
+            match
+        )
+
+        for match in pattern.findall(
+            html
+        )
+
+    })
+
+
+    if not hours:
+
+        raise RuntimeError(
+
+            "No RRFS 2-D forecast hours "
+            "found in NOMADS directory."
+
+        )
+
+
+    print(
+
+        f"Available forecast hours: "
+        f"F{hours[0]:03d}-F{hours[-1]:03d}"
+
+    )
+
+
+    print(
+
+        f"Total available: "
+        f"{len(hours)}"
+
+    )
+
+
+    return hours
 
 
 # ============================================================
@@ -790,19 +807,14 @@ def download_text(
     url
 ):
 
-    response = requests.get(
-
-        url,
-
-        timeout=60
-
+    response = http_get(
+        url
     )
 
 
-    response.raise_for_status()
-
-
-    return response.text
+    return (
+        response.text
+    )
 
 
 # ============================================================
@@ -810,31 +822,25 @@ def download_text(
 # ============================================================
 
 def get_idx_text(
-    grib_key
+    grib_url
 ):
 
-    idx_key = (
-        grib_key +
+    idx_url = (
+        grib_url
+        +
         ".idx"
-    )
-
-
-    url = (
-        s3_https_url(
-            idx_key
-        )
     )
 
 
     print(
         "Index:",
-        url
+        idx_url
     )
 
 
     return (
         download_text(
-            url
+            idx_url
         )
     )
 
@@ -914,7 +920,10 @@ def parse_idx(
         })
 
 
-    # Add ending byte
+    # --------------------------------------------------------
+    # Calculate ending byte from the beginning of the next
+    # GRIB message.
+    # --------------------------------------------------------
 
     for index in range(
         len(records)
@@ -954,7 +963,7 @@ def parse_idx(
 
 
 # ============================================================
-# FIND REFLECTIVITY RECORD
+# FIND COMPOSITE REFLECTIVITY
 # ============================================================
 
 def find_reflectivity_record(
@@ -974,8 +983,6 @@ def find_reflectivity_record(
         )
 
 
-        # Composite reflectivity
-
         if (
             ":REFC:"
             in text
@@ -994,7 +1001,9 @@ def find_reflectivity_record(
 
 
     raise RuntimeError(
+
         "REFC not found in RRFS index."
+
     )
 
 
@@ -1027,14 +1036,31 @@ def find_uh_record(
             continue
 
 
-        # Explicit 5-2 km layer
+        # ----------------------------------------------------
+        # Prefer explicitly identified 2-5 km UH.
+        # Handle likely wording variations.
+        # ----------------------------------------------------
 
         if (
+
             "5000-2000 M"
             in text
+
             or
+
             "5000-2000 M ABOVE GROUND"
             in text
+
+            or
+
+            "2000-5000 M"
+            in text
+
+            or
+
+            "2000-5000 M ABOVE GROUND"
+            in text
+
         ):
 
             return record
@@ -1045,15 +1071,20 @@ def find_uh_record(
         )
 
 
-    # If format changed but only one max-UH exists,
-    # use first MXUPHL candidate.
-
     if candidates:
 
         print(
-            "WARNING: exact 2-5 km text "
-            "not found; using first MXUPHL."
+
+            "WARNING: exact 2-5 km UH layer "
+            "text not found; using first MXUPHL."
+
         )
+
+
+        print(
+            candidates[0]["line"]
+        )
+
 
         return (
             candidates[0]
@@ -1061,25 +1092,20 @@ def find_uh_record(
 
 
     raise RuntimeError(
+
         "MXUPHL not found in RRFS index."
+
     )
 
 
 # ============================================================
-# DOWNLOAD BYTE RANGE
+# DOWNLOAD HTTP BYTE RANGE
 # ============================================================
 
 def download_range(
-    grib_key,
+    grib_url,
     record
 ):
-
-    url = (
-        s3_https_url(
-            grib_key
-        )
-    )
-
 
     start_byte = (
         record[
@@ -1098,42 +1124,101 @@ def download_range(
     if end_byte is None:
 
         range_header = (
+
             f"bytes={start_byte}-"
+
         )
+
 
     else:
 
         range_header = (
 
             f"bytes="
-
             f"{start_byte}-"
-
             f"{end_byte}"
 
         )
 
 
-    response = requests.get(
+    print(
+        "Range:",
+        range_header
+    )
 
-        url,
+
+    response = http_get(
+
+        grib_url,
 
         headers={
             "Range":
                 range_header
-        },
-
-        timeout=120
+        }
 
     )
 
 
-    response.raise_for_status()
+    # --------------------------------------------------------
+    # NOMADS should return HTTP 206 for a byte-range request.
+    #
+    # A 200 can occur if a server ignores Range. We do not
+    # silently accept a gigantic full file in that situation.
+    # --------------------------------------------------------
+
+    if (
+        response.status_code
+        not in
+        (
+            200,
+            206
+        )
+    ):
+
+        raise RuntimeError(
+
+            f"Unexpected HTTP status "
+            f"{response.status_code}"
+
+        )
 
 
-    return (
+    data = (
         response.content
     )
+
+
+    if not data:
+
+        raise RuntimeError(
+
+            "NOMADS returned an empty "
+            "GRIB byte range."
+
+        )
+
+
+    # --------------------------------------------------------
+    # Basic GRIB signature sanity check.
+    # --------------------------------------------------------
+
+    if (
+        data[
+            :4
+        ]
+        !=
+        b"GRIB"
+    ):
+
+        raise RuntimeError(
+
+            "Downloaded byte range does "
+            "not begin with GRIB."
+
+        )
+
+
+    return data
 
 
 # ============================================================
@@ -1141,14 +1226,14 @@ def download_range(
 # ============================================================
 
 def download_field_grib(
-    grib_key,
+    grib_url,
     record,
     destination
 ):
 
     data = (
         download_range(
-            grib_key,
+            grib_url,
             record
         )
     )
@@ -1171,9 +1256,6 @@ def download_field_grib(
 def open_grib_field(
     filename
 ):
-
-    # Each temporary file contains just one GRIB message,
-    # which avoids cfgrib conflicts.
 
     ds = xr.open_dataset(
 
@@ -1222,7 +1304,9 @@ def get_2d_variable(
 
 
     raise RuntimeError(
+
         "No 2-D variable found."
+
     )
 
 
@@ -1233,8 +1317,6 @@ def get_2d_variable(
 def get_lat_lon(
     ds
 ):
-
-    # Common names
 
     possible_lat = [
 
@@ -1290,11 +1372,12 @@ def get_lat_lon(
     ):
 
         raise RuntimeError(
-            "Could not find RRFS lat/lon coordinates."
+
+            "Could not find RRFS "
+            "lat/lon coordinates."
+
         )
 
-
-    # Some GRIB decoders return longitude 0-360.
 
     lon = np.where(
 
@@ -1319,8 +1402,6 @@ def get_lat_lon(
 
 def load_hour(
     run_time,
-    root,
-    known_keys,
     fhr
 ):
 
@@ -1329,45 +1410,25 @@ def load_hour(
     print("=" * 70)
 
     print(
+
         f"RRFS "
         f"{run_time:%Y%m%d %HZ} "
         f"F{fhr:03d}"
+
     )
 
     print("=" * 70)
 
 
-    last_error = None
-
-
-    # Refresh listing each hour because a run may
-    # still be publishing while this workflow is running.
-
-    keys = (
-        list_run_objects(
-            root,
-            run_time
-        )
-    )
-
-
-    grib_key = (
-        find_2dfld_key(
-            keys,
+    grib_url = (
+        make_grib_url(
             run_time,
             fhr
         )
     )
 
 
-    if not grib_key:
-
-        raise FileNotFoundError(
-
-            f"RRFS F{fhr:03d} "
-            "2dfld file not available yet."
-
-        )
+    last_error = None
 
 
     for attempt in range(
@@ -1378,15 +1439,17 @@ def load_hour(
         try:
 
             print(
+
                 f"Attempt "
                 f"{attempt}/"
                 f"{DOWNLOAD_ATTEMPTS}"
+
             )
 
 
             print(
                 "GRIB:",
-                grib_key
+                grib_url
             )
 
 
@@ -1396,7 +1459,7 @@ def load_hour(
 
             idx_text = (
                 get_idx_text(
-                    grib_key
+                    grib_url
                 )
             )
 
@@ -1408,6 +1471,16 @@ def load_hour(
             )
 
 
+            if not records:
+
+                raise RuntimeError(
+
+                    "RRFS index contains "
+                    "no readable records."
+
+                )
+
+
             refl_record = (
                 find_reflectivity_record(
                     records
@@ -1415,8 +1488,14 @@ def load_hour(
             )
 
 
+            print(
+                "REFC:",
+                refl_record["line"]
+            )
+
+
             # =================================================
-            # REFLECTIVITY TEMP FILE
+            # REFLECTIVITY
             # =================================================
 
             refl_file = (
@@ -1433,7 +1512,7 @@ def load_hour(
 
             download_field_grib(
 
-                grib_key,
+                grib_url,
 
                 refl_record,
 
@@ -1458,8 +1537,7 @@ def load_hour(
 
             refl = np.squeeze(
 
-                refl_da
-                .values
+                refl_da.values
 
             ).astype(
                 float
@@ -1479,12 +1557,21 @@ def load_hour(
             # UH
             # =================================================
 
+            ds_uh = None
+
+
             try:
 
                 uh_record = (
                     find_uh_record(
                         records
                     )
+                )
+
+
+                print(
+                    "UH:",
+                    uh_record["line"]
                 )
 
 
@@ -1502,7 +1589,7 @@ def load_hour(
 
                 download_field_grib(
 
-                    grib_key,
+                    grib_url,
 
                     uh_record,
 
@@ -1527,8 +1614,7 @@ def load_hour(
 
                 uh = np.squeeze(
 
-                    uh_da
-                    .values
+                    uh_da.values
 
                 ).astype(
                     float
@@ -1538,9 +1624,7 @@ def load_hour(
             except Exception as uh_error:
 
                 print(
-
                     "UH unavailable:"
-
                 )
 
                 print(
@@ -1554,18 +1638,24 @@ def load_hour(
 
 
             print(
+
                 f"Reflectivity max: "
                 f"{np.nanmax(refl):.1f} dBZ"
+
             )
 
 
             print(
+
                 f"UH max: "
                 f"{np.nanmax(uh):.1f}"
+
             )
 
 
-            # Clean temporary files
+            # =================================================
+            # CLOSE DATASETS
+            # =================================================
 
             try:
 
@@ -1576,14 +1666,20 @@ def load_hour(
                 pass
 
 
-            try:
+            if ds_uh is not None:
 
-                ds_uh.close()
+                try:
 
-            except Exception:
+                    ds_uh.close()
 
-                pass
+                except Exception:
 
+                    pass
+
+
+            # =================================================
+            # CLEAN TEMP FILES
+            # =================================================
 
             for temp_file in (
 
@@ -1618,8 +1714,10 @@ def load_hour(
 
 
             print(
+
                 f"Attempt failed: "
                 f"{error}"
+
             )
 
 
@@ -1628,6 +1726,15 @@ def load_hour(
                 <
                 DOWNLOAD_ATTEMPTS
             ):
+
+                print(
+
+                    f"Waiting "
+                    f"{RETRY_SLEEP_SECONDS} "
+                    f"seconds before retry..."
+
+                )
+
 
                 time.sleep(
                     RETRY_SLEEP_SECONDS
@@ -1640,1398 +1747,3 @@ def load_hour(
         f"{last_error}"
 
     )
-
-
-# ============================================================
-# PROCESS REFLECTIVITY
-# ============================================================
-
-def process_reflectivity(
-    lon,
-    lat,
-    refl
-):
-
-    original_min = (
-        np.nanmin(
-            refl
-        )
-    )
-
-
-    original_max = (
-        np.nanmax(
-            refl
-        )
-    )
-
-
-    refl_clean = np.where(
-
-        np.isfinite(
-            refl
-        ),
-
-        refl,
-
-        -20.0
-
-    )
-
-
-    # ========================================================
-    # 4X CUBIC INTERPOLATION
-    # ========================================================
-
-    refl_fine = zoom(
-
-        refl_clean,
-
-        UPSCALE,
-
-        order=3
-
-    )
-
-
-    lon_fine = zoom(
-
-        lon,
-
-        UPSCALE,
-
-        order=3
-
-    )
-
-
-    lat_fine = zoom(
-
-        lat,
-
-        UPSCALE,
-
-        order=3
-
-    )
-
-
-    # Prevent cubic overshoot
-
-    refl_fine = np.clip(
-
-        refl_fine,
-
-        original_min,
-
-        original_max
-
-    )
-
-
-    # ========================================================
-    # LIGHT SMOOTHING
-    # ========================================================
-
-    refl_fine = gaussian_filter(
-
-        refl_fine,
-
-        sigma=
-            SMOOTH_SIGMA
-
-    )
-
-
-    refl_fine = np.clip(
-
-        refl_fine,
-
-        original_min,
-
-        original_max
-
-    )
-
-
-    # ========================================================
-    # MASK BELOW 10 DBZ
-    # ========================================================
-
-    refl_plot = (
-        np.ma.masked_where(
-
-            refl_fine
-            <
-            MIN_REFL,
-
-            refl_fine
-
-        )
-    )
-
-
-    return (
-        lon_fine,
-        lat_fine,
-        refl_plot
-    )
-
-
-# ============================================================
-# PROCESS UH
-# ============================================================
-
-def process_uh(
-    lon,
-    lat,
-    uh
-):
-
-    uh_clean = np.where(
-
-        np.isfinite(
-            uh
-        ),
-
-        uh,
-
-        0.0
-
-    )
-
-
-    # Linear interpolation avoids cubic overshoot
-    # around the 75 threshold.
-
-    uh_fine = zoom(
-
-        uh_clean,
-
-        UPSCALE,
-
-        order=1
-
-    )
-
-
-    lon_fine = zoom(
-
-        lon,
-
-        UPSCALE,
-
-        order=1
-
-    )
-
-
-    lat_fine = zoom(
-
-        lat,
-
-        UPSCALE,
-
-        order=1
-
-    )
-
-
-    return (
-        lon_fine,
-        lat_fine,
-        uh_fine
-    )
-
-
-# ============================================================
-# PLOT ONE FORECAST HOUR
-# ============================================================
-
-def plot_hour(
-    run_time,
-    fhr,
-    lon,
-    lat,
-    refl,
-    uh
-):
-
-    output_file = (
-
-        OUTPUT_DIR
-
-        /
-
-        f"f{fhr:03d}.png"
-
-    )
-
-
-    (
-        lon_refl,
-        lat_refl,
-        refl_plot
-
-    ) = process_reflectivity(
-
-        lon,
-        lat,
-        refl
-
-    )
-
-
-    (
-        lon_uh,
-        lat_uh,
-        uh_fine
-
-    ) = process_uh(
-
-        lon,
-        lat,
-        uh
-
-    )
-
-
-    # ========================================================
-    # FIGURE
-    # ========================================================
-
-    fig = plt.figure(
-
-        figsize=(
-
-            FIG_WIDTH,
-
-            FIG_HEIGHT
-
-        ),
-
-        dpi=DPI,
-
-        facecolor="none"
-
-    )
-
-
-    ax = fig.add_axes(
-
-        [
-            0,
-            0,
-            1,
-            1
-        ],
-
-        projection=
-            ccrs.PlateCarree()
-
-    )
-
-
-    fig.patch.set_alpha(
-        0
-    )
-
-
-    ax.patch.set_alpha(
-        0
-    )
-
-
-    ax.set_extent(
-
-        [
-            WEST,
-            EAST,
-            SOUTH,
-            NORTH
-        ],
-
-        crs=
-            ccrs.PlateCarree()
-
-    )
-
-
-    # ========================================================
-    # REFLECTIVITY
-    # ========================================================
-
-    ax.contourf(
-
-        lon_refl,
-
-        lat_refl,
-
-        refl_plot,
-
-        levels=
-            REFL_LEVELS,
-
-        cmap=
-            REFL_CMAP,
-
-        norm=
-            REFL_NORM,
-
-        extend=
-            "max",
-
-        transform=
-            ccrs.PlateCarree(),
-
-        antialiased=
-            True,
-
-        zorder=
-            1
-
-    )
-
-
-    # ========================================================
-    # 2-5 KM UH >= 75
-    # ========================================================
-
-    uh_max = (
-        np.nanmax(
-            uh_fine
-        )
-    )
-
-
-    if (
-        uh_max
-        >=
-        UH_THRESHOLD
-    ):
-
-        # ----------------------------------------------------
-        # SEMI-TRANSPARENT BLACK FILL
-        # ----------------------------------------------------
-
-        ax.contourf(
-
-            lon_uh,
-
-            lat_uh,
-
-            uh_fine,
-
-            levels=[
-
-                UH_THRESHOLD,
-
-                max(
-                    1000.0,
-                    uh_max + 1.0
-                )
-
-            ],
-
-            colors=[
-                "#000000"
-            ],
-
-            alpha=
-                UH_FILL_ALPHA,
-
-            transform=
-                ccrs.PlateCarree(),
-
-            antialiased=
-                True,
-
-            zorder=
-                5
-
-        )
-
-
-        # ----------------------------------------------------
-        # BLACK OUTLINE
-        # ----------------------------------------------------
-
-        ax.contour(
-
-            lon_uh,
-
-            lat_uh,
-
-            uh_fine,
-
-            levels=[
-                UH_THRESHOLD
-            ],
-
-            colors=[
-                "#000000"
-            ],
-
-            linewidths=
-                1.5,
-
-            transform=
-                ccrs.PlateCarree(),
-
-            zorder=
-                6
-
-        )
-
-
-    ax.set_axis_off()
-
-
-    # ========================================================
-    # SAVE TRANSPARENT PNG
-    # ========================================================
-
-    plt.savefig(
-
-        output_file,
-
-        dpi=DPI,
-
-        transparent=True,
-
-        facecolor="none",
-
-        edgecolor="none",
-
-        bbox_inches=None,
-
-        pad_inches=0
-
-    )
-
-
-    plt.close(
-        fig
-    )
-
-
-    valid_time = (
-
-        run_time
-
-        +
-
-        timedelta(
-            hours=fhr
-        )
-
-    )
-
-
-    frame_info = {
-
-        "fhr":
-            fhr,
-
-        "file":
-            f"f{fhr:03d}.png",
-
-        "valid":
-            valid_time.strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
-            )
-
-    }
-
-
-    print(
-        f"Created "
-        f"{output_file.name}"
-    )
-
-
-    return (
-        output_file,
-        frame_info
-    )
-
-
-# ============================================================
-# UPLOAD FRAME TO YOUR S3
-# ============================================================
-
-def upload_frame(
-    output_file,
-    fhr
-):
-
-    key = (
-
-        f"{OUTPUT_PREFIX}/"
-
-        f"f{fhr:03d}.png"
-
-    )
-
-
-    output_s3.upload_file(
-
-        str(
-            output_file
-        ),
-
-        OUTPUT_BUCKET,
-
-        key,
-
-        ExtraArgs={
-
-            "ContentType":
-                "image/png",
-
-            "CacheControl":
-                "no-cache, no-store, must-revalidate"
-
-        }
-
-    )
-
-
-    print(
-
-        f"Uploaded "
-        f"F{fhr:03d} to S3."
-
-    )
-
-
-
-
-# ============================================================
-# BUILD / CACHE SAMPLING MAPPING
-# ============================================================
-
-def get_sample_mapping(lon, lat):
-    global SAMPLE_MAPPING_CACHE
-
-    lon = np.asarray(lon, dtype=float)
-    lat = np.asarray(lat, dtype=float)
-
-    # Normalize longitudes to -180..180.
-    lon = np.where(lon > 180.0, lon - 360.0, lon)
-
-    # Reuse the mapping after the first hour because the model
-    # grid geometry is fixed within a run.
-    if SAMPLE_MAPPING_CACHE is not None:
-        if SAMPLE_MAPPING_CACHE["native_shape"] == lon.shape:
-            return SAMPLE_MAPPING_CACHE
-
-    native_mask = (
-        np.isfinite(lon)
-        & np.isfinite(lat)
-        & (lon >= WEST - SAMPLE_BUFFER_DEG)
-        & (lon <= EAST + SAMPLE_BUFFER_DEG)
-        & (lat >= SOUTH - SAMPLE_BUFFER_DEG)
-        & (lat <= NORTH + SAMPLE_BUFFER_DEG)
-    )
-
-    flat_mask = native_mask.ravel()
-
-    native_lon = lon.ravel()[flat_mask]
-    native_lat = lat.ravel()[flat_mask]
-
-    if native_lon.size == 0:
-        raise RuntimeError(
-            "No native model points found inside sampling domain."
-        )
-
-    sample_lons = np.arange(
-        WEST,
-        EAST + SAMPLE_DX / 2.0,
-        SAMPLE_DX,
-        dtype=float
-    )
-
-    sample_lats = np.arange(
-        SOUTH,
-        NORTH + SAMPLE_DY / 2.0,
-        SAMPLE_DY,
-        dtype=float
-    )
-
-    sample_lon_2d, sample_lat_2d = np.meshgrid(
-        sample_lons,
-        sample_lats
-    )
-
-    native_points = np.column_stack(
-        (native_lon, native_lat)
-    )
-
-    sample_points = np.column_stack(
-        (
-            sample_lon_2d.ravel(),
-            sample_lat_2d.ravel()
-        )
-    )
-
-    print(
-        "Building sampling nearest-neighbor mapping..."
-    )
-
-    tree = cKDTree(native_points)
-
-    _, nearest_index = tree.query(
-        sample_points,
-        k=1
-    )
-
-    SAMPLE_MAPPING_CACHE = {
-        "native_shape": lon.shape,
-        "flat_mask": flat_mask,
-        "nearest_index": nearest_index,
-        "sample_lons": sample_lons,
-        "sample_lats": sample_lats
-    }
-
-    return SAMPLE_MAPPING_CACHE
-
-
-# ============================================================
-# BUILD SAMPLING DATA
-# ============================================================
-
-def build_sample_grid(lon, lat, refl, uh):
-    mapping = get_sample_mapping(
-        lon,
-        lat
-    )
-
-    refl = np.asarray(refl, dtype=float)
-    uh = np.asarray(uh, dtype=float)
-
-    if refl.shape != mapping["native_shape"]:
-        raise RuntimeError(
-            "Reflectivity shape does not match sampling grid."
-        )
-
-    if uh.shape != mapping["native_shape"]:
-        raise RuntimeError(
-            "UH shape does not match sampling grid."
-        )
-
-    flat_mask = mapping["flat_mask"]
-    nearest_index = mapping["nearest_index"]
-
-    native_refl = refl.ravel()[flat_mask]
-    native_uh = uh.ravel()[flat_mask]
-
-    sample_refl = native_refl[nearest_index]
-    sample_uh = native_uh[nearest_index]
-
-    sample_refl = np.where(
-        np.isfinite(sample_refl),
-        sample_refl,
-        -9999.0
-    )
-
-    sample_uh = np.where(
-        np.isfinite(sample_uh),
-        sample_uh,
-        -9999.0
-    )
-
-    sample_refl = np.round(
-        sample_refl,
-        1
-    )
-
-    sample_uh = np.round(
-        sample_uh,
-        1
-    )
-
-    sample_lons = mapping["sample_lons"]
-    sample_lats = mapping["sample_lats"]
-
-    return {
-        "west": float(sample_lons[0]),
-        "east": float(sample_lons[-1]),
-        "south": float(sample_lats[0]),
-        "north": float(sample_lats[-1]),
-        "dx": float(SAMPLE_DX),
-        "dy": float(SAMPLE_DY),
-        "nx": int(sample_lons.size),
-        "ny": int(sample_lats.size),
-        "missing": -9999.0,
-        "refl": sample_refl.astype(np.float32).tolist(),
-        "uh": sample_uh.astype(np.float32).tolist()
-    }
-
-
-# ============================================================
-# WRITE + UPLOAD SAMPLING DATA
-# ============================================================
-
-def publish_sample_grid(
-    fhr,
-    lon,
-    lat,
-    refl,
-    uh
-):
-    print(
-        f"Building sampling data for F{fhr:03d}..."
-    )
-
-    sample_data = build_sample_grid(
-        lon,
-        lat,
-        refl,
-        uh
-    )
-
-    filename = (
-        f"f{fhr:03d}_sample.json.gz"
-    )
-
-    local_file = (
-        OUTPUT_DIR
-        / filename
-    )
-
-    with gzip.open(
-        local_file,
-        "wt",
-        encoding="utf-8",
-        compresslevel=6
-    ) as f:
-        json.dump(
-            sample_data,
-            f,
-            separators=(",", ":")
-        )
-
-    key = (
-        f"{OUTPUT_PREFIX}/"
-        f"{filename}"
-    )
-
-    output_s3.upload_file(
-        str(local_file),
-        OUTPUT_BUCKET,
-        key,
-        ExtraArgs={
-            "ContentType": "application/json",
-            "ContentEncoding": "gzip",
-            "CacheControl":
-                "no-cache, no-store, must-revalidate"
-        }
-    )
-
-    print(
-        f"Uploaded sampling data: "
-        f"s3://{OUTPUT_BUCKET}/{key}"
-    )
-
-    return filename
-
-# ============================================================
-# MANIFEST
-# ============================================================
-
-def build_manifest(
-    run_time,
-    max_fhr,
-    hours,
-    status
-):
-
-    return {
-
-        "model":
-            "RRFS",
-
-        "product":
-            "reflUH",
-
-        "description":
-            (
-                "Composite Reflectivity + "
-                "2-5 km UH >= 75"
-            ),
-
-        "run":
-            run_time.strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
-            ),
-
-        "cycle":
-            run_time.strftime(
-                "%HZ"
-            ),
-
-        "max_fhr":
-            max_fhr,
-
-        "reflectivity_min_dbz":
-            MIN_REFL,
-
-        "uh_threshold":
-            UH_THRESHOLD,
-
-        "status":
-            status,
-
-        "bounds": {
-
-            "west":
-                WEST,
-
-            "east":
-                EAST,
-
-            "south":
-                SOUTH,
-
-            "north":
-                NORTH
-
-        },
-
-        "hours":
-            hours
-
-    }
-
-
-# ============================================================
-# PUBLISH MANIFEST
-# ============================================================
-
-def publish_manifest(
-    run_time,
-    max_fhr,
-    hours,
-    status
-):
-
-    manifest = (
-        build_manifest(
-
-            run_time,
-
-            max_fhr,
-
-            hours,
-
-            status
-
-        )
-    )
-
-
-    manifest_file = (
-
-        OUTPUT_DIR
-
-        /
-
-        "manifest.json"
-
-    )
-
-
-    with manifest_file.open(
-
-        "w",
-
-        encoding=
-            "utf-8"
-
-    ) as file:
-
-        json.dump(
-
-            manifest,
-
-            file,
-
-            indent=2
-
-        )
-
-
-    output_s3.upload_file(
-
-        str(
-            manifest_file
-        ),
-
-        OUTPUT_BUCKET,
-
-        (
-            f"{OUTPUT_PREFIX}/"
-            f"manifest.json"
-        ),
-
-        ExtraArgs={
-
-            "ContentType":
-                "application/json",
-
-            "CacheControl":
-                "no-cache, no-store, must-revalidate"
-
-        }
-
-    )
-
-
-    print(
-
-        f"Manifest published: "
-        f"{len(hours)} hours, "
-        f"status={status}"
-
-    )
-
-
-# ============================================================
-# CLEAN LOCAL OUTPUT
-# ============================================================
-
-def clean_local_output():
-
-    for file in OUTPUT_DIR.glob(
-        "f*.png"
-    ):
-
-        try:
-
-            file.unlink()
-
-        except Exception:
-
-            pass
-
-
-    for file in OUTPUT_DIR.glob(
-        "f*_sample.json.gz"
-    ):
-
-        try:
-
-            file.unlink()
-
-        except Exception:
-
-            pass
-
-
-    manifest = (
-
-        OUTPUT_DIR
-
-        /
-
-        "manifest.json"
-
-    )
-
-
-    if manifest.exists():
-
-        manifest.unlink()
-
-
-    if TEMP_DIR.exists():
-
-        shutil.rmtree(
-            TEMP_DIR
-        )
-
-
-    TEMP_DIR.mkdir(
-
-        parents=True,
-
-        exist_ok=True
-
-    )
-
-
-# ============================================================
-# CLEAR PREVIOUS RRFS LATEST S3 DATA
-# ============================================================
-
-def clear_old_s3_frames():
-
-    print()
-
-    print(
-        "Clearing previous RRFS latest frames..."
-    )
-
-
-    paginator = (
-        output_s3
-        .get_paginator(
-            "list_objects_v2"
-        )
-    )
-
-
-    objects = []
-
-
-    for page in paginator.paginate(
-
-        Bucket=
-            OUTPUT_BUCKET,
-
-        Prefix=
-            f"{OUTPUT_PREFIX}/"
-
-    ):
-
-        for obj in page.get(
-            "Contents",
-            []
-        ):
-
-            key = (
-                obj["Key"]
-            )
-
-
-            if (
-
-                key.endswith(
-                    ".png"
-                )
-
-                or
-
-                key.endswith(
-                    "_sample.json.gz"
-                )
-
-                or
-
-                key.endswith(
-                    "manifest.json"
-                )
-
-            ):
-
-                objects.append({
-
-                    "Key":
-                        key
-
-                })
-
-
-                if (
-                    len(objects)
-                    ==
-                    1000
-                ):
-
-                    output_s3.delete_objects(
-
-                        Bucket=
-                            OUTPUT_BUCKET,
-
-                        Delete={
-
-                            "Objects":
-                                objects
-
-                        }
-
-                    )
-
-
-                    objects = []
-
-
-    if objects:
-
-        output_s3.delete_objects(
-
-            Bucket=
-                OUTPUT_BUCKET,
-
-            Delete={
-
-                "Objects":
-                    objects
-
-            }
-
-        )
-
-
-    print(
-        "Previous RRFS frames cleared."
-    )
-
-
-# ============================================================
-# MAIN
-# ============================================================
-
-def main():
-
-    print("=" * 70)
-
-    print(
-        "RRFS REFL + UH PROGRESSIVE UPDATE"
-    )
-
-    print("=" * 70)
-
-
-    # ========================================================
-    # FIND LATEST RUN
-    # ========================================================
-
-    (
-        run_time,
-        root,
-        keys
-
-    ) = find_latest_rrfs()
-
-
-    max_fhr = (
-        get_max_fhr(
-            run_time
-        )
-    )
-
-
-    print()
-
-    print(
-        f"RRFS root: "
-        f"{root}"
-    )
-
-
-    print(
-        f"Forecast range: "
-        f"F000-F{max_fhr:03d}"
-    )
-
-
-    # ========================================================
-    # CLEAN CURRENT LATEST PRODUCT
-    # ========================================================
-
-    clean_local_output()
-
-
-    clear_old_s3_frames()
-
-
-    hours_written = []
-
-
-    # ========================================================
-    # EMPTY BUILDING MANIFEST
-    # ========================================================
-
-    publish_manifest(
-
-        run_time,
-
-        max_fhr,
-
-        hours_written,
-
-        status=
-            "building"
-
-    )
-
-
-    # ========================================================
-    # PROCESS FORECAST HOURS
-    # ========================================================
-
-    for fhr in range(
-        0,
-        max_fhr + 1
-    ):
-
-        try:
-
-            (
-                lon,
-                lat,
-                refl,
-                uh
-
-            ) = load_hour(
-
-                run_time,
-
-                root,
-
-                keys,
-
-                fhr
-
-            )
-
-
-            (
-                output_file,
-                frame_info
-
-            ) = plot_hour(
-
-                run_time,
-
-                fhr,
-
-                lon,
-
-                lat,
-
-                refl,
-
-                uh
-
-            )
-
-
-            # =================================================
-            # IMMEDIATE S3 UPLOAD
-            # =================================================
-
-            upload_frame(
-
-                output_file,
-
-                fhr
-
-            )
-
-
-            # =================================================
-            # BUILD + UPLOAD SAMPLING DATA
-            # =================================================
-
-            sample_file = publish_sample_grid(
-
-                fhr,
-
-                lon,
-
-                lat,
-
-                refl,
-
-                uh
-
-            )
-
-
-            frame_info[
-                "sample_file"
-            ] = sample_file
-
-
-            # =================================================
-            # ADD HOUR
-            # =================================================
-
-            hours_written.append(
-                frame_info
-            )
-
-
-            # =================================================
-            # IMMEDIATELY UPDATE MANIFEST
-            # =================================================
-
-            publish_manifest(
-
-                run_time,
-
-                max_fhr,
-
-                hours_written,
-
-                status=
-                    "building"
-
-            )
-
-
-            print()
-
-            print(
-                f"F{fhr:03d} "
-                f"is now available."
-            )
-
-
-        except Exception as error:
-
-            print()
-
-            print(
-                f"Skipping "
-                f"F{fhr:03d}: "
-                f"{error}"
-            )
-
-
-    # ========================================================
-    # FINAL MANIFEST
-    # ========================================================
-
-    publish_manifest(
-
-        run_time,
-
-        max_fhr,
-
-        hours_written,
-
-        status=
-            "complete"
-
-    )
-
-
-    print()
-
-    print("=" * 70)
-
-    print(
-        "RRFS UPDATE COMPLETE"
-    )
-
-
-    print(
-        f"Frames published: "
-        f"{len(hours_written)}"
-    )
-
-
-    print("=" * 70)
-
-
-# ============================================================
-# RUN
-# ============================================================
-
-if __name__ == "__main__":
-
-    main()
